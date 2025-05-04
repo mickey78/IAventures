@@ -1,5 +1,5 @@
-// src/ai/flows/generate-story-content.ts
 'use server';
+// src/ai/flows/generate-story-content.ts
 
 /**
  * @fileOverview Generates story content based on the chosen theme, player choices, inventory, player name, and turn count.
@@ -8,7 +8,7 @@
  * - GenerateStoryContentInput - The input type for the generateStoryContent function.
  * - GenerateStoryContentOutput - The return type for the generateStoryContent function.
  */
-
+import React from 'react'; // Import React
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
 import type { StorySegment } from '@/app/page'; // Import StorySegment type
@@ -41,10 +41,34 @@ function safeJsonStringify(jsonObject: object): string {
   }
 }
 
-// Function to generate a random event
+// Client-side state for randomness - This hook cannot be used in a Server Component/Action.
+// It needs to be called within a Client Component context.
+// We will generate the random number on the client side before calling the flow if needed,
+// or handle random events differently within the AI flow itself.
+/*
 function generateRandomEvent(): string | null {
-    // 10% chance of a random event
-    if (Math.random() > 0.1) {
+    const [randomValue, setRandomValue] = React.useState<number | null>(null);
+    const [randomIndex, setRandomIndex] = React.useState<number | null>(null);
+
+    React.useEffect(() => {
+        const newRandomValue = Math.random();
+        setRandomValue(newRandomValue);
+        if (newRandomValue <= 0.1) {
+             const events = [
+                "Une pluie torrentielle s'abat sur la région.",
+                "Un tremblement de terre secoue les alentours.",
+                "Un personnage important croise votre chemin.",
+                "Un objet rare est découvert.",
+                "Un ennemi inattendu apparait.",
+                "Vous tombez sur un villageois qui à besoin d'aide.",
+                "Une musique étrange résonne dans les environs.",
+                "Le brouillard devient très épais.",
+            ];
+            setRandomIndex(Math.floor(Math.random() * events.length));
+        }
+    }, []); // Empty dependency array ensures this runs once on mount (client-side)
+
+    if (randomValue === null || randomValue > 0.1 || randomIndex === null) {
         return null;
     }
     const events = [
@@ -57,8 +81,10 @@ function generateRandomEvent(): string | null {
         "Une musique étrange résonne dans les environs.",
         "Le brouillard devient très épais.",
     ];
-    return events[Math.floor(Math.random() * events.length)];
+    return events[randomIndex];
 }
+*/
+// Recommendation: Let the AI decide on random events based on turn count or context.
 
 const GameStateSchema = z.object({
   playerName: z.string(),
@@ -95,7 +121,7 @@ const GenerateStoryContentOutputSchema = z.object({
 export type GenerateStoryContentOutput = z.infer<typeof GenerateStoryContentOutputSchema>;
 
 export async function generateStoryContent(input: GenerateStoryContentInput): Promise<GenerateStoryContentOutput> {
-  const initialGameState = safeJsonParse(input.gameState, { playerName: input.playerName, inventory: [] });
+  let initialGameState = safeJsonParse(input.gameState, { playerName: input.playerName, inventory: [], relationships: {}, emotions: [], events: [] }); // Use let
 
     // Ensure player name, inventory, relationships and emotions exist in the initial game state object
   if (!initialGameState.playerName) {
@@ -108,13 +134,13 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
         initialGameState.events = [];
     }
 
-    if (!initialGameState.relationships) {
+    if (typeof initialGameState.relationships !== 'object' || initialGameState.relationships === null) { // Check if it's not a proper object
         initialGameState.relationships = {};
     }
-    if (!initialGameState.emotions) {
+    if (!Array.isArray(initialGameState.emotions)) {
         initialGameState.emotions = [];
     }
-    if (!initialGameState.events) {
+    if (!Array.isArray(initialGameState.events)) { // Double check for events
         initialGameState.events = [];
     }
 
@@ -137,7 +163,7 @@ const prompt = ai.definePrompt({
       playerName: z.string().describe('The name of the player.'),
       lastStorySegmentText: z.string().describe('The text of the very last story segment (player or narrator) for immediate context.'),
       playerChoicesHistory: z.array(z.string()).describe('History of player choices. The VERY LAST element is the most recent choice to react to.'),
-      gameState: z.string().describe('Current game state (JSON string). Example: {"location":"Forest","inventory":["Sword","Potion"],"status":"Healthy","playerName":"Hero", "relationships":{"NPC1":"friend"}, "emotions":["happy"]}'),
+      gameState: z.string().describe('Current game state (JSON string). Example: {"location":"Forest","inventory":["Sword","Potion"],"status":"Healthy","playerName":"Hero", "relationships":{"NPC1":"friend"}, "emotions":["happy"], "events":[]}'),
       current_date: z.string().describe('Current date, injected for potential story elements.'),
       currentTurn: z.number().describe('The current turn number.'),
       maxTurns: z.number().describe('The maximum number of turns.'),
@@ -149,75 +175,62 @@ const prompt = ai.definePrompt({
   },
   prompt: `Tu es un Maître du Jeu (MJ) / Narrateur amical et imaginatif pour un jeu d'aventure textuel interactif destiné aux enfants de 8-12 ans. Le nom du joueur est {{{playerName}}}. L'aventure dure au maximum {{{maxTurns}}} tours. Nous sommes actuellement au tour {{{currentTurn}}}. Ta mission est de continuer l'histoire de manière amusante, logique et **strictement cohérente avec le thème**, en te basant sur le **dernier choix effectué par le joueur**, l'état actuel du jeu, et en t'adressant au joueur par son nom.
 
-  <CODE_BLOCK>**Contexte de l'Aventure :**</CODE_BLOCK>
-  *   Thème Principal : **{{{theme}}}** (Tu dois IMPÉRATIVEMENT rester dans ce thème)
-  *   Nom du joueur : {{{playerName}}}
-  *   Tour Actuel : {{{currentTurn}}} / {{{maxTurns}}}
-  *   État actuel du jeu (JSON string) : {{{gameState}}}
-      *   Note : L'état du jeu contient généralement 'inventory' (tableau d'objets) et 'playerName'.
-  *   Dernier segment de l'histoire : "{{{lastStorySegmentText}}}"
-  *   Historique des actions du joueur (le **dernier élément** est l'action à laquelle tu dois réagir) :
-      {{#if playerChoicesHistory}}
-      {{#each playerChoicesHistory}}
-      - {{{this}}}
-      {{/each}}
-      {{else}}
-      C'est le tout début de l'aventure !
-      {{/if}}
-      *   **gestion des relations**: L'état du jeu contient un objet "relationships". Les clés sont les noms des PNJ, les valeurs sont les niveaux de relation avec le joueur (ex: "ami", "neutre", "ennemi"). Utilise ces informations pour adapter les réactions des PNJ.
-      {{/if}}
-      *   **gestion des émotions**: L'état du jeu contient un tableau "emotions". Ce tableau contient les émotions du joueur et des PNJ. Tu dois adapter tes descriptions et tes interactions en fonction de ces émotions.
-      {{/if}}
-      *   **gestion des évènements**: L'état du jeu contient un tableau "events". Ce tableau contient une liste des évènements importants qui se sont produits dans l'histoire. Tu dois en tenir compte pour maintenir la cohérence de l'histoire.
-      {{/if}}
+**Contexte de l'Aventure :**
+*   Thème Principal : **{{{theme}}}** (Tu dois IMPÉRATIVEMENT rester dans ce thème)
+*   Nom du joueur : {{{playerName}}}
+*   Tour Actuel : {{{currentTurn}}} / {{{maxTurns}}}
+*   État actuel du jeu (JSON string) : {{{gameState}}}
+    *   Note : L'état du jeu contient 'playerName', 'inventory' (tableau d'objets), et peut aussi contenir 'relationships' (objet PNJ:statut), 'emotions' (tableau d'émotions), et 'events' (tableau d'événements).
+*   Dernier segment de l'histoire : "{{{lastStorySegmentText}}}"
+*   Historique des actions du joueur (le **dernier élément** est l'action à laquelle tu dois réagir) :
+    {{#if playerChoicesHistory}}
+    {{#each playerChoicesHistory}}
+    - {{{this}}}
+    {{/each}}
+    {{else}}
+    C'est le tout début de l'aventure !
+    {{/if}}
 
-      * **gestion des évènements aléatoires**: De temps en temps, un évènement aléatoire se produit (ajouté au tableau "events"). Il peut être positif, négatif ou neutre. Tu dois l'intégrer à l'histoire de manière logique et cohérente. Tu dois également le mentionner au début de ta réponse.
+**Règles strictes pour ta réponse (MJ) :**
 
-    
-      Si un évènement aléatoire s'est produit, ta réponse doit commencer par : "Un évènement inattendu se produit : \[description de l'évènement].". Sinon, ne pas mentionner d'évènement. Ensuite tu décris le résultat direct et logique de la dernière action du joueur, en tenant compte de l'évènement aléatoire si il y en a un.
+1.  **Réagis à la DERNIÈRE ACTION** : Ta réponse DOIT commencer par décrire le résultat direct et logique de la **dernière action** de {{{playerName}}} (le dernier élément de \`playerChoicesHistory\`). Adresse-toi toujours à {{{playerName}}} par son nom.
+    *   **Gestion Inventaire** :
+        *   Si le dernier choix implique **l'utilisation** ou la **perte** d'un objet (ex: "Utiliser Clé", "Lancer Potion", "Se débarrasser de Pierre"), décris le résultat et **retire** l'objet de la liste \`inventory\` dans \`updatedGameState\` si l'action réussit et consomme l'objet.
+        *   Si le dernier choix fait **trouver** un nouvel objet, décris-le et **ajoute**-le à la liste \`inventory\` dans \`updatedGameState\`. Annonce clairement la trouvaille dans \`storyContent\`, ex: "Tu as trouvé une **vieille clé rouillée** ! Ajoutée à l'inventaire !".
+        *   Si le dernier choix est "Inspecter {objet}", décris l'objet plus en détail sans le retirer de l'inventaire.
+2.  **Cohérence des Personnages**: Maintiens la personnalité et les caractéristiques des PNJ créés. Adapte leurs réactions en fonction des 'relationships' dans le gameState.
+3.  **Cohérence des Lieux**: Souviens-toi des lieux et de leurs caractéristiques.
+4.  **Chronologie & Causalité**: Respecte l'ordre des événements. Les actions doivent avoir des conséquences logiques sur la suite. Utilise le tableau 'events' du gameState pour te souvenir des faits importants.
+5.  **Décris la nouvelle situation** : Après le résultat de l'action, explique la situation actuelle : où est {{{playerName}}} ? Que perçoit-il/elle ? Qu'est-ce qui a changé ? Que se passe-t-il maintenant ?
+6.  **Gestion Actions Hors-Contexte/Impossibles** : Si le **dernier choix** est illogique, hors thème, dangereux, impossible, refuse GENTIMENT ou réinterprète. Explique pourquoi ("Hmm, {{{playerName}}}, essayer de {action impossible} ne semble pas fonctionner ici.") et propose immédiatement de nouvelles actions VALIDES via 'nextChoices' (sauf si c'est le dernier tour).
+7.  **Gestion du Dernier Tour (quand isLastTurn est vrai)** :
+    *   Si l'indicateur {{isLastTurn}} est vrai, c'est la fin ! Ne propose **AUCUN** nouveau choix (la clé 'nextChoices' dans la sortie JSON doit être un tableau vide []).
+    *   Décris une **conclusion** à l'aventure basée sur le dernier choix et l'état final du jeu. La conclusion doit être satisfaisante et cohérente avec l'histoire et le thème. Elle peut être ouverte ou fermée. Exemple: "Et c'est ainsi, {{{playerName}}}, qu'après avoir {dernière action}, tu {conclusion}. Ton aventure sur {lieu/thème} se termine ici... pour l'instant !".
+    *   Mets quand même à jour 'updatedGameState' une dernière fois si nécessaire.
+8.  **Propose de Nouveaux Choix (si PAS le dernier tour)** : Si l'indicateur {{isLastTurn}} est FAUX, offre 2 ou 3 options claires, simples, pertinentes pour la situation et le thème. PAS d'actions d'inventaire directes dans \`nextChoices\`. Le joueur utilise l'interface d'inventaire pour ça.
+9.  **Mets à Jour l'État du Jeu ('updatedGameState')** : Réfléchis aux conséquences du **dernier choix** (inventaire, lieu, relations, émotions, événements). Mets à jour **IMPÉRATIVEMENT** 'inventory' si besoin, mais aussi 'relationships', 'emotions', 'events' le cas échéant. \`updatedGameState\` doit être une chaîne JSON valide contenant AU MINIMUM 'playerName' et 'inventory'. Si rien n'a changé, renvoie le \`gameState\` précédent (stringify), mais valide.
+10. **Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant : 'storyContent' (string), 'nextChoices' (array de strings, vide si {{isLastTurn}} est vrai), 'updatedGameState' (string JSON valide). RIEN d'autre.
+11. **Ton rôle** : Reste UNIQUEMENT le narrateur. Pas de sortie de rôle, pas de discussion hors aventure, pas de mention d'IA.
+12. **Public (8-12 ans)** : Langage simple, adapté, positif, aventureux. Pas de violence/peur excessive/thèmes adultes. Utilise les 'emotions' du gameState pour influencer l'ambiance.
 
+**Exemple de sortie (Tour normal)**
+{
+  "storyContent": "Alex, tu utilises la Clé Ancienne sur la serrure rouillée... *Clic !* La porte s'ouvre en grinçant, révélant un passage sombre. La clé s'est malheureusement cassée dans la serrure.",
+  "nextChoices": ["Entrer dans le passage sombre", "Examiner les environs avant d'entrer", "Appeler pour voir si quelqu'un répond"],
+  "updatedGameState": "{\"playerName\":\"Alex\",\"inventory\":[\"Lampe de poche\"],\"location\":\"Entrée du passage\",\"relationships\":{},\"emotions\":[\"curieux\"],\"events\":[\"porte ouverte\"]}"
+}
 
-<CODE_BLOCK>  **Règles strictes pour ta réponse (MJ) :**</CODE_BLOCK>
+**Exemple de sortie (DERNIER TOUR, isLastTurn = true)**
+{
+ "storyContent": "Et c'est ainsi, Léa, qu'après avoir donné le cristal scintillant au robot gardien, celui-ci s'écarte en révélant la sortie ! Tu as réussi à t'échapper du vaisseau labyrinthe. Bravo pour ton ingéniosité ! Ton aventure spatiale se termine ici, victorieuse !",
+ "nextChoices": [],
+ "updatedGameState": "{\"playerName\":\"Léa\",\"inventory\":[],\"location\":\"Sortie du Vaisseau\",\"relationships\":{\"Gardien\":\"reconnaissant\"},\"emotions\":[\"soulagée\",\"fière\"],\"events\":[\"sortie trouvée\"]}"
+}
 
+**Important** : Concentre-toi sur la réaction à la **dernière action**, la gestion précise de l'inventaire dans \`updatedGameState\`, et la **conclusion si c'est le dernier tour** ({{isLastTurn}}).
 
-  1.  **Réagis à la DERNIÈRE ACTION** : Ta réponse DOIT commencer par décrire le résultat direct et logique de la **dernière action** de {{{playerName}}}. Adresse-toi toujours à {{{playerName}}} par son nom.
-       *   **Gestion Inventaire** : Si le dernier choix implique un objet (utilisation, trouvaille), mets à jour 'updatedGameState.inventory' (ajout/retrait). Annonce clairement les trouvailles ("Tu as trouvé... Ajouté à l'inventaire !"). Si un objet est utilisé et consommé, retire-le.
-  2.  **Cohérence des Personnages**: Tu dois conserver la personnalité et les caractéristiques des personnages que tu as créés. Ils ne doivent pas changer de manière incohérente.
-  3.  **Cohérence des Lieux**: Tu dois te souvenir des lieux et de leurs caractéristiques. Les lieux ne doivent pas changer d'un tour à l'autre de manière incohérente.
-  4.  **Chronologie**: Tu dois respecter la chronologie des événements. Les événements du passé doivent être pris en compte et ne pas être contredits par la suite.
-  5.  **Lien de causalité**: Tu dois t'assurer que les actions du joueur ont des conséquences logiques et durables dans l'histoire. Les actions doivent avoir un impact sur l'histoire.
-  6.  **Décris la nouvelle situation** : Après le résultat de l'action, explique la situation actuelle : où est {{{playerName}}} ? Que perçoit-il/elle ? Qu'est-ce qui a changé ?
-  7.  **Ton rôle** : Reste UNIQUEMENT le narrateur. Pas de sortie de rôle, pas de discussion hors aventure, pas de mention d'IA.
-  8.  **Public (8-12 ans)** : Langage simple, adapté, positif, aventureux. Pas de violence/peur excessive/thèmes adultes.
-  9.  **Cohérence Thématique ({{{theme}}})** : CRUCIAL. Tout (narration, objets, lieux, choix) doit rester dans le thème **{{{theme}}}**.
-  10.  **Gestion du Dernier Tour (quand isLastTurn est vrai)** :
-       *   Si l'indicateur {{isLastTurn}} est vrai, c'est la fin !
-       *   Décris une **conclusion** à l'aventure basée sur le dernier choix et l'état final du jeu. La conclusion doit être satisfaisante et cohérente avec l'histoire et le thème. Elle peut être ouverte ou fermée. Exemple: "Et c'est ainsi, {{{playerName}}}, qu'après avoir {dernière action}, tu {conclusion}. Ton aventure sur {lieu/thème} se termine ici... pour l'instant !".
-       *   Mets quand même à jour 'updatedGameState' une dernière fois si nécessaire.
-  11. **Gestion des relations et émotions**: Utilise les informations contenues dans 'relationships' et 'emotions' pour adapter les interactions des PNJ et l'ambiance de l'histoire. Exemple: Si la relation avec un PNJ est "ennemi", il sera hostile. Si le joueur est "triste", l'ambiance sera plus sombre.
-  12. **Mort d'un PNJ**: Si un PNJ important meurt, tu dois en tenir compte dans la suite de l'histoire. Les autres PNJ peuvent être tristes, en colère, ou vouloir se venger. L'ambiance doit s'adapter en conséquence. L'histoire doit avancer et s'adapter à cet évènement.
-  13. **Mets à Jour l'État du Jeu ('updatedGameState')** : Réfléchis aux conséquences de la dernière action (inventaire, lieu, relations, émotions, etc.). Mets à jour **IMPÉRATIVEMENT** 'inventory' si besoin, mais mets aussi à jour 'relationships' et 'emotions' si besoin. 'updatedGameState' doit être une chaîne JSON valide avec 'playerName', 'inventory', 'relationships' et 'emotions'. Si rien n'a changé, renvoie le 'gameState' précédent (stringify), mais valide.
-  14. **Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant : 'storyContent' (string), 'nextChoices' (array de strings, vide si {{isLastTurn}} est vrai), 'updatedGameState' (string JSON valide). RIEN d'autre.
-
-
-  **Exemple de sortie (Tour normal)**
-  {
-    "storyContent": "Léa, tu actives ton scanner... Il semble que tu pourrais forcer l'ouverture...",
-    "nextChoices": ["Essayer de forcer la porte", "Chercher un autre passage"],
-    "updatedGameState": "{\"location\":\"Corridor X-7\",\"inventory\":[\"Scanner\"],\"playerName\":\"Léa\"}"
-  }
-
-  **Exemple de sortie (DERNIER TOUR, isLastTurn = true)**
-   {
-    "storyContent": "Et c'est ainsi, Tom, qu'après avoir courageusement brandi l'Épée Courte face au gardien endormi, tu remarques un passage secret derrière lui ! Ton aventure dans la Salle du Trésor touche à sa fin, pleine de découvertes. Bravo !",
-    "nextChoices": [],
-    "updatedGameState": "{\"location\":\"Passage Secret\",\"inventory\":[\"Épée Courte\"],\"status\":\"Victorieux\",\"playerName\":\"Tom\"}"
-   }
-
-  **Important** : Date actuelle : {{current_date}} (peu pertinent). Concentre-toi sur la réaction au **dernier choix**, la gestion de l'inventaire, et la **conclusion si c'est le dernier tour** (quand {{isLastTurn}} est vrai).
-
-  Génère maintenant la suite (ou la fin) de l'histoire pour {{{playerName}}}, en respectant TOUTES les règles, le thème {{{theme}}}, l'état du jeu, et le compte des tours ({{{currentTurn}}}/{{{maxTurns}}}, la valeur de isLastTurn est {{isLastTurn}}).
-  `,
+Génère maintenant la suite (ou la fin) de l'histoire pour {{{playerName}}}, en respectant TOUTES les règles, le thème {{{theme}}}, l'état du jeu, et le compte des tours ({{{currentTurn}}}/{{{maxTurns}}}, la valeur de isLastTurn est {{isLastTurn}}).
+`,
 });
 
 
@@ -230,15 +243,7 @@ const generateStoryContentFlow = ai.defineFlow<
   outputSchema: GenerateStoryContentOutputSchema,
 },
 async input => {
-    // --- Random event Generation --
-    const currentGameStateObj = safeJsonParse(input.gameState);
-    const randomEvent = generateRandomEvent();
-    if (randomEvent && Array.isArray(currentGameStateObj.events)) {
-        currentGameStateObj.events.push(randomEvent);
-    }
-    // Update the gameState with the new event (if any)
-    const updatedGameStateString = safeJsonStringify(currentGameStateObj);
-    // ---
+
    // Basic input validation
    if (!input.theme) throw new Error("Theme is required.");
    if (!input.playerName) throw new Error("Player name is required.");
@@ -250,44 +255,66 @@ async input => {
        console.warn("generateStoryContent called with empty choice history mid-game. This might indicate an issue.");
    }
 
-    
-
-    // Validate input gameState is valid JSON before sending to AI   
+    // --- Random Event Generation (Moved inside the flow logic for server-side) ---
+    let currentGameStateObj: any; // Use 'any' temporarily for parsing flexibility
     try {
+        currentGameStateObj = safeJsonParse(input.gameState);
         if (typeof currentGameStateObj !== 'object' || currentGameStateObj === null) {
             throw new Error("Parsed gameState is not an object.");
         }
-         // Ensure essential keys exist
-         if (!Array.isArray(currentGameStateObj.inventory)) currentGameStateObj.inventory = [];
-        if (!currentGameStateObj.playerName) currentGameStateObj.playerName = input.playerName;
-        if (!Array.isArray(currentGameStateObj.inventory)) currentGameStateObj.inventory = [];
-
     } catch (e) {
-        if (!currentGameStateObj.relationships) {
-            currentGameStateObj.relationships = {};
-        }
-        if (!currentGameStateObj.emotions) {
-            currentGameStateObj.emotions = [];
-        }        
-        if (!Array.isArray(currentGameStateObj.events)) {
-            currentGameStateObj.events = [];
-        }
-
         console.error("Invalid input gameState JSON, resetting to default:", input.gameState, e);
-        currentGameStateObj = { playerName: input.playerName, inventory: [] };
+        // Provide a more complete default state if parsing fails
+        currentGameStateObj = {
+            playerName: input.playerName,
+            inventory: [],
+            relationships: {},
+            emotions: [],
+            events: []
+        };
     }
-    
-    const validatedInputGameStateString = updatedGameStateString;
-   
+
+    // Simple random event logic (can be expanded) - Example: 10% chance per turn
+    // Avoid Math.random directly in top-level server scope if possible, generate here if needed.
+    // For better control, consider making randomness part of the AI's task or using a seeded RNG.
+    const shouldGenerateEvent = Math.random() < 0.1; // Example: 10% chance
+    if (shouldGenerateEvent && input.currentTurn > 1) { // Avoid event on turn 1
+        const events = [
+            "Une pluie torrentielle s'abat soudainement.",
+            "Un léger tremblement de terre secoue le sol.",
+            "Un étrange marchand ambulant apparaît au loin.",
+            "Tu découvres une inscription ancienne sur un rocher.",
+            "Une créature inconnue et rapide passe en coup de vent.",
+            "Tu entends un appel à l'aide au loin.",
+            "Une musique mystérieuse flotte dans l'air.",
+            "Un brouillard épais commence à se lever.",
+        ];
+        const randomEvent = events[Math.floor(Math.random() * events.length)];
+        if (!Array.isArray(currentGameStateObj.events)) {
+            currentGameStateObj.events = []; // Initialize if missing
+        }
+        currentGameStateObj.events.push(`Événement aléatoire: ${randomEvent}`);
+        console.log("Random event triggered:", randomEvent);
+    }
+    // Update the gameState with the new event (if any) before sending to prompt
+    const validatedInputGameStateString = safeJsonStringify(currentGameStateObj);
+    // --- End Random Event ---
+
+
+    // Ensure essential keys exist after potentially resetting
+    if (!currentGameStateObj.playerName) currentGameStateObj.playerName = input.playerName;
+    if (!Array.isArray(currentGameStateObj.inventory)) currentGameStateObj.inventory = [];
+    if (typeof currentGameStateObj.relationships !== 'object' || currentGameStateObj.relationships === null) currentGameStateObj.relationships = {};
+    if (!Array.isArray(currentGameStateObj.emotions)) currentGameStateObj.emotions = [];
+    if (!Array.isArray(currentGameStateObj.events)) currentGameStateObj.events = [];
 
 
   // Inject current date into the prompt context
   const promptInput = {
       ...input,
       playerChoicesHistory: safePlayerChoicesHistory,
-      gameState: validatedInputGameStateString, // Send validated state
-      current_date: new Date().toLocaleDateString('fr-FR'), 
-      // Use optional lastStorySegmentText from input
+      gameState: validatedInputGameStateString, // Send validated/potentially updated state
+      current_date: new Date().toLocaleDateString('fr-FR'),
       lastStorySegmentText: input.lastStorySegmentText || (safePlayerChoicesHistory.length > 0 ? safePlayerChoicesHistory[safePlayerChoicesHistory.length - 1] : "C'est le début de l'aventure."),
   };
 
@@ -302,7 +329,6 @@ async input => {
             nextChoices: input.isLastTurn ? [] : ["Regarder autour de moi", "Vérifier mon inventaire"], // Provide generic safe choices, empty if last turn
             updatedGameState: validatedInputGameStateString // Return the last known valid state
         };
-        // Or throw: throw new Error("Format invalide reçu de l'IA pour le contenu de l'histoire.");
     }
 
      // Additional validation for last turn: choices MUST be empty
@@ -310,9 +336,9 @@ async input => {
         console.warn("AI returned choices on the last turn. Overriding to empty array.");
         output.nextChoices = [];
     }
-     // Validation for normal turn: choices SHOULD exist (unless AI has specific reason)
-     if (!input.isLastTurn && output.nextChoices.length === 0 && output.storyContent.length > 0) {
-         console.warn("AI returned empty choices on a normal turn. Providing fallback choices.");
+     // Validation for normal turn: choices SHOULD exist (unless AI has specific reason, e.g., forced wait)
+     if (!input.isLastTurn && output.nextChoices.length === 0 && output.storyContent.length > 0 && !output.storyContent.toLowerCase().includes("attendre")) { // Allow empty if story implies waiting
+         console.warn("AI returned empty choices on a normal turn without explicit wait. Providing fallback choices.");
          output.nextChoices = ["Regarder autour de moi", "Vérifier mon inventaire"];
          output.storyContent += "\n(Le narrateur semble chercher ses mots... Que fais-tu en attendant ?)";
      }
@@ -342,21 +368,23 @@ async input => {
              console.warn("AI returned non-string items in inventory, filtering.");
              updatedGameStateObj.inventory = updatedGameStateObj.inventory.filter((item: any) => typeof item === 'string');
          }
-         if (!updatedGameStateObj.relationships) {
-             console.warn("AI removed or corrupted relationships in updatedGameState, resetting/fixing.");
-             updatedGameStateObj.relationships = {};
+         // Ensure relationships is an object
+         if (typeof updatedGameStateObj.relationships !== 'object' || updatedGameStateObj.relationships === null) {
+             console.warn("AI returned invalid/missing relationships in updatedGameState, resetting/fixing.");
+             const originalGameState = safeJsonParse(validatedInputGameStateString);
+             updatedGameStateObj.relationships = (typeof originalGameState.relationships === 'object' && originalGameState.relationships !== null) ? originalGameState.relationships : {};
          }
-         if (typeof updatedGameStateObj.relationships !== 'object') {
-             console.warn("AI returned invalid object for relationships in updatedGameState, resetting/fixing.");
-             updatedGameStateObj.relationships = {};
-         }
+         // Ensure emotions is an array
          if (!Array.isArray(updatedGameStateObj.emotions)) {
-             console.warn("AI removed or corrupted emotions in updatedGameState, resetting/fixing.");
-             updatedGameStateObj.emotions = [];
+             console.warn("AI returned invalid/missing emotions in updatedGameState, resetting/fixing.");
+             const originalGameState = safeJsonParse(validatedInputGameStateString);
+             updatedGameStateObj.emotions = Array.isArray(originalGameState.emotions) ? originalGameState.emotions : [];
          }
+         // Ensure events is an array
          if (!Array.isArray(updatedGameStateObj.events)) {
-             console.warn("AI removed or corrupted events in updatedGameState, resetting/fixing.");
-             updatedGameStateObj.events = [];
+             console.warn("AI returned invalid/missing events in updatedGameState, resetting/fixing.");
+             const originalGameState = safeJsonParse(validatedInputGameStateString);
+             updatedGameStateObj.events = Array.isArray(originalGameState.events) ? originalGameState.events : [];
          }
 
 
@@ -366,7 +394,7 @@ async input => {
         // Reset to the validated input state as a fallback
         updatedGameStateObj = safeJsonParse(validatedInputGameStateString); // Parse validated string
         // Add a message indicating the state might be stale
-        output.storyContent += "\n(Attention: L'état de l'inventaire pourrait ne pas être à jour suite à une petite erreur.)";
+        output.storyContent += "\n(Attention: L'état du jeu pourrait ne pas être à jour suite à une petite erreur technique.)";
          // Provide safe fallback choices, considering if it was supposed to be the last turn
          output.nextChoices = input.isLastTurn ? [] : ["Regarder autour", "Vérifier inventaire"];
     }
@@ -378,11 +406,10 @@ async input => {
     // Final check on choices array content (ensure strings)
     if (!output.nextChoices.every(choice => typeof choice === 'string')) {
         console.error("Invalid choices format received from AI:", output.nextChoices);
-        output.nextChoices = input.isLastTurn ? [] : ["Regarder autour de moi"]; // Fallback choices
+        output.nextChoices = input.isLastTurn ? [] : ["Regarder autour de moi", "Vérifier l'inventaire"]; // Fallback choices
+         output.storyContent += "\n(Le narrateur a eu un petit bug en proposant les choix...)";
     }
 
 
   return output;
 });
-
-    
