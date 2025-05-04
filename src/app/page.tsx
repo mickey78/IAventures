@@ -270,7 +270,7 @@ export default function AdventureCraftGame() {
     const input: GenerateStoryContentInput = {
       theme: gameState.theme,
       playerName: gameState.playerName,
-      lastStorySegment: gameState.story[gameState.story.length - 1], // Pass the actual last segment before player action
+      lastStorySegment: previousStory[previousStory.length - 1], // Pass the actual last segment BEFORE player action
       playerChoicesHistory: nextPlayerChoicesHistory, // Send updated history including the current action
       gameState: JSON.stringify(gameState.currentGameState), // Send current state stringified
     };
@@ -394,6 +394,21 @@ export default function AdventureCraftGame() {
   };
 
  // --- Rendering Functions ---
+
+ // Function to parse segment text and highlight inventory additions
+ const formatStoryText = (text: string) => {
+    const inventoryAddRegex = /(Tu as trouvé.*?ajouté[e]? à ton inventaire\s*!)/gi;
+    const parts = text.split(inventoryAddRegex);
+    return parts.map((part, index) => {
+      if (inventoryAddRegex.test(part)) {
+        // Reset regex lastIndex before testing again if needed, though split avoids this issue
+        return <strong key={index} className="text-foreground font-semibold">{part}</strong>;
+      }
+      return part;
+    });
+  };
+
+
 const renderStory = () => (
     <ScrollAreaPrimitive.Root className="relative overflow-hidden flex-1 w-full rounded-md border mb-4 bg-card"> {/* Use flex-1 to take available space */}
         <ScrollAreaPrimitive.Viewport
@@ -420,7 +435,9 @@ const renderStory = () => (
                         {segment.speaker === 'player' ? gameState.playerName : 'Narrateur'}
                     </span>
                 </div>
-                 <p className="whitespace-pre-wrap text-sm">{segment.text}</p>
+                 <p className="whitespace-pre-wrap text-sm">
+                    {segment.speaker === 'narrator' ? formatStoryText(segment.text) : segment.text}
+                 </p>
             </div>
             ))}
             {/* Loading indicator */}
