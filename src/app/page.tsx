@@ -267,16 +267,21 @@ export default function IAventuresGame() {
           theme: themeToUse,
           playerName: nameToUse
       });
-      setGameState((prev) => ({
-        ...prev,
-        story: [{
-            id: Date.now(),
+
+      const initialSegmentId = Date.now();
+      const initialStorySegment: StorySegment = {
+            id: initialSegmentId,
             text: initialStoryData.story,
             speaker: 'narrator',
-            storyImageUrl: null, // No image for initial story
-            imageIsLoading: false,
+            storyImageUrl: null, // No image initially
+            imageIsLoading: !!initialStoryData.generatedImagePrompt, // True if prompt exists
             imageError: false,
-        }], // Initial story is from narrator
+            imageGenerationPrompt: initialStoryData.generatedImagePrompt // Store prompt
+        };
+
+      setGameState((prev) => ({
+        ...prev,
+        story: [initialStorySegment], // Initial story is from narrator
         choices: initialStoryData.choices,
         isLoading: false,
         currentGameState: { // Set initial GameState including location from AI
@@ -285,6 +290,12 @@ export default function IAventuresGame() {
             inventory: [], // Start with empty inventory
         }
       }));
+
+        // Trigger image generation if prompt exists
+        if (initialStoryData.generatedImagePrompt) {
+            triggerImageGeneration(initialSegmentId, initialStoryData.generatedImagePrompt);
+        }
+
     } catch (err) {
       console.error('Error generating initial story:', err);
       const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
@@ -422,9 +433,8 @@ export default function IAventuresGame() {
 
       // If an image prompt was generated, trigger the image generation
       if (nextStoryData.generatedImagePrompt) {
-          // Add theme context to the image prompt for better results
-          const imagePromptWithTheme = `${nextStoryData.generatedImagePrompt}. Thème : ${gameState.theme}. Style : Illustration pour enfant, coloré, clair.`;
-          triggerImageGeneration(narratorResponseSegmentId, imagePromptWithTheme);
+          // NOTE: The prompt from generateStoryContent ALREADY includes theme, location, and style as per instructions.
+          triggerImageGeneration(narratorResponseSegmentId, nextStoryData.generatedImagePrompt);
       }
 
       if (isLastTurn) {

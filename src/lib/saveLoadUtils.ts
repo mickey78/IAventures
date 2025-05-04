@@ -396,4 +396,3 @@ export function deleteSaveGame(saveName: string): boolean {
     return false;
   }
 }
-
