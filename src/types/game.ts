@@ -9,7 +9,7 @@ export interface StorySegment {
   storyImageUrl?: string | null; // Optional URL for the generated image
   imageIsLoading?: boolean; // Flag to indicate image is being generated
   imageError?: boolean; // Flag to indicate image generation failed
-  imageGenerationPrompt?: string | null; // Store the prompt used for generation (for debugging)
+  imageGenerationPrompt?: string | null; // Store the prompt used for generation (for debugging/consistency)
 }
 
 // Represents the structured game state *after* parsing the JSON string from the AI

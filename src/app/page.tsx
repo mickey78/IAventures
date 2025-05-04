@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { listSaveGames, type GameStateToSave } from '@/lib/saveLoadUtils';
-import type { StorySegment, ParsedGameState, GameState, Theme } from '@/types/game'; // Import shared types
+import type { StorySegment, ParsedGameState, GameState, GameView } from '@/types/game'; // Import shared types
 import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import type { GenerateInitialStoryOutput } from '@/ai/flows/generate-initial-story';
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
@@ -43,7 +43,7 @@ export default function IAventuresGame() {
     currentTurn: 1, // Default current turn
     generatingSegmentId: null, // Track which segment is generating an image
   });
-  const [savedGames, setSavedGames] = useState<Omit<GameStateToSave, 'story'>[]>([]);
+  const [savedGames, setSavedGames] = useState<Omit<GameStateToSave, 'story' | 'choices' | 'currentGameState' | 'playerChoicesHistory'>[]>([]); // Minimal info for list
   const [saveNameInput, setSaveNameInput] = useState('');
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [playerNameInput, setPlayerNameInput] = useState('');
@@ -200,12 +200,13 @@ export default function IAventuresGame() {
   }, [toast, scrollToBottom]); // Added scrollToBottom dependency
 
   const handleManualImageGeneration = (segmentId: number, segmentText: string) => {
-      if (!gameState.theme || !gameState.currentGameState.location) {
-            toast({ title: 'Erreur', description: 'Impossible de générer une image sans thème ou lieu définis.', variant: 'destructive' });
+      if (!gameState.theme || !gameState.currentGameState.location || !gameState.playerName) {
+            toast({ title: 'Erreur', description: 'Impossible de générer une image sans thème, lieu ou nom de joueur définis.', variant: 'destructive' });
             return;
       }
-      // Construct a prompt similar to the automatic one
-      const prompt = `Une illustration de: "${segmentText.substring(0, 100)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}. Style: Cartoon.`;
+      // Construct a prompt similar to the automatic one, including player name and current mood if available
+      const moodText = gameState.currentGameState.emotions && gameState.currentGameState.emotions.length > 0 ? ` Ambiance: ${gameState.currentGameState.emotions.join(', ')}.` : '';
+      const prompt = `Une illustration de "${gameState.playerName}": "${segmentText.substring(0, 80)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} Style: Cartoon.`;
       triggerImageGeneration(segmentId, prompt);
   };
 
@@ -233,6 +234,7 @@ export default function IAventuresGame() {
       generatingSegmentId: null,
       currentGameState: { // Reset game state inner parts
         ...prev.currentGameState, // Keep playerName if already set
+        playerName: nameToUse, // Ensure player name is set here too
         location: 'Chargement...',
         inventory: [],
         relationships: {},
@@ -318,6 +320,7 @@ export default function IAventuresGame() {
       id: Date.now(),
       text: actionText.trim(),
       speaker: 'player',
+      // No image fields for player actions
     };
     const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, actionText.trim()];
     const previousStory = [...gameState.story];
@@ -346,7 +349,7 @@ export default function IAventuresGame() {
     const input: GenerateStoryContentInput = {
       theme: gameState.theme,
       playerName: gameState.playerName,
-      lastStorySegment: lastSegmentBeforeAction,
+      lastStorySegment: lastSegmentBeforeAction, // Pass previous segment for context and image prompt
       playerChoicesHistory: nextPlayerChoicesHistory,
       gameState: safeJsonStringify(previousGameState), // Use safe stringify
       currentTurn: nextTurn,
@@ -365,7 +368,7 @@ export default function IAventuresGame() {
         storyImageUrl: null,
         imageIsLoading: !!nextStoryData.generatedImagePrompt,
         imageError: false,
-        imageGenerationPrompt: nextStoryData.generatedImagePrompt,
+        imageGenerationPrompt: nextStoryData.generatedImagePrompt, // Store the new prompt
       };
       const updatedParsedGameState = parseGameState(nextStoryData.updatedGameState, gameState.playerName);
 
@@ -397,7 +400,7 @@ export default function IAventuresGame() {
         choices: previousChoices,
         currentGameState: previousGameState,
         playerChoicesHistory: prev.playerChoicesHistory.slice(0, -1),
-        currentTurn: prev.currentTurn - 1,
+        currentTurn: prev.currentTurn - 1, // Revert turn count on error
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de continuer l'histoire: ${errorMsg}`, variant: 'destructive' });
     }
@@ -427,8 +430,9 @@ export default function IAventuresGame() {
 
   // --- Save/Load Handlers ---
   const handleOpenSaveDialog = () => {
-    if (gameState.currentView === 'game_ended') {
-      toast({ title: "Partie Terminée", description: "Vous ne pouvez pas sauvegarder une partie terminée...", variant: "default" });
+     if (gameState.currentView !== 'game_active') { // Allow saving only when active
+      toast({ title: "Action Impossible", description: "Vous ne pouvez sauvegarder qu'une partie en cours.", variant: "default" });
+      return;
     }
     const dateStr = new Date().toLocaleDateString('fr-CA');
     const suggestedName = gameState.theme && gameState.playerName
@@ -443,25 +447,27 @@ export default function IAventuresGame() {
       toast({ title: "Nom Invalide", description: "Veuillez entrer un nom pour la sauvegarde.", variant: "destructive" });
       return;
     }
-    if (gameState.currentView === 'game_ended') {
-      toast({ title: "Action Impossible", description: "Vous ne pouvez pas sauvegarder une partie terminée.", variant: "destructive" });
-      setIsSaveDialogOpen(false);
-      return;
+     if (gameState.currentView !== 'game_active') {
+        toast({ title: "Action Impossible", description: "Vous ne pouvez sauvegarder qu'une partie en cours.", variant: "destructive" });
+        setIsSaveDialogOpen(false);
+        return;
     }
-    if (!gameState.theme || !gameState.playerName || !['game_active'].includes(gameState.currentView)) {
-      toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes ou partie non active.", variant: "destructive" });
+    if (!gameState.theme || !gameState.playerName) { // Simplified check
+      toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes.", variant: "destructive" });
       return;
     }
 
     // Ensure currentGameState is stringified before saving
-    const stringifiedGameState = typeof gameState.currentGameState === 'string'
-      ? gameState.currentGameState
-      : safeJsonStringify(gameState.currentGameState);
+    const stringifiedGameState = safeJsonStringify(gameState.currentGameState); // Use the utility
 
+    // Prepare the state, ensuring story segments exclude transient/image data
     const stateToSave = {
       theme: gameState.theme,
       playerName: gameState.playerName,
-      story: gameState.story, // saveGame utility handles image removal
+      story: gameState.story.map(seg => { // Map to exclude fields for saving
+          const { storyImageUrl, imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg;
+          return rest; // Keep only id, text, speaker
+      }),
       choices: gameState.choices,
       currentGameState: stringifiedGameState, // Pass the stringified version
       playerChoicesHistory: gameState.playerChoicesHistory,
@@ -469,44 +475,47 @@ export default function IAventuresGame() {
       currentTurn: gameState.currentTurn,
     };
 
+    // Use saveGame utility, which now handles image data removal internally
     if (saveGame(saveNameInput.trim(), stateToSave)) {
       toast({ title: "Partie Sauvegardée", description: `La partie "${saveNameInput.trim()}" a été sauvegardée.` });
       setSavedGames(listSaveGames());
       setIsSaveDialogOpen(false);
     } else {
-      // Error handled within saveGame utility
+      // Error handling is now primarily within saveGame utility (e.g., quota exceeded)
+       toast({ title: "Erreur Sauvegarde", description: "La sauvegarde a échoué. Vérifiez la console pour les détails.", variant: "destructive" });
     }
   };
 
-  const handleLoadGame = (saveName: string) => {
-    const loadedState = loadGame(saveName);
+ const handleLoadGame = (saveName: string) => {
+    const loadedState = loadGame(saveName); // loadGame now adds default image states
     if (loadedState) {
-      const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName);
-      const loadedView = loadedState.currentTurn > loadedState.maxTurns ? 'game_ended' : 'game_active';
+      const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName); // Ensure parsing
+      const loadedView: GameView = loadedState.currentTurn > loadedState.maxTurns ? 'game_ended' : 'game_active'; // Determine view based on turns
 
       setGameState(prev => ({
         ...prev,
         theme: loadedState.theme,
         playerName: loadedState.playerName,
-        story: loadedState.story,
+        story: loadedState.story, // Use the story with rehydrated image states
         choices: loadedState.choices,
-        currentGameState: parsedLoadedGameState,
+        currentGameState: parsedLoadedGameState, // Use the parsed game state object
         playerChoicesHistory: loadedState.playerChoicesHistory,
         isLoading: false,
         error: null,
         currentView: loadedView,
         maxTurns: loadedState.maxTurns,
         currentTurn: loadedState.currentTurn,
-        generatingSegmentId: null,
+        generatingSegmentId: null, // Reset image generation tracking
       }));
       toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
       setIsInventoryPopoverOpen(false);
       setIsCustomInputVisible(false);
     } else {
       toast({ title: "Erreur de Chargement", description: `Impossible de charger la partie "${saveName}".`, variant: "destructive" });
-      setSavedGames(listSaveGames());
+      setSavedGames(listSaveGames()); // Refresh list in case the save was corrupted/removed
     }
   };
+
 
   const handleDeleteGame = (saveName: string) => {
     if (deleteSaveGame(saveName)) {
