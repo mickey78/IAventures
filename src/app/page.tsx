@@ -13,7 +13,7 @@ import type { GenerateStoryContentInput, GenerateStoryContentOutput } from '@/ai
 import { generateImage } from '@/ai/flows/generate-image'; // Import the image generation flow
 import type { GenerateImageOutput } from '@/ai/flows/generate-image'; // Import the image generation output type
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History, MapPin, ImageIcon, ImageOff } from 'lucide-react'; // Added MapPin, ImageIcon, ImageOff
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History, MapPin, ImageIcon, ImageOff, Edit } from 'lucide-react'; // Added MapPin, ImageIcon, ImageOff, Edit
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -134,6 +134,7 @@ export default function IAventuresGame() {
   const [maxTurnsInput, setMaxTurnsInput] = useState<number>(15); // State for slider value
   const [customChoiceInput, setCustomChoiceInput] = useState(''); // State for custom input
   const [isInventoryPopoverOpen, setIsInventoryPopoverOpen] = useState(false); // State for inventory popover
+  const [isCustomInputVisible, setIsCustomInputVisible] = useState(false); // State to control custom input visibility
 
   const { toast } = useToast();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -159,6 +160,13 @@ export default function IAventuresGame() {
       }
   }, [gameState.story, gameState.currentView, scrollToBottom]);
 
+    // Effect to focus custom input when it becomes visible
+    useEffect(() => {
+        if (isCustomInputVisible && customInputRef.current) {
+            customInputRef.current.focus();
+        }
+    }, [isCustomInputVisible]);
+
   // --- Navigation Handlers ---
   const showMainMenu = () => {
     setGameState(prev => ({
@@ -177,11 +185,13 @@ export default function IAventuresGame() {
     }));
      setSavedGames(listSaveGames());
      setIsInventoryPopoverOpen(false); // Close popover on navigating away
+     setIsCustomInputVisible(false); // Hide custom input
   }
 
   const showThemeSelection = () => {
     setGameState(prev => ({ ...prev, currentView: 'theme_selection', theme: null, playerName: null, currentTurn: 1, maxTurns: 15, currentGameState: {...prev.currentGameState, location: 'Sélection du Thème'} })); // Update location
     setIsInventoryPopoverOpen(false);
+    setIsCustomInputVisible(false); // Hide custom input
   };
 
   const showNameInput = () => {
@@ -191,12 +201,14 @@ export default function IAventuresGame() {
     }
     setGameState(prev => ({ ...prev, currentView: 'name_input', currentGameState: {...prev.currentGameState, location: 'Création du Personnage'} })); // Update location
     setIsInventoryPopoverOpen(false);
+    setIsCustomInputVisible(false); // Hide custom input
   }
 
   const showLoadGameView = () => {
     setSavedGames(listSaveGames());
     setGameState(prev => ({ ...prev, currentView: 'loading_game', currentGameState: {...prev.currentGameState, location: 'Chargement de Partie'} })); // Update location
      setIsInventoryPopoverOpen(false);
+     setIsCustomInputVisible(false); // Hide custom input
   };
 
   // --- Game Logic ---
@@ -246,6 +258,7 @@ export default function IAventuresGame() {
         currentTurn: 1, // Start at turn 1
     }));
      setIsInventoryPopoverOpen(false); // Ensure closed on new game
+     setIsCustomInputVisible(false); // Ensure hidden on new game
 
     try {
       const initialStoryData: GenerateInitialStoryOutput = await generateInitialStory({ // Specify output type
@@ -363,6 +376,7 @@ export default function IAventuresGame() {
     }));
     setCustomChoiceInput(''); // Clear custom input if used
     setIsInventoryPopoverOpen(false); // Close inventory popover after action
+    setIsCustomInputVisible(false); // Hide custom input after submitting action
     // Scroll handled by useEffect
 
     const isLastTurn = nextTurn > gameState.maxTurns; // Check if the *new* turn is the last
@@ -450,6 +464,7 @@ export default function IAventuresGame() {
       const fullActionText = `${actionPrefix} ${item}`;
       setCustomChoiceInput(fullActionText); // Set the input field text
       setIsInventoryPopoverOpen(false); // Close the popover
+      setIsCustomInputVisible(true); // Show the custom input field
       // Focus the input field after state update
       requestAnimationFrame(() => {
           customInputRef.current?.focus();
@@ -529,6 +544,7 @@ export default function IAventuresGame() {
         }));
         toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
          setIsInventoryPopoverOpen(false); // Close popover on load
+         setIsCustomInputVisible(false); // Hide custom input on load
     } else {
         toast({ title: "Erreur de Chargement", description: `Impossible de charger la partie "${saveName}".`, variant: "destructive" });
         setSavedGames(listSaveGames()); // Refresh list in case of corruption
@@ -571,7 +587,7 @@ export default function IAventuresGame() {
 
 
 const renderStory = () => (
-    <ScrollAreaPrimitive.Root className="relative overflow-hidden flex-1 w-full rounded-md border mb-4 bg-card"> {/* Use flex-1 to take available space */}
+    <ScrollAreaPrimitive.Root className="relative overflow-hidden flex-1 w-full rounded-md border mb-2 bg-card"> {/* Reduced margin bottom */}
         <ScrollAreaPrimitive.Viewport
             ref={viewportRef}
             className="h-full w-full rounded-[inherit] p-4 space-y-4" // space-y-4 adds vertical space between bubbles
@@ -599,7 +615,7 @@ const renderStory = () => (
                  {/* Image Display */}
                  {segment.speaker === 'narrator' && segment.imageIsLoading && (
                      <div className="mt-2 flex justify-center items-center h-48 bg-muted/50 rounded-md">
-                         <Loader className="h-8 w-8 animate-spin text-primary" />
+                         <Skeleton className="h-full w-full rounded-md" /> {/* Use Skeleton */}
                      </div>
                  )}
                  {segment.speaker === 'narrator' && segment.imageError && (
@@ -755,7 +771,7 @@ const renderStory = () => (
 
 
   const renderChoicesAndInput = () => (
-    <div className="mt-auto pb-4 flex flex-col gap-4">
+    <div className="flex-shrink-0 pb-2 flex flex-col gap-2"> {/* Reduced padding bottom */}
       {/* Predefined Choices */}
        {gameState.choices.length > 0 && gameState.currentView === 'game_active' && ( // Only show if game active
            <div className="flex flex-wrap gap-2 justify-center">
@@ -771,36 +787,49 @@ const renderStory = () => (
                  {choice}
                </Button>
              ))}
+                {/* Button to toggle custom input */}
+                <TooltipProvider delayDuration={300}>
+                    <Tooltip>
+                        <TooltipTrigger asChild>
+                            <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() => setIsCustomInputVisible(!isCustomInputVisible)}
+                                disabled={gameState.isLoading}
+                                aria-label={isCustomInputVisible ? "Masquer l'entrée personnalisée" : "Afficher l'entrée personnalisée"}
+                            >
+                                <Edit className="h-4 w-4" />
+                            </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="top">
+                            {isCustomInputVisible ? "Masquer l'entrée personnalisée" : "Écrire une action personnalisée"}
+                        </TooltipContent>
+                    </Tooltip>
+                </TooltipProvider>
            </div>
        )}
 
-      {/* Separator */}
-      {gameState.choices.length > 0 && gameState.currentView === 'game_active' && <Separator className="my-2" />}
-
-
-      {/* Custom Choice Input */}
-      {gameState.currentView === 'game_active' && ( // Only show if game active
-          <div className="flex flex-col sm:flex-row gap-2 w-full max-w-lg mx-auto items-center justify-center">
-              <form onSubmit={handleCustomChoiceSubmit} className="flex-grow flex gap-2 w-full sm:w-auto">
-                  <Input
-                    ref={customInputRef} // Assign ref
-                    type="text"
-                    value={customChoiceInput}
-                    onChange={(e) => setCustomChoiceInput(e.target.value)}
-                    placeholder="Que faites-vous ? (ou utilisez un objet)"
-                    className="flex-grow"
-                    disabled={gameState.isLoading}
-                    aria-label="Entrez votre propre action ou utilisez un objet"
-                  />
-                  <Button type="submit" disabled={gameState.isLoading || !customChoiceInput.trim()} size="icon" variant="primary">
-                    <Send className="h-4 w-4" />
-                    <span className="sr-only">Envoyer</span>
-                  </Button>
-              </form>
-              {/* Inventory button is moved to header */}
-          </div>
-      )}
-
+       {/* Custom Choice Input - Conditionally rendered */}
+        {isCustomInputVisible && gameState.currentView === 'game_active' && (
+            <div className="flex flex-col sm:flex-row gap-2 w-full max-w-lg mx-auto items-center justify-center mt-2"> {/* Added margin top */}
+                <form onSubmit={handleCustomChoiceSubmit} className="flex-grow flex gap-2 w-full sm:w-auto">
+                    <Input
+                        ref={customInputRef} // Assign ref
+                        type="text"
+                        value={customChoiceInput}
+                        onChange={(e) => setCustomChoiceInput(e.target.value)}
+                        placeholder="Que faites-vous ? (ou utilisez un objet)"
+                        className="flex-grow"
+                        disabled={gameState.isLoading}
+                        aria-label="Entrez votre propre action ou utilisez un objet"
+                    />
+                    <Button type="submit" disabled={gameState.isLoading || !customChoiceInput.trim()} size="icon" variant="primary">
+                        <Send className="h-4 w-4" />
+                        <span className="sr-only">Envoyer</span>
+                    </Button>
+                </form>
+            </div>
+        )}
     </div>
   );
 
@@ -922,7 +951,7 @@ const renderStory = () => (
     <div className="flex flex-col items-center space-y-4 w-full h-full justify-center"> {/* Added justify-center and h-full */}
         <h2 className="text-2xl font-semibold mb-4">Charger une Partie</h2>
         {savedGames.length > 0 ? (
-             <ScrollAreaPrimitive.Root className="w-full max-w-lg h-[300px] rounded-md border"> {/* Increased max-width to lg */}
+             <ScrollAreaPrimitive.Root className="w-full max-w-xl h-[300px] rounded-md border"> {/* Increased max-width */}
                 <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] p-4">
                     <ul className="space-y-3">
                         {savedGames.map((save) => (
@@ -1041,7 +1070,7 @@ const renderStory = () => (
         </CardHeader>
 
          <CardContent className={cn(
-            "flex-grow flex flex-col overflow-hidden p-4 md:p-6",
+            "flex-grow flex flex-col overflow-hidden p-4 md:p-6", // Added overflow-hidden
              shouldCenterContent && "items-center justify-center" // Center content for specific views
          )}>
           {gameState.currentView === 'menu' && renderMainMenu()}
@@ -1057,7 +1086,7 @@ const renderStory = () => (
           )}
           {/* Error Display */}
           {gameState.error && (
-            <div className="mt-auto p-2 bg-destructive/10 rounded-md border border-destructive text-destructive text-sm flex items-center gap-2">
+            <div className="flex-shrink-0 mt-auto p-2 bg-destructive/10 rounded-md border border-destructive text-destructive text-sm flex items-center gap-2">
                  <AlertCircle className="h-4 w-4 shrink-0" />
                  <p className="flex-1">{gameState.error}</p>
             </div>
@@ -1066,7 +1095,7 @@ const renderStory = () => (
 
          {/* Footer appears only when game is active or ended */}
          {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && gameState.story.length > 0 && (
-            <CardFooter className="flex-shrink-0 flex flex-col sm:flex-row justify-center items-center gap-4 mt-auto pt-4 border-t border-border">
+            <CardFooter className="flex-shrink-0 flex flex-col sm:flex-row justify-center items-center gap-4 pt-4 border-t border-border"> {/* Removed mt-auto */}
                  <Button variant="outline" onClick={handleOpenSaveDialog} disabled={gameState.isLoading}>
                     <Save className="mr-2 h-4 w-4" />
                     Sauvegarder
