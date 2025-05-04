@@ -270,7 +270,8 @@ export default function AdventureCraftGame() {
     const input: GenerateStoryContentInput = {
       theme: gameState.theme,
       playerName: gameState.playerName,
-      lastStorySegment: previousStory[previousStory.length - 1], // Pass the actual last segment BEFORE player action
+      // Pass the last narrator segment OR player choice if it's the very first turn
+      lastStorySegment: previousStory.length > 0 ? previousStory[previousStory.length - 1] : undefined,
       playerChoicesHistory: nextPlayerChoicesHistory, // Send updated history including the current action
       gameState: JSON.stringify(gameState.currentGameState), // Send current state stringified
     };
@@ -419,7 +420,7 @@ const renderStory = () => (
             <div
                 key={segment.id}
                 className={cn(
-                    "flex flex-col max-w-[85%] sm:max-w-[75%] p-3 rounded-lg shadow", // Keep max-width
+                    "flex flex-col max-w-[90%] sm:max-w-[85%] p-3 rounded-lg shadow", // Increased max-width
                     segment.speaker === 'player'
                         ? 'ml-auto bg-primary text-primary-foreground rounded-br-none'
                         : 'mr-auto bg-muted text-muted-foreground rounded-bl-none'
@@ -747,3 +748,4 @@ const renderStory = () => (
     </div>
   );
 }
+
