@@ -2,7 +2,7 @@
 // src/ai/flows/generate-story-content.ts
 
 /**
- * @fileOverview Generates story content based on the chosen theme, player choices, inventory, player name, location, and turn count.
+ * @fileOverview Generates story content based on the chosen theme, player choices, inventory, player name, location, and turn count. It can also suggest an image prompt for significant visual moments.
  *
  * - generateStoryContent - A function that generates story content.
  * - GenerateStoryContentInput - The input type for the generateStoryContent function.
@@ -59,7 +59,8 @@ const GenerateStoryContentInputSchema = z.object({
   lastStorySegment: z.object({ // Add last story segment for context
       id: z.number(),
       text: z.string(),
-      speaker: z.enum(['player', 'narrator'])
+      speaker: z.enum(['player', 'narrator']),
+      storyImageUrl: z.string().url().optional().nullable(), // Include optional image URL from previous segment
   }).optional().describe('The very last segment of the story (player choice or narrator text) for immediate context.'),
   playerChoicesHistory: z.array(z.string()).optional().describe('The history of player choices made so far, ordered chronologically. The VERY LAST element is the most recent choice the AI must react to.'),
   gameState: z.string().optional().describe('A JSON string representing the current game state (e.g., {"playerName": "Alex", "location": "Cave Entrance", "inventory": ["key", "map"], "relationships":{"NPC1":"friend"}, "emotions":["curious"], "events":[]}). Start with an empty object string if undefined.'), // Added location to example
@@ -73,6 +74,7 @@ const GenerateStoryContentOutputSchema = z.object({
   storyContent: z.string().describe('The generated story content, describing the result of the player\'s last action and the current situation, addressing the player by name. If it\'s the last turn, this should be the concluding segment.'),
   nextChoices: z.array(z.string()).describe('2-3 clear and simple choices for the player\'s next action, relevant to the current situation, theme, and inventory. Should be an empty array if it\'s the last turn.'),
   updatedGameState: z.string().describe('The updated game state as a JSON string, reflecting changes based on the last action and story progression (including inventory and potentially location). Must be valid JSON.'), // Mentioned location update
+  generatedImagePrompt: z.string().optional().describe('A concise, descriptive prompt for image generation ONLY if a significant visual event occurred in this turn (e.g., entering a stunning new location, encountering a unique creature, a dramatic action scene). Leave empty otherwise.'), // Added image prompt output
 });
 export type GenerateStoryContentOutput = z.infer<typeof GenerateStoryContentOutputSchema>;
 
@@ -163,33 +165,47 @@ const prompt = ai.definePrompt({
 4.  **Chronologie & Causalité**: Respecte l'ordre des événements. Les actions doivent avoir des conséquences logiques sur la suite. Utilise le tableau 'events' du gameState pour te souvenir des faits importants.
 5.  **Décris la nouvelle situation** : Après le résultat de l'action, explique la situation actuelle : où est {{{playerName}}} (confirme le lieu actuel) ? Que perçoit-il/elle ? Qu'est-ce qui a changé ? Que se passe-t-il maintenant ?
 6.  **Gestion Actions Hors-Contexte/Impossibles** : Si le **dernier choix** est illogique, hors thème, dangereux, impossible, refuse GENTIMENT ou réinterprète. Explique pourquoi ("Hmm, {{{playerName}}}, essayer de {action impossible} ne semble pas fonctionner ici dans {{{gameState.location}}}'.") et propose immédiatement de nouvelles actions VALIDES via 'nextChoices' (sauf si c'est le dernier tour).
-7.  **Gestion du Dernier Tour (quand isLastTurn est vrai)** :
+7.  **GÉNÉRATION D'IMAGE PROMPT (Important)** : Si la situation décrite dans 'storyContent' est **visuellement marquante** (nouvel environnement spectaculaire, créature unique, action dramatique, découverte majeure), fournis un prompt CONCIS et DESCRIPTIF pour générer une image dans la clé 'generatedImagePrompt'. Le prompt doit capturer l'essence visuelle de la scène et le thème. **Si la situation n'est pas particulièrement visuelle ou est banale, laisse la clé 'generatedImagePrompt' VIDE ou absente.** Ne crée PAS de prompt pour chaque tour.
+    *   **Exemples de bons prompts:** "Un astronaute dans une combinaison argentée flottant devant une nébuleuse violette scintillante vue depuis le cockpit d'un vaisseau spatial.", "Un chevalier en armure brillante découvrant une épée lumineuse plantée dans un rocher au milieu d'une forêt enchantée sombre.", "Un pirate sur le pont de son navire regardant un kraken géant émerger d'une mer déchaînée sous un ciel orageux.", "Un détective sous la pluie examinant une empreinte de pas étrange devant un manoir gothique la nuit."
+    *   **Exemples de mauvais prompts (trop vagues ou pas assez visuels):** "Le joueur marche dans le couloir.", "Le joueur utilise une clé.", "Le joueur parle à un PNJ.", "Fin de l'aventure."
+8.  **Gestion du Dernier Tour (quand isLastTurn est vrai)** :
     *   Si l'indicateur {{isLastTurn}} est vrai, c'est la fin ! Ne propose **AUCUN** nouveau choix (la clé 'nextChoices' dans la sortie JSON doit être un tableau vide []).
     *   Décris une **conclusion** à l'aventure basée sur le dernier choix et l'état final du jeu (y compris le lieu final). La conclusion doit être satisfaisante et cohérente avec l'histoire et le thème. Elle peut être ouverte ou fermée. Exemple: "Et c'est ainsi, {{{playerName}}}, qu'après avoir {dernière action} dans {{{updatedGameState.location}}}, tu {conclusion}. Ton aventure sur {lieu/thème} se termine ici... pour l'instant !".
     *   Mets quand même à jour 'updatedGameState' une dernière fois si nécessaire (lieu final, inventaire final, etc.).
-8.  **Propose de Nouveaux Choix (si PAS le dernier tour)** : Si l'indicateur {{isLastTurn}} est FAUX, offre 2 ou 3 options claires, simples, pertinentes pour la situation actuelle, le lieu actuel ({{{gameState.location}}}), et le thème. PAS d'actions d'inventaire directes dans 'nextChoices'. Le joueur utilise l'interface d'inventaire pour ça.
-9.  **Mets à Jour l'État du Jeu ('updatedGameState')** : Réfléchis aux conséquences du **dernier choix** (inventaire, **lieu**, relations, émotions, événements). Mets à jour **IMPÉRATIVEMENT** 'inventory' si besoin, et **'location' si le joueur change de lieu**. Mets aussi à jour 'relationships', 'emotions', 'events' le cas échéant. 'updatedGameState' doit être une chaîne JSON valide contenant AU MINIMUM 'playerName', 'location', et 'inventory'. Si rien n'a changé, renvoie le 'gameState' précédent (stringify), mais valide.
-10. **Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant : 'storyContent' (string), 'nextChoices' (array de strings, vide si {{isLastTurn}} est vrai), 'updatedGameState' (string JSON valide). RIEN d'autre.
-11. **Ton rôle** : Reste UNIQUEMENT le narrateur. Pas de sortie de rôle, pas de discussion hors aventure, pas de mention d'IA.
-12. **Public (8-12 ans)** : Langage simple, adapté, positif, aventureux. Pas de violence/peur excessive/thèmes adultes. Utilise les 'emotions' du gameState pour influencer l'ambiance.
-13. **Gestion des relations et émotions**: Utilise les informations contenues dans 'relationships' et 'emotions' pour adapter les interactions des PNJ et l'ambiance de l'histoire. Exemple: Si la relation avec un PNJ est "ennemi", il sera hostile. Si le joueur est "triste", l'ambiance sera plus sombre.
-14. **Mort d'un PNJ**: Si un PNJ important meurt, tu dois en tenir compte dans la suite de l'histoire. Les autres PNJ peuvent être tristes, en colère, ou vouloir se venger. L'ambiance doit s'adapter en conséquence. L'histoire doit avancer et s'adapter à cet évènement.
+    *   **Ne génère PAS de prompt d'image pour la conclusion finale (laisser 'generatedImagePrompt' vide).**
+9.  **Propose de Nouveaux Choix (si PAS le dernier tour)** : Si l'indicateur {{isLastTurn}} est FAUX, offre 2 ou 3 options claires, simples, pertinentes pour la situation actuelle, le lieu actuel ({{{gameState.location}}}), et le thème. PAS d'actions d'inventaire directes dans 'nextChoices'. Le joueur utilise l'interface d'inventaire pour ça.
+10. **Mets à Jour l'État du Jeu ('updatedGameState')** : Réfléchis aux conséquences du **dernier choix** (inventaire, **lieu**, relations, émotions, événements). Mets à jour **IMPÉRATIVEMENT** 'inventory' si besoin, et **'location' si le joueur change de lieu**. Mets aussi à jour 'relationships', 'emotions', 'events' le cas échéant. 'updatedGameState' doit être une chaîne JSON valide contenant AU MINIMUM 'playerName', 'location', et 'inventory'. Si rien n'a changé, renvoie le 'gameState' précédent (stringify), mais valide.
+11. **Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant : 'storyContent' (string), 'nextChoices' (array de strings, vide si {{isLastTurn}} est vrai), 'updatedGameState' (string JSON valide), et 'generatedImagePrompt' (string, optionnel, vide si non pertinent). RIEN d'autre.
+12. **Ton rôle** : Reste UNIQUEMENT le narrateur. Pas de sortie de rôle, pas de discussion hors aventure, pas de mention d'IA.
+13. **Public (8-12 ans)** : Langage simple, adapté, positif, aventureux. Pas de violence/peur excessive/thèmes adultes. Utilise les 'emotions' du gameState pour influencer l'ambiance.
+14. **Gestion des relations et émotions**: Utilise les informations contenues dans 'relationships' et 'emotions' pour adapter les interactions des PNJ et l'ambiance de l'histoire. Exemple: Si la relation avec un PNJ est "ennemi", il sera hostile. Si le joueur est "triste", l'ambiance sera plus sombre.
+15. **Mort d'un PNJ**: Si un PNJ important meurt, tu dois en tenir compte dans la suite de l'histoire. Les autres PNJ peuvent être tristes, en colère, ou vouloir se venger. L'ambiance doit s'adapter en conséquence. L'histoire doit avancer et s'adapter à cet évènement.
 
-**Exemple de sortie (Tour normal, changement de lieu)**
+**Exemple de sortie (Tour normal, changement de lieu visuellement marquant)**
 {
-  "storyContent": "Alex, tu pousses la lourde porte en bois qui s'ouvre sur une vaste caverne souterraine. L'air est frais et humide. Des stalactites pendent du plafond et un petit ruisseau scintille au loin. La porte se referme derrière toi avec un bruit sourd.",
-  "nextChoices": ["Suivre le ruisseau", "Examiner les parois de la caverne", "Écouter les bruits ambiants"],
-  "updatedGameState": "{\"playerName\":\"Alex\",\"location\":\"Caverne Souterraine\",\"inventory\":[\"Lampe de poche\"],\"relationships\":{},\"emotions\":[\"curieux\",\"un peu inquiet\"],\"events\":[\"porte ouverte\", \"entré dans caverne\"]}"
+  "storyContent": "Alex, tu pousses la lourde porte en bois qui s'ouvre sur une vaste caverne souterraine illuminée par des cristaux luminescents bleus. L'air est frais et humide. Des stalactites scintillantes pendent du plafond comme des lustres naturels et un petit ruisseau argenté serpente au loin. La porte se referme derrière toi avec un bruit sourd.",
+  "nextChoices": ["Suivre le ruisseau", "Examiner les cristaux de plus près", "Écouter les bruits ambiants"],
+  "updatedGameState": "{\"playerName\":\"Alex\",\"location\":\"Caverne aux Cristaux\",\"inventory\":[\"Lampe de poche\"],\"relationships\":{},\"emotions\":[\"émerveillé\",\"curieux\"],\"events\":[\"porte ouverte\", \"entré dans caverne aux cristaux\"]}",
+  "generatedImagePrompt": "Une vaste caverne souterraine éclairée par de grands cristaux bleus luminescents, avec des stalactites scintillantes et un ruisseau argenté au sol. Style fantasy."
+}
+
+**Exemple de sortie (Tour normal, action simple, pas d'image)**
+{
+  "storyContent": "D'accord, Alex. Tu utilises la 'Potion de Soin' de ton inventaire. Une douce chaleur t'envahit et tes petites égratignures disparaissent. La fiole est maintenant vide.",
+  "nextChoices": ["Continuer d'explorer le couloir", "Examiner la porte au fond", "Faire une pause"],
+  "updatedGameState": "{\"playerName\":\"Alex\",\"location\":\"Couloir du Donjon\",\"inventory\":[\"Épée\"],\"relationships\":{},\"emotions\":[\"soulagé\",\"prudent\"],\"events\":[\"utilisé potion de soin\"]}",
+  "generatedImagePrompt": ""
 }
 
 **Exemple de sortie (DERNIER TOUR, isLastTurn = true)**
 {
  "storyContent": "Et c'est ainsi, Léa, qu'après avoir activé le portail antique au centre de la 'Salle des Étoiles', celui-ci s'illumine d'une lumière aveuglante ! Tu as trouvé le chemin du retour ! Bravo pour ton courage et ta perspicacité ! Ton aventure spatiale se termine ici, dans un flash de lumière !",
  "nextChoices": [],
- "updatedGameState": "{\"playerName\":\"Léa\",\"location\":\"Portail de Retour\",\"inventory\":[],\"relationships\":{},\"emotions\":[\"soulagée\",\"excitée\"],\"events\":[\"portail activé\"]}"
+ "updatedGameState": "{\"playerName\":\"Léa\",\"location\":\"Portail de Retour\",\"inventory\":[],\"relationships\":{},\"emotions\":[\"soulagée\",\"excitée\"],\"events\":[\"portail activé\"]}",
+ "generatedImagePrompt": ""
 }
 
-**Important** : Concentre-toi sur la réaction à la **dernière action**, la gestion précise de l'inventaire ET du **lieu** dans 'updatedGameState', et la **conclusion si c'est le dernier tour** ({{isLastTurn}}).
+**Important** : Concentre-toi sur la réaction à la **dernière action**, la gestion précise de l'inventaire ET du **lieu** dans 'updatedGameState', la décision de fournir ou non un 'generatedImagePrompt', et la **conclusion si c'est le dernier tour** ({{isLastTurn}}).
 
 Génère maintenant la suite (ou la fin) de l'histoire pour {{{playerName}}}, en respectant TOUTES les règles, le thème {{{theme}}}, le lieu actuel ({{{gameState.location}}}), l'état du jeu, et le compte des tours ({{{currentTurn}}}/{{{maxTurns}}}, la valeur de isLastTurn est {{isLastTurn}}).
 `,
@@ -293,7 +309,8 @@ async input => {
         return {
             storyContent: "Oups ! Le narrateur semble avoir perdu le fil de l'histoire à cause d'une interférence cosmique. Essayons autre chose.",
             nextChoices: input.isLastTurn ? [] : ["Regarder autour de moi", "Vérifier mon inventaire"], // Provide generic safe choices, empty if last turn
-            updatedGameState: validatedInputGameStateString // Return the last known valid state
+            updatedGameState: validatedInputGameStateString, // Return the last known valid state
+            generatedImagePrompt: undefined, // No image prompt on error
         };
     }
 
@@ -307,6 +324,11 @@ async input => {
          console.warn("AI returned empty choices on a normal turn without explicit wait. Providing fallback choices.");
          output.nextChoices = ["Regarder autour de moi", "Vérifier mon inventaire"];
          output.storyContent += "\n(Le narrateur semble chercher ses mots... Que fais-tu en attendant ?)";
+     }
+     // Ensure generatedImagePrompt is a string or undefined
+     if (output.generatedImagePrompt !== undefined && typeof output.generatedImagePrompt !== 'string') {
+          console.warn("AI returned invalid generatedImagePrompt format. Setting to undefined.");
+          output.generatedImagePrompt = undefined;
      }
 
 
@@ -369,6 +391,7 @@ async input => {
         output.storyContent += "\n(Attention: L'état du jeu pourrait ne pas être à jour suite à une petite erreur technique.)";
          // Provide safe fallback choices, considering if it was supposed to be the last turn
          output.nextChoices = input.isLastTurn ? [] : ["Regarder autour", "Vérifier inventaire"];
+         output.generatedImagePrompt = undefined; // No image on error
     }
 
     // Reserialize the validated/corrected game state object
@@ -385,5 +408,4 @@ async input => {
 
   return output;
 });
-
 

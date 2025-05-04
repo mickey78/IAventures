@@ -1,7 +1,7 @@
-// src/app/page.tsx
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image'; // Import next/image
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea component
 import { Button } from '@/components/ui/button';
@@ -10,8 +10,10 @@ import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import type { GenerateInitialStoryOutput } from '@/ai/flows/generate-initial-story'; // Import specific type
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
 import type { GenerateStoryContentInput, GenerateStoryContentOutput } from '@/ai/flows/generate-story-content';
+import { generateImage } from '@/ai/flows/generate-image'; // Import the image generation flow
+import type { GenerateImageOutput } from '@/ai/flows/generate-image'; // Import the image generation output type
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History, MapPin } from 'lucide-react'; // Added MapPin
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History, MapPin, Image as ImageIcon, ImageOff } from 'lucide-react'; // Added MapPin, ImageIcon, ImageOff
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -26,12 +28,16 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip" // Import Tooltip components
 import { Slider } from "@/components/ui/slider" // Import Slider component
+import { Skeleton } from '@/components/ui/skeleton'; // Import Skeleton for image loading
 
 
 export interface StorySegment {
   id: number;
   text: string;
   speaker: 'player' | 'narrator'; // Identify the speaker
+  storyImageUrl?: string | null; // Optional URL for the generated image
+  imageIsLoading?: boolean; // Flag to indicate image is being generated
+  imageError?: boolean; // Flag to indicate image generation failed
 }
 
 // Define ParsedGameState structure
@@ -248,7 +254,14 @@ export default function IAventuresGame() {
       });
       setGameState((prev) => ({
         ...prev,
-        story: [{ id: Date.now(), text: initialStoryData.story, speaker: 'narrator' }], // Initial story is from narrator
+        story: [{
+            id: Date.now(),
+            text: initialStoryData.story,
+            speaker: 'narrator',
+            storyImageUrl: null, // No image for initial story
+            imageIsLoading: false,
+            imageError: false,
+        }], // Initial story is from narrator
         choices: initialStoryData.choices,
         isLoading: false,
         currentGameState: { // Set initial GameState including location from AI
@@ -275,6 +288,34 @@ export default function IAventuresGame() {
     }
   };
 
+  // Trigger image generation asynchronously
+  const triggerImageGeneration = useCallback(async (segmentId: number, prompt: string) => {
+    try {
+        const imageData: GenerateImageOutput = await generateImage({ prompt });
+        setGameState((prev) => ({
+            ...prev,
+            story: prev.story.map(seg =>
+                seg.id === segmentId
+                    ? { ...seg, storyImageUrl: imageData.imageUrl, imageIsLoading: false, imageError: false }
+                    : seg
+            ),
+        }));
+         scrollToBottom(); // Scroll after image loads
+    } catch (err) {
+        console.error('Error generating image:', err);
+        const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
+        toast({ title: 'Erreur Image', description: `Impossible de générer l'image: ${errorMsg}`, variant: 'destructive' });
+        setGameState((prev) => ({
+            ...prev,
+            story: prev.story.map(seg =>
+                seg.id === segmentId
+                    ? { ...seg, storyImageUrl: null, imageIsLoading: false, imageError: true } // Mark as error
+                    : seg
+            ),
+        }));
+    }
+  }, [toast, scrollToBottom]); // Added scrollToBottom dependency
+
   // Function to handle both standard choices and inventory actions
   const handleAction = async (actionText: string) => {
     if (!actionText.trim()) {
@@ -293,7 +334,14 @@ export default function IAventuresGame() {
         return;
     }
 
-    const playerActionSegment: StorySegment = { id: Date.now(), text: actionText.trim(), speaker: 'player' };
+    const playerActionSegment: StorySegment = {
+        id: Date.now(),
+        text: actionText.trim(),
+        speaker: 'player',
+        storyImageUrl: null, // Player actions don't have images
+        imageIsLoading: false,
+        imageError: false,
+    };
     const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, actionText.trim()];
     const previousStory = [...gameState.story];
     const previousChoices = [...gameState.choices]; // Store previous choices for potential revert
@@ -334,7 +382,15 @@ export default function IAventuresGame() {
     try {
       const nextStoryData: GenerateStoryContentOutput = await generateStoryContent(input);
 
-      const narratorResponseSegment: StorySegment = { id: Date.now() + 1, text: nextStoryData.storyContent, speaker: 'narrator' };
+      const narratorResponseSegmentId = Date.now() + 1;
+      const narratorResponseSegment: StorySegment = {
+          id: narratorResponseSegmentId,
+          text: nextStoryData.storyContent,
+          speaker: 'narrator',
+          storyImageUrl: null, // Initially null
+          imageIsLoading: !!nextStoryData.generatedImagePrompt, // True if prompt exists
+          imageError: false,
+      };
       const updatedParsedGameState = parseGameState(nextStoryData.updatedGameState, gameState.playerName); // Parse the response
 
       setGameState((prev) => ({
@@ -346,6 +402,13 @@ export default function IAventuresGame() {
         // currentTurn is already updated optimistically
         currentView: isLastTurn ? 'game_ended' : 'game_active', // Update view based on turn check
       }));
+
+      // If an image prompt was generated, trigger the image generation
+      if (nextStoryData.generatedImagePrompt) {
+          // Add theme context to the image prompt for better results
+          const imagePromptWithTheme = `${nextStoryData.generatedImagePrompt}. Thème : ${gameState.theme}. Style : Illustration pour enfant, coloré, clair.`;
+          triggerImageGeneration(narratorResponseSegmentId, imagePromptWithTheme);
+      }
 
       if (isLastTurn) {
           toast({ title: "Fin de l'Aventure !", description: "Votre histoire est terminée. Merci d'avoir joué !", duration: 5000 });
@@ -426,7 +489,7 @@ export default function IAventuresGame() {
     const stateToSave: Omit<GameStateToSave, 'timestamp' | 'saveName'> = {
         theme: gameState.theme,
         playerName: gameState.playerName,
-        story: gameState.story,
+        story: gameState.story.map(s => ({...s, imageIsLoading: false, imageError: false})), // Don't save loading/error states for images
         choices: gameState.choices,
         currentGameState: JSON.stringify(gameState.currentGameState), // Stringify the parsed state (including location)
         playerChoicesHistory: gameState.playerChoicesHistory,
@@ -454,7 +517,7 @@ export default function IAventuresGame() {
             ...prev,
             theme: loadedState.theme,
             playerName: loadedState.playerName,
-            story: loadedState.story,
+            story: loadedState.story.map(s => ({...s, imageIsLoading: false, imageError: false})), // Ensure loaded images aren't marked as loading/error
             choices: loadedState.choices,
             currentGameState: parsedLoadedGameState, // Store the parsed state (including location)
             playerChoicesHistory: loadedState.playerChoicesHistory,
@@ -533,7 +596,32 @@ const renderStory = () => (
                         {segment.speaker === 'player' ? gameState.playerName : 'Narrateur'}
                     </span>
                 </div>
-                 <p className="whitespace-pre-wrap text-sm">
+                 {/* Image Display */}
+                 {segment.speaker === 'narrator' && segment.imageIsLoading && (
+                     <div className="mt-2 flex justify-center items-center h-48 bg-muted/50 rounded-md">
+                         <Loader className="h-8 w-8 animate-spin text-primary" />
+                     </div>
+                 )}
+                 {segment.speaker === 'narrator' && segment.imageError && (
+                      <div className="mt-2 flex flex-col justify-center items-center h-48 bg-destructive/10 rounded-md text-destructive p-2 text-center">
+                         <ImageOff className="h-8 w-8 mb-2" />
+                         <p className="text-xs">Erreur de génération d'image.</p>
+                     </div>
+                 )}
+                 {segment.speaker === 'narrator' && segment.storyImageUrl && !segment.imageIsLoading && !segment.imageError && (
+                     <div className="mt-2 relative aspect-video rounded-md overflow-hidden border border-border">
+                         <Image
+                            src={segment.storyImageUrl}
+                            alt={`Image de l'aventure générée pour: ${segment.text.substring(0, 50)}...`}
+                            fill
+                            sizes="(max-width: 768px) 90vw, 85vw" // Responsive sizes
+                            style={{ objectFit: 'cover' }} // Cover the area
+                            priority={gameState.story[gameState.story.length - 1].id === segment.id} // Prioritize last image
+                         />
+                     </div>
+                 )}
+                 {/* Text Content */}
+                 <p className="whitespace-pre-wrap text-sm mt-1"> {/* Added mt-1 for spacing below image */}
                     {segment.speaker === 'narrator' ? formatStoryText(segment.text) : segment.text}
                  </p>
             </div>
@@ -987,4 +1075,3 @@ const renderStory = () => (
     </div>
   );
 }
-

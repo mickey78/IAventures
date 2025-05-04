@@ -7,7 +7,7 @@ import type { StorySegment } from '@/app/page'; // Adjust the import path as nee
 export interface GameStateToSave {
   theme: string;
   playerName: string; // Added player name
-  story: StorySegment[];
+  story: Omit<StorySegment, 'imageIsLoading' | 'imageError'>[]; // Exclude transient image states
   choices: string[];
   currentGameState: string; // Stored as JSON string (contains location, inventory, etc.)
   playerChoicesHistory: string[];
@@ -87,6 +87,24 @@ export function listSaveGames(): GameStateToSave[] {
              console.warn(`Save game "${save.saveName}" has currentTurn exceeding maxTurns. Clamping.`);
              save.currentTurn = save.maxTurns + 1;
         }
+         // Validate story segments (basic checks)
+         if (!Array.isArray(save.story)) {
+            console.warn(`Save game "${save.saveName}" has invalid story format. Resetting story.`);
+            save.story = [];
+         } else {
+            // Ensure storyImageUrl is string or null/undefined
+            save.story = save.story.map(seg => {
+                if (seg.storyImageUrl !== undefined && seg.storyImageUrl !== null && typeof seg.storyImageUrl !== 'string') {
+                    console.warn(`Invalid storyImageUrl found in save "${save.saveName}". Setting to null.`);
+                    seg.storyImageUrl = null;
+                }
+                // Remove transient states if they somehow got saved
+                const { imageIsLoading, imageError, ...rest } = seg as any;
+                return rest;
+            });
+         }
+
+
         // Re-stringify the potentially corrected inner gameState
         save.currentGameState = JSON.stringify(currentGameStateObj);
 
@@ -107,6 +125,7 @@ export function listSaveGames(): GameStateToSave[] {
  * Saves the current game state to localStorage.
  * Finds an existing save with the same name or adds a new one.
  * Expects gameState.currentGameState to be a valid JSON string containing location.
+ * Omits transient image states (imageIsLoading, imageError) from story segments.
  * @param saveName The name/identifier for the save slot.
  * @param gameState The game state to save (including playerName, stringified currentGameState with location, and turn info).
  * @returns True if save was successful, false otherwise.
@@ -146,8 +165,17 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
   try {
     const saves = listSaveGames(); // Gets validated saves
     const now = Date.now();
+
+    // Prepare story state for saving (remove transient flags)
+    const storyToSave = gameState.story.map(seg => {
+        const { imageIsLoading, imageError, ...rest } = seg;
+        return rest;
+    });
+
+
     const newState: GameStateToSave = {
         ...gameState, // Includes stringified currentGameState with location and turn info
+        story: storyToSave, // Use the cleaned story array
         saveName: saveName,
         timestamp: now,
     }
@@ -173,6 +201,7 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
 
 /**
  * Loads a specific game state from localStorage by save name.
+ * Adds default transient image states (imageIsLoading: false, imageError: false) to story segments.
  * @param saveName The name of the save slot to load.
  * @returns The loaded game state (with currentGameState as a string containing location and turn info) or null if not found or error occurs.
  */
@@ -198,8 +227,16 @@ export function loadGame(saveName: string): GameStateToSave | null {
          console.warn(`Could not parse location from saved game "${saveName}".`);
      }
 
+     // Rehydrate story segments with default transient states
+     const storyWithTransientState = save.story.map(seg => ({
+        ...seg,
+        imageIsLoading: false,
+        imageError: false,
+     }));
+
+
     console.log(`Game "${saveName}" loaded for player "${save.playerName}" at turn ${save.currentTurn}/${save.maxTurns} in location "${locationInfo}".`);
-    return save; // Return the object with currentGameState as a string (containing location) and turn info
+    return { ...save, story: storyWithTransientState }; // Return the object with enriched story state
   } catch (error) {
     console.error(`Error loading game "${saveName}" from localStorage:`, error);
     return null;
@@ -237,4 +274,3 @@ export function deleteSaveGame(saveName: string): boolean {
     return false;
   }
 }
-
