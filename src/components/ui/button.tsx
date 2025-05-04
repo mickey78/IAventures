@@ -9,14 +9,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/80", // Default is primary, hover changed to 80%
-        primary: "bg-primary text-primary-foreground hover:bg-primary/80", // Explicit primary, hover changed to 80%
+        default: "bg-primary text-primary-foreground hover:bg-primary/90", // Adjusted hover
+        primary: "bg-primary text-primary-foreground hover:bg-primary/90", // Explicit primary, hover changed to 90%
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/80", // Hover changed to 80%
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90", // Hover changed to 90%
         outline:
           "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80", // Hover changed to 80%
+          "bg-secondary text-secondary-foreground hover:bg-secondary/90", // Hover changed to 90%
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
@@ -25,6 +25,7 @@ const buttonVariants = cva(
         sm: "h-9 rounded-md px-3",
         lg: "h-11 rounded-md px-8",
         icon: "h-10 w-10",
+        "icon-sm": "h-7 w-7", // Added smaller icon size
       },
     },
     defaultVariants: {

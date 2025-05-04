@@ -10,13 +10,21 @@ import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
 import type { GenerateStoryContentInput, GenerateStoryContentOutput } from '@/ai/flows/generate-story-content';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle } from 'lucide-react'; // Added User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle icons
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight } from 'lucide-react'; // Added User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight icons
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils'; // Import cn utility
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Import Popover components
+import { Separator } from '@/components/ui/separator'; // Import Separator
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip" // Import Tooltip components
+
 
 export interface StorySegment {
   id: number;
@@ -110,9 +118,11 @@ export default function AdventureCraftGame() {
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [playerNameInput, setPlayerNameInput] = useState('');
   const [customChoiceInput, setCustomChoiceInput] = useState(''); // State for custom input
+  const [isInventoryPopoverOpen, setIsInventoryPopoverOpen] = useState(false); // State for inventory popover
 
   const { toast } = useToast();
   const viewportRef = useRef<HTMLDivElement>(null);
+  const customInputRef = useRef<HTMLInputElement>(null); // Ref for custom input
 
   // --- Load saved games on initial mount ---
   useEffect(() => {
@@ -149,10 +159,12 @@ export default function AdventureCraftGame() {
         currentView: 'menu'
     }));
      setSavedGames(listSaveGames());
+     setIsInventoryPopoverOpen(false); // Close popover on navigating away
   }
 
   const showThemeSelection = () => {
     setGameState(prev => ({ ...prev, currentView: 'theme_selection', theme: null, playerName: null }));
+    setIsInventoryPopoverOpen(false);
   };
 
   const showNameInput = () => {
@@ -161,11 +173,13 @@ export default function AdventureCraftGame() {
       return;
     }
     setGameState(prev => ({ ...prev, currentView: 'name_input' }));
+    setIsInventoryPopoverOpen(false);
   }
 
   const showLoadGameView = () => {
     setSavedGames(listSaveGames());
     setGameState(prev => ({ ...prev, currentView: 'loading_game' }));
+     setIsInventoryPopoverOpen(false);
   };
 
   // --- Game Logic ---
@@ -206,6 +220,7 @@ export default function AdventureCraftGame() {
         theme: themeToUse, // Ensure theme is set
         playerName: nameToUse, // Ensure name is set
     }));
+     setIsInventoryPopoverOpen(false); // Ensure closed on new game
 
     try {
       const initialStoryData = await generateInitialStory({
@@ -266,6 +281,7 @@ export default function AdventureCraftGame() {
       playerChoicesHistory: nextPlayerChoicesHistory,
     }));
     setCustomChoiceInput(''); // Clear custom input if used
+    setIsInventoryPopoverOpen(false); // Close inventory popover after action
     // Scroll handled by useEffect
 
     // Prepare input for AI
@@ -317,12 +333,16 @@ export default function AdventureCraftGame() {
   };
 
   // Specific handler for inventory item clicks (leads to action input)
-  const handleInventoryItemClick = (item: string) => {
-      // For now, just pre-fill the custom input box to suggest using the item
-      setCustomChoiceInput(`Utiliser ${item} `); // Add space for user to complete action
-      // Focus the input field?
-      // Or potentially open a specific action popover later
-      toast({ title: "Action d'Inventaire", description: `Décrivez comment vous voulez utiliser : ${item}` });
+  const handleInventoryActionClick = (actionPrefix: string, item: string) => {
+      const fullActionText = `${actionPrefix} ${item}`;
+      setCustomChoiceInput(fullActionText); // Set the input field text
+      setIsInventoryPopoverOpen(false); // Close the popover
+      // Focus the input field after state update
+      requestAnimationFrame(() => {
+          customInputRef.current?.focus();
+          customInputRef.current?.setSelectionRange(fullActionText.length, fullActionText.length); // Move cursor to end
+      });
+      toast({ title: "Action d'Inventaire", description: `Prêt à '${fullActionText}'. Appuyez sur Envoyer.` });
   };
 
 
@@ -382,6 +402,7 @@ export default function AdventureCraftGame() {
             currentView: 'game_active'
         }));
         toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
+         setIsInventoryPopoverOpen(false); // Close popover on load
     } else {
         toast({ title: "Erreur de Chargement", description: `Impossible de charger la partie "${saveName}".`, variant: "destructive" });
         setSavedGames(listSaveGames()); // Refresh list in case of corruption
@@ -401,15 +422,25 @@ export default function AdventureCraftGame() {
 
  // Function to parse segment text and highlight inventory additions
  const formatStoryText = (text: string) => {
-    const inventoryAddRegex = /(Tu as trouvé.*?ajouté[e]? à ton inventaire\s*!)/gi;
+    // Match variations like "Tu as trouvé", "Vous avez trouvé", "ajouté(e) à", etc.
+    const inventoryAddRegex = /(?:Tu as|Vous avez) trouvé.*?(?:ajouté|ajoutée)\s+à\s+ton\s+inventaire\s*!/gi;
     const parts = text.split(inventoryAddRegex);
-    return parts.map((part, index) => {
-      if (inventoryAddRegex.test(part)) {
-        // Reset regex lastIndex before testing again if needed, though split avoids this issue
-        return <strong key={index} className="text-foreground font-semibold">{part}</strong>;
+
+    return parts.reduce((acc, part, index) => {
+      acc.push(part); // Push the non-matching part
+      if (index < parts.length - 1) {
+        // Find the actual matched text (since split removes it)
+        const match = text.substring(acc.join('').length).match(inventoryAddRegex);
+        if (match) {
+          acc.push(
+            <strong key={`match-${index}`} className="text-primary font-semibold">
+              {match[0]}
+            </strong>
+          );
+        }
       }
-      return part;
-    });
+      return acc;
+    }, [] as React.ReactNode[]);
   };
 
 
@@ -459,36 +490,96 @@ const renderStory = () => (
  );
 
  const renderInventory = () => (
-     <Popover>
+     <Popover open={isInventoryPopoverOpen} onOpenChange={setIsInventoryPopoverOpen}>
          <PopoverTrigger asChild>
              <Button variant="secondary" className="shrink-0" disabled={gameState.isLoading || gameState.currentGameState.inventory.length === 0}>
                  <Briefcase className="mr-2 h-4 w-4" />
                  Inventaire ({gameState.currentGameState.inventory.length})
              </Button>
          </PopoverTrigger>
-         <PopoverContent className="w-60 p-2">
-             <div className="space-y-2">
-                 <h4 className="font-medium leading-none text-center">Inventaire</h4>
-                 {gameState.currentGameState.inventory.length > 0 ? (
-                     <ul className="text-sm space-y-1 max-h-48 overflow-y-auto">
-                         {gameState.currentGameState.inventory.map((item, index) => (
-                             <li key={index}>
-                                 <Button
-                                     variant="ghost"
-                                     size="sm"
-                                     className="w-full justify-start h-auto py-1 px-2 text-left"
-                                     onClick={() => handleInventoryItemClick(item)}
-                                     title={`Utiliser ${item}`}
-                                 >
-                                     {item}
-                                 </Button>
-                             </li>
-                         ))}
-                     </ul>
-                 ) : (
-                     <p className="text-xs text-muted-foreground text-center">Votre inventaire est vide.</p>
-                 )}
-             </div>
+         <PopoverContent className="w-72 p-2" align="end">
+              <TooltipProvider delayDuration={300}>
+                 <div className="space-y-2">
+                     <h4 className="font-medium leading-none text-center pb-2">Inventaire</h4>
+                     {gameState.currentGameState.inventory.length > 0 ? (
+                         <ScrollAreaPrimitive.Root className="max-h-60 w-full">
+                             <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] p-1">
+                                <ul className="text-sm space-y-2">
+                                    {gameState.currentGameState.inventory.map((item, index) => (
+                                        <li key={index} className="flex items-center justify-between gap-1 border-b border-border pb-1 last:border-b-0 last:pb-0">
+                                            <span className="flex-1 font-medium truncate" title={item}>
+                                                {item}
+                                            </span>
+                                            <div className="flex gap-1 shrink-0">
+                                                <Tooltip>
+                                                     <TooltipTrigger asChild>
+                                                         <Button
+                                                             variant="ghost"
+                                                             size="icon-sm" // New smaller size
+                                                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                             onClick={() => handleInventoryActionClick('Inspecter', item)}
+                                                         >
+                                                             <Eye className="h-4 w-4" />
+                                                             <span className="sr-only">Inspecter {item}</span>
+                                                         </Button>
+                                                     </TooltipTrigger>
+                                                     <TooltipContent side="top">Inspecter</TooltipContent>
+                                                 </Tooltip>
+                                                 <Tooltip>
+                                                     <TooltipTrigger asChild>
+                                                         <Button
+                                                             variant="ghost"
+                                                             size="icon-sm"
+                                                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                             onClick={() => handleInventoryActionClick('Utiliser', item)}
+                                                         >
+                                                             <Wand2 className="h-4 w-4" />
+                                                             <span className="sr-only">Utiliser {item}</span>
+                                                         </Button>
+                                                     </TooltipTrigger>
+                                                     <TooltipContent side="top">Utiliser</TooltipContent>
+                                                 </Tooltip>
+                                                  <Tooltip>
+                                                     <TooltipTrigger asChild>
+                                                         <Button
+                                                             variant="ghost"
+                                                             size="icon-sm"
+                                                             className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                                                             onClick={() => handleInventoryActionClick('Lancer', item)}
+                                                         >
+                                                             <MoveUpRight className="h-4 w-4" />
+                                                             <span className="sr-only">Lancer {item}</span>
+                                                         </Button>
+                                                     </TooltipTrigger>
+                                                     <TooltipContent side="top">Lancer</TooltipContent>
+                                                 </Tooltip>
+                                                 <Tooltip>
+                                                     <TooltipTrigger asChild>
+                                                         <Button
+                                                             variant="ghost"
+                                                             size="icon-sm"
+                                                             className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
+                                                             onClick={() => handleInventoryActionClick('Se débarrasser de', item)}
+                                                         >
+                                                             <Trash2 className="h-4 w-4" />
+                                                             <span className="sr-only">Se débarrasser de {item}</span>
+                                                         </Button>
+                                                     </TooltipTrigger>
+                                                     <TooltipContent side="top">Se débarrasser</TooltipContent>
+                                                 </Tooltip>
+                                            </div>
+                                        </li>
+                                    ))}
+                                </ul>
+                              </ScrollAreaPrimitive.Viewport>
+                             <ScrollBar />
+                            <ScrollAreaPrimitive.Corner />
+                         </ScrollAreaPrimitive.Root>
+                     ) : (
+                         <p className="text-xs text-muted-foreground text-center py-4">Votre inventaire est vide.</p>
+                     )}
+                 </div>
+             </TooltipProvider>
          </PopoverContent>
      </Popover>
  );
@@ -497,25 +588,32 @@ const renderStory = () => (
   const renderChoicesAndInput = () => (
     <div className="mt-auto pb-4 flex flex-col gap-4">
       {/* Predefined Choices */}
-      <div className="flex flex-wrap gap-2 justify-center">
-        {gameState.choices.map((choice, index) => (
-          <Button
-            key={index}
-            onClick={() => handleAction(choice)} // Use handleAction
-            disabled={gameState.isLoading}
-            variant="primary"
-            className="flex-grow sm:flex-grow-0"
-            aria-label={`Faire le choix : ${choice}`}
-          >
-            {choice}
-          </Button>
-        ))}
-      </div>
+       {gameState.choices.length > 0 && (
+           <div className="flex flex-wrap gap-2 justify-center">
+             {gameState.choices.map((choice, index) => (
+               <Button
+                 key={index}
+                 onClick={() => handleAction(choice)} // Use handleAction
+                 disabled={gameState.isLoading}
+                 variant="primary" // Keep primary for main actions
+                 className="flex-grow sm:flex-grow-0"
+                 aria-label={`Faire le choix : ${choice}`}
+               >
+                 {choice}
+               </Button>
+             ))}
+           </div>
+       )}
+
+      {/* Separator */}
+      {gameState.choices.length > 0 && <Separator className="my-2" />}
+
 
       {/* Custom Choice Input and Inventory Button */}
-      <div className="flex flex-col sm:flex-row gap-2 w-full max-w-lg mx-auto items-center">
+      <div className="flex flex-col sm:flex-row gap-2 w-full max-w-lg mx-auto items-center justify-center"> {/* Added justify-center */}
           <form onSubmit={handleCustomChoiceSubmit} className="flex-grow flex gap-2 w-full sm:w-auto">
               <Input
+                ref={customInputRef} // Assign ref
                 type="text"
                 value={customChoiceInput}
                 onChange={(e) => setCustomChoiceInput(e.target.value)}
@@ -592,6 +690,7 @@ const renderStory = () => (
                 placeholder="Entre ton nom ici"
                 className="text-center w-full" // Ensure full width within max-w-sm
                 maxLength={50}
+                autoFocus // Focus on name input
             />
           <Button
               onClick={handleNameSubmit}
@@ -760,3 +859,4 @@ const renderStory = () => (
     </div>
   );
 }
+
