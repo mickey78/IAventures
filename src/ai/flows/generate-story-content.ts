@@ -16,7 +16,7 @@ const GenerateStoryContentInputSchema = z.object({
   theme: z
     .string()
     .describe(
-      'The theme of the story (e.g., Medieval Fantasy, Space Exploration, Pirates of the Caribbean, Western and Cowboys, Love Story, Trapped in the Game, Post-Apocalyptic Survival)'
+      'The theme of the story (e.g., Medieval Fantasy, Space Exploration, Pirates of the Caribbean, Western and Cowboys, Mystery and Investigation, Superhero School, Love Story, Trapped in the Game, Post-Apocalyptic Survival)' // Updated themes
     ),
   playerName: z.string().describe('The name of the player.'),
   playerChoicesHistory: z.array(z.string()).optional().describe('The history of player choices made so far, ordered chronologically. The VERY LAST element is the most recent choice the AI must react to.'),
@@ -182,3 +182,4 @@ async input => {
 
   return output;
 });
+

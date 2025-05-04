@@ -16,7 +16,7 @@ const GenerateInitialStoryInputSchema = z.object({
   theme: z
     .string()
     .describe(
-      'The theme chosen by the player for the adventure. Supported themes are: Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Histoire d\'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique.'
+      'The theme chosen by the player for the adventure. Supported themes are: Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Mystère et Enquête, École des Super-Héros, Histoire d\'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique.'
     ),
   playerName: z.string().describe('The name of the player.'),
 });
@@ -41,7 +41,7 @@ const prompt = ai.definePrompt({
       theme: z
         .string()
         .describe(
-          'The theme chosen by the player for the adventure. Supported themes are: Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Histoire d\'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique.'
+          'The theme chosen by the player for the adventure. Supported themes are: Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Mystère et Enquête, École des Super-Héros, Histoire d\'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique.'
         ),
       playerName: z.string().describe('The name of the player.'),
     }),
@@ -77,6 +77,8 @@ const prompt = ai.definePrompt({
   *   **Exploration Spatiale** : {{{playerName}}} est à bord d'un vaisseau spatial, explore une planète inconnue, ou reçoit un message étrange de l'espace. L'objectif pourrait être une mission de reconnaissance, la réparation du vaisseau, la rencontre avec des extraterrestres (amicaux).
   *   **Pirates des Caraïbes** : {{{playerName}}} se réveille sur une île déserte, trouve une carte au trésor, ou navigue sur un bateau pirate. L'objectif pourrait être la recherche d'un trésor, l'évasion d'une île, l'exploration de grottes marines.
   *   **Western et Cowboys** : {{{playerName}}} arrive dans une petite ville du Far West, assiste à un événement inattendu (comme un vol de banque simulé ou une arrivée de diligence), ou doit aider le shérif. L'objectif pourrait être de retrouver un cheval perdu, de livrer un message important, de participer à un rodéo amical.
+  *   **Mystère et Enquête**: {{{playerName}}} trouve un indice étrange (une note codée, une empreinte inhabituelle), découvre un objet perdu ou est témoin d'un petit événement mystérieux (ex: la disparition du gâteau préféré de la grand-mère). L'objectif est de rassembler des indices, interroger des témoins (personnages sympathiques) et résoudre le mystère.
+  *   **École des Super-Héros**: {{{playerName}}} arrive pour son premier jour à l'Académie des Héros. Il/elle découvre son pouvoir (vol, super-force, télékinésie simple...) lors d'une situation inattendue ou pendant un cours d'entraînement. L'objectif pourrait être de maîtriser son pouvoir pour une épreuve, aider un camarade, ou déjouer une farce d'un autre élève.
   *   **Histoire d'Amour** : {{{playerName}}} participe à un bal masqué, trouve une lettre mystérieuse, ou aide quelqu'un à préparer une surprise romantique (adapté aux 8-12 ans, focus sur l'amitié ou l'admiration). L'objectif pourrait être de découvrir l'auteur de la lettre, d'organiser une fête, de réunir deux amis.
   *   **Piégé dans le Jeu** : {{{playerName}}} réalise qu'il/elle est entré(e) dans son jeu vidéo préféré. L'environnement ressemble au jeu, avec des PNJ (personnages non-joueurs) et des règles spécifiques. L'objectif est de comprendre comment sortir ou d'accomplir une quête du jeu.
   *   **Survie Post-Apocalyptique** : {{{playerName}}} explore un monde changé après un événement majeur (non effrayant, ex: une tempête solaire qui a coupé l'électricité). Il/elle cherche des ressources de base (eau, nourriture non périssable, abri simple) ou essaie de retrouver d'autres survivants amicaux. L'objectif est la survie simple et l'entraide.
@@ -112,3 +114,4 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
     return output;
   }
 );
+

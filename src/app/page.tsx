@@ -10,7 +10,7 @@ import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
 import type { GenerateStoryContentInput } from '@/ai/flows/generate-story-content';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send } from 'lucide-react'; // Added User, Bot, Smile, Send icons
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles } from 'lucide-react'; // Added User, Bot, Smile, Send, Search, Sparkles icons
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -47,6 +47,8 @@ const themes: Theme[] = [
   { value: 'Exploration Spatiale', label: 'Exploration Spatiale', prompt: 'Mission de sauvetage sur une planète inconnue', icon: Rocket },
   { value: 'Pirates des Caraïbes', label: 'Pirates des Caraïbes', prompt: 'Chasse au trésor légendaire', icon: Anchor },
   { value: 'Western et Cowboys', label: 'Western et Cowboys', prompt: 'Confrontation avec un hors-la-loi', icon: Sun },
+  { value: 'Mystère et Enquête', label: 'Mystère et Enquête', prompt: 'Résous une énigme ou retrouve un objet perdu.', icon: Search },
+  { value: 'École des Super-Héros', label: 'École des Super-Héros', prompt: 'Apprends à maîtriser tes pouvoirs et sauve la situation !', icon: Sparkles },
   { value: 'Histoire d\'Amour', label: 'Histoire d\'Amour', prompt: 'Rencontre inattendue et romance naissante', icon: Heart },
   { value: 'Piégé dans le Jeu', label: 'Piégé dans le Jeu', prompt: 'Évasion d\'un jeu vidéo immersif', icon: Gamepad2 },
   { value: 'Survie Post-Apocalyptique', label: 'Survie Post-Apocalyptique', prompt: 'Recherche de ressources dans un monde dévasté', icon: ShieldAlert },
@@ -228,7 +230,7 @@ export default function AdventureCraftGame() {
     const input: GenerateStoryContentInput = {
       theme: gameState.theme,
       playerName: gameState.playerName,
-      playerChoices: nextPlayerChoicesHistory, // Send updated history
+      playerChoicesHistory: nextPlayerChoicesHistory, // Send updated history
       gameState: gameState.currentGameState || '{}',
     };
 
@@ -639,3 +641,4 @@ const renderStory = () => (
     </div>
   );
 }
+
