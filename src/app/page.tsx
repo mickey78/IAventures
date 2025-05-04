@@ -8,14 +8,15 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
-import type { GenerateStoryContentInput } from '@/ai/flows/generate-story-content';
+import type { GenerateStoryContentInput, GenerateStoryContentOutput } from '@/ai/flows/generate-story-content';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles } from 'lucide-react'; // Added User, Bot, Smile, Send, Search, Sparkles icons
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle } from 'lucide-react'; // Added User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle icons
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { cn } from '@/lib/utils'; // Import cn utility
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"; // Import Popover components
 
 export interface StorySegment {
   id: number;
@@ -23,10 +24,21 @@ export interface StorySegment {
   speaker: 'player' | 'narrator'; // Identify the speaker
 }
 
+// Define ParsedGameState structure
+interface ParsedGameState {
+    inventory: string[];
+    playerName?: string;
+    location?: string;
+    status?: string;
+    // Add other potential gameState fields here
+    [key: string]: any; // Allow for other properties
+}
+
+
 interface GameState {
   story: StorySegment[];
   choices: string[];
-  currentGameState: string;
+  currentGameState: ParsedGameState; // Use parsed object
   theme: string | null;
   playerName: string | null;
   isLoading: boolean;
@@ -54,11 +66,38 @@ const themes: Theme[] = [
   { value: 'Survie Post-Apocalyptique', label: 'Survie Post-Apocalyptique', prompt: 'Recherche de ressources dans un monde dévasté', icon: ShieldAlert },
 ];
 
+// Helper function to safely parse game state JSON
+const parseGameState = (stateString: string | undefined | null, playerNameFallback: string | null = 'Joueur'): ParsedGameState => {
+    const defaultState: ParsedGameState = { inventory: [], playerName: playerNameFallback || undefined };
+    if (!stateString) {
+        return defaultState;
+    }
+    try {
+        const parsed = JSON.parse(stateString);
+        if (typeof parsed !== 'object' || parsed === null) {
+            console.warn("Parsed game state is not an object, returning default.");
+            return defaultState;
+        }
+        // Ensure inventory is an array of strings
+        const inventory = Array.isArray(parsed.inventory)
+            ? parsed.inventory.filter((item: any) => typeof item === 'string')
+            : [];
+        // Ensure playerName is a string
+        const playerName = typeof parsed.playerName === 'string' ? parsed.playerName : playerNameFallback || undefined;
+
+        return { ...parsed, inventory, playerName };
+    } catch (error) {
+        console.error("Error parsing game state JSON:", error, "String was:", stateString);
+        return defaultState;
+    }
+};
+
+
 export default function AdventureCraftGame() {
   const [gameState, setGameState] = useState<GameState>({
     story: [],
     choices: [],
-    currentGameState: '{}',
+    currentGameState: { inventory: [] }, // Initialize with default object
     theme: null,
     playerName: null,
     isLoading: false,
@@ -101,7 +140,7 @@ export default function AdventureCraftGame() {
         ...prev,
         story: [],
         choices: [],
-        currentGameState: '{}',
+        currentGameState: { inventory: [], playerName: null }, // Reset state
         theme: null,
         playerName: null,
         isLoading: false,
@@ -134,28 +173,24 @@ export default function AdventureCraftGame() {
     setGameState((prev) => ({ ...prev, theme: themeValue }));
   };
 
-  const handleNameSubmit = () => {
+ const handleNameSubmit = () => {
      if (!playerNameInput.trim()) {
       toast({ title: 'Nom Invalide', description: 'Veuillez entrer votre nom.', variant: 'destructive' });
       return;
     }
     const trimmedName = playerNameInput.trim();
-    // Set player name first using the functional update form
-    setGameState(prev => ({ ...prev, playerName: trimmedName }));
-    // Use useEffect to start the game AFTER the state has been updated
-    startNewGame(trimmedName); // Pass the name explicitly
+    // Set player name first
+    setGameState(prev => ({ ...prev, playerName: trimmedName, currentGameState: { ...prev.currentGameState, playerName: trimmedName } }));
+    // Start the game immediately after setting the name
+    startNewGame(trimmedName, gameState.theme); // Pass name and current theme
   }
 
 
-   // useEffect to trigger game start when player name is set after name input
-   // We check if the view is 'name_input' to ensure this only runs after name submission
-   // This approach might be overly complex. Let's simplify `handleNameSubmit`.
-
-  const startNewGame = async (nameToUse: string) => { // Expects name as argument
-    if (!gameState.theme) { // Only theme needs checking now, name is passed in
+  const startNewGame = async (nameToUse: string, themeToUse: string | null) => {
+    if (!themeToUse) {
       console.error('Theme missing, cannot start game.');
        toast({ title: 'Erreur', description: 'Veuillez sélectionner un thème.', variant: 'destructive' });
-       showThemeSelection();
+       showThemeSelection(); // Go back if theme somehow missing
       return;
     }
 
@@ -165,22 +200,24 @@ export default function AdventureCraftGame() {
         error: null,
         story: [],
         choices: [],
-        currentGameState: JSON.stringify({ playerName: nameToUse }), // Use argument here
+        currentGameState: { playerName: nameToUse, inventory: [] }, // Initialize with name and empty inventory
         playerChoicesHistory: [],
         currentView: 'game_active', // Switch view
-        playerName: nameToUse, // Ensure name is set correctly in state
+        theme: themeToUse, // Ensure theme is set
+        playerName: nameToUse, // Ensure name is set
     }));
 
     try {
       const initialStoryData = await generateInitialStory({
-          theme: gameState.theme,
-          playerName: nameToUse // Use argument here
+          theme: themeToUse,
+          playerName: nameToUse
       });
       setGameState((prev) => ({
         ...prev,
         story: [{ id: Date.now(), text: initialStoryData.story, speaker: 'narrator' }], // Initial story is from narrator
         choices: initialStoryData.choices,
         isLoading: false,
+         // Initial GameState from AI? Let's assume not for now, initialize manually
       }));
     } catch (err) {
       console.error('Error generating initial story:', err);
@@ -190,86 +227,98 @@ export default function AdventureCraftGame() {
         isLoading: false,
         error: `Impossible de générer l'histoire initiale: ${errorMsg}`,
         theme: null,
-        playerName: null, // Reset name state
+        playerName: null,
+        currentGameState: { inventory: [] }, // Reset state
         currentView: 'theme_selection', // Go back
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de générer l'histoire initiale: ${errorMsg}`, variant: 'destructive' });
     }
   };
 
- const handleChoice = async (choice: string) => {
-    if (!choice.trim()) {
+  // Function to handle both standard choices and inventory actions
+  const handleAction = async (actionText: string) => {
+    if (!actionText.trim()) {
         toast({ title: "Action Vide", description: "Veuillez décrire votre action.", variant: "destructive" });
         return;
     }
     if (!gameState.playerName || !gameState.theme) {
-        console.error('Player name or theme missing during choice handling.');
-        toast({ title: 'Erreur', description: 'Erreur de jeu. Veuillez réessayer.', variant: 'destructive' });
+        console.error('Player name or theme missing during action handling.');
+        toast({ title: 'Erreur', description: 'Erreur de jeu critique. Retour au menu principal.', variant: 'destructive' });
         showMainMenu();
         return;
     }
 
-    // Player's choice segment
-    const playerChoiceSegment: StorySegment = { id: Date.now(), text: choice.trim(), speaker: 'player' };
-    const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, choice.trim()];
-    const previousStory = [...gameState.story]; // Keep previous story for potential revert
+    const playerActionSegment: StorySegment = { id: Date.now(), text: actionText.trim(), speaker: 'player' };
+    const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, actionText.trim()];
+    const previousStory = [...gameState.story];
+    const previousChoices = [...gameState.choices]; // Store previous choices for potential revert
+    const previousGameState = gameState.currentGameState; // Store previous parsed state
 
-    // Update state immediately to show player choice and start loading for AI response
+    // Optimistic update: show player action, clear choices, start loading
     setGameState((prev) => ({
       ...prev,
       isLoading: true,
       error: null,
-      story: [...prev.story, playerChoiceSegment], // Add player choice bubble
-      choices: [], // Clear choices while loading
+      story: [...prev.story, playerActionSegment],
+      choices: [], // Clear standard choices
       playerChoicesHistory: nextPlayerChoicesHistory,
     }));
-    setCustomChoiceInput(''); // Clear the custom input field
-    // Scroll down is handled by useEffect based on story change
+    setCustomChoiceInput(''); // Clear custom input if used
+    // Scroll handled by useEffect
 
     // Prepare input for AI
     const input: GenerateStoryContentInput = {
       theme: gameState.theme,
       playerName: gameState.playerName,
-      playerChoicesHistory: nextPlayerChoicesHistory, // Send updated history
-      gameState: gameState.currentGameState || '{}',
+      lastStorySegment: gameState.story[gameState.story.length - 1], // Pass the actual last segment before player action
+      playerChoicesHistory: nextPlayerChoicesHistory, // Send updated history including the current action
+      gameState: JSON.stringify(gameState.currentGameState), // Send current state stringified
     };
 
     try {
-      // Await the AI response
-      const nextStoryData = await generateStoryContent(input);
+      const nextStoryData: GenerateStoryContentOutput = await generateStoryContent(input);
 
-      // Narrator's response segment
       const narratorResponseSegment: StorySegment = { id: Date.now() + 1, text: nextStoryData.storyContent, speaker: 'narrator' };
+      const updatedParsedGameState = parseGameState(nextStoryData.updatedGameState, gameState.playerName); // Parse the response
 
-      // Update state with AI response *after* it's received
       setGameState((prev) => ({
         ...prev,
-        story: [...prev.story, narratorResponseSegment], // Add narrator response bubble
+        story: [...prev.story, narratorResponseSegment],
         choices: nextStoryData.nextChoices,
-        currentGameState: nextStoryData.updatedGameState,
-        isLoading: false, // Stop loading
+        currentGameState: updatedParsedGameState, // Store the new parsed state
+        isLoading: false,
       }));
-       // Scroll down is handled by useEffect based on story change
+      // Scroll handled by useEffect
 
     } catch (err) {
       console.error('Error generating story content:', err);
       const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
-      // Revert optimistic updates on error
       setGameState((prev) => ({
         ...prev,
         isLoading: false,
         error: `Impossible de continuer l'histoire: ${errorMsg}`,
-        story: previousStory, // Revert to story before player choice was added
-        choices: gameState.choices, // Restore previous choices (maybe fetch again or keep previous state's choices?)
+        story: previousStory, // Revert story
+        choices: previousChoices, // Revert choices
+        currentGameState: previousGameState, // Revert game state
         playerChoicesHistory: prev.playerChoicesHistory.slice(0, -1), // Revert history
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de continuer l'histoire: ${errorMsg}`, variant: 'destructive' });
     }
   };
 
+
   const handleCustomChoiceSubmit = (event: React.FormEvent<HTMLFormElement>) => {
-      event.preventDefault(); // Prevent default form submission
-      handleChoice(customChoiceInput);
+      event.preventDefault();
+      handleAction(customChoiceInput); // Use the main handleAction function
+  };
+
+  // Specific handler for inventory item clicks (leads to action input)
+  const handleInventoryItemClick = (item: string) => {
+      // For now, just pre-fill the custom input box to suggest using the item
+      setCustomChoiceInput(`Utiliser ${item} `); // Add space for user to complete action
+      // Focus the input field?
+      // Or potentially open a specific action popover later
+      toast({ title: "Action d'Inventaire", description: `Décrivez comment vous voulez utiliser : ${item}` });
   };
 
 
@@ -293,12 +342,13 @@ export default function AdventureCraftGame() {
         return;
     }
 
+    // Prepare the state to be saved, ensuring currentGameState is stringified
     const stateToSave: Omit<GameStateToSave, 'timestamp' | 'saveName'> = {
         theme: gameState.theme,
         playerName: gameState.playerName,
         story: gameState.story,
         choices: gameState.choices,
-        currentGameState: gameState.currentGameState,
+        currentGameState: JSON.stringify(gameState.currentGameState), // Stringify the parsed state
         playerChoicesHistory: gameState.playerChoicesHistory,
     };
 
@@ -314,13 +364,14 @@ export default function AdventureCraftGame() {
   const handleLoadGame = (saveName: string) => {
     const loadedState = loadGame(saveName);
     if (loadedState) {
+        const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName); // Parse the loaded string
         setGameState(prev => ({
             ...prev,
             theme: loadedState.theme,
             playerName: loadedState.playerName,
             story: loadedState.story,
             choices: loadedState.choices,
-            currentGameState: loadedState.currentGameState,
+            currentGameState: parsedLoadedGameState, // Store the parsed state
             playerChoicesHistory: loadedState.playerChoicesHistory,
             isLoading: false,
             error: null,
@@ -329,7 +380,7 @@ export default function AdventureCraftGame() {
         toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
     } else {
         toast({ title: "Erreur de Chargement", description: `Impossible de charger la partie "${saveName}".`, variant: "destructive" });
-        setSavedGames(listSaveGames());
+        setSavedGames(listSaveGames()); // Refresh list in case of corruption
     }
   };
 
@@ -347,35 +398,35 @@ const renderStory = () => (
     <ScrollAreaPrimitive.Root className="relative overflow-hidden flex-1 w-full rounded-md border mb-4 bg-card"> {/* Use flex-1 to take available space */}
         <ScrollAreaPrimitive.Viewport
             ref={viewportRef}
-            className="h-full w-full rounded-[inherit] p-4 space-y-4" // space-y-4 adds vertical space between bubbles (1rem/16px by default)
+            className="h-full w-full rounded-[inherit] p-4 space-y-4" // space-y-4 adds vertical space between bubbles
         >
             {gameState.story.map((segment) => (
             <div
                 key={segment.id}
                 className={cn(
-                    "flex flex-col max-w-[85%] sm:max-w-[75%] p-3 rounded-lg shadow", // Increased max-width
+                    "flex flex-col max-w-[85%] sm:max-w-[75%] p-3 rounded-lg shadow", // Keep max-width
                     segment.speaker === 'player'
-                        ? 'ml-auto bg-primary text-primary-foreground rounded-br-none' // Player bubble on the right, different color
-                        : 'mr-auto bg-muted text-muted-foreground rounded-bl-none' // Narrator bubble on the left, different color
+                        ? 'ml-auto bg-primary text-primary-foreground rounded-br-none'
+                        : 'mr-auto bg-muted text-muted-foreground rounded-bl-none'
                 )}
             >
                 <div className="flex items-center gap-2 mb-1">
                     {segment.speaker === 'player' ? (
-                        <Smile className="h-4 w-4" /> // Player icon
+                        <Smile className="h-4 w-4" />
                     ) : (
-                        <Bot className="h-4 w-4" /> // Narrator icon
+                        <Bot className="h-4 w-4" />
                     )}
                     <span className="text-xs font-medium">
                         {segment.speaker === 'player' ? gameState.playerName : 'Narrateur'}
                     </span>
                 </div>
-                 <p className="whitespace-pre-wrap text-sm">{segment.text}</p> {/* Ensure text wraps */}
+                 <p className="whitespace-pre-wrap text-sm">{segment.text}</p>
             </div>
             ))}
             {/* Loading indicator */}
-            {gameState.isLoading && gameState.choices.length === 0 && ( // Show loading only when waiting for AI response (choices are empty)
-                <div className="flex items-center justify-start space-x-2 text-muted-foreground mt-4 ml-4"> {/* Align left like narrator bubble */}
-                    <Bot className="h-4 w-4 mr-2" /> {/* Narrator icon */}
+            {gameState.isLoading && gameState.choices.length === 0 && (
+                <div className="flex items-center justify-start space-x-2 text-muted-foreground mt-4 ml-4">
+                    <Bot className="h-4 w-4 mr-2" />
                     <Loader className="h-5 w-5 animate-spin" />
                     <span>Génération de la suite...</span>
                 </div>
@@ -386,18 +437,53 @@ const renderStory = () => (
     </ScrollAreaPrimitive.Root>
  );
 
+ const renderInventory = () => (
+     <Popover>
+         <PopoverTrigger asChild>
+             <Button variant="outline" className="shrink-0" disabled={gameState.isLoading || gameState.currentGameState.inventory.length === 0}>
+                 <Briefcase className="mr-2 h-4 w-4" />
+                 Inventaire ({gameState.currentGameState.inventory.length})
+             </Button>
+         </PopoverTrigger>
+         <PopoverContent className="w-60 p-2">
+             <div className="space-y-2">
+                 <h4 className="font-medium leading-none text-center">Inventaire</h4>
+                 {gameState.currentGameState.inventory.length > 0 ? (
+                     <ul className="text-sm space-y-1 max-h-48 overflow-y-auto">
+                         {gameState.currentGameState.inventory.map((item, index) => (
+                             <li key={index}>
+                                 <Button
+                                     variant="ghost"
+                                     size="sm"
+                                     className="w-full justify-start h-auto py-1 px-2 text-left"
+                                     onClick={() => handleInventoryItemClick(item)}
+                                     title={`Utiliser ${item}`}
+                                 >
+                                     {item}
+                                 </Button>
+                             </li>
+                         ))}
+                     </ul>
+                 ) : (
+                     <p className="text-xs text-muted-foreground text-center">Votre inventaire est vide.</p>
+                 )}
+             </div>
+         </PopoverContent>
+     </Popover>
+ );
+
 
   const renderChoicesAndInput = () => (
-    <div className="mt-auto pb-4 flex flex-col gap-4"> {/* Push to bottom, add spacing */}
+    <div className="mt-auto pb-4 flex flex-col gap-4">
       {/* Predefined Choices */}
       <div className="flex flex-wrap gap-2 justify-center">
         {gameState.choices.map((choice, index) => (
           <Button
             key={index}
-            onClick={() => handleChoice(choice)}
+            onClick={() => handleAction(choice)} // Use handleAction
             disabled={gameState.isLoading}
-            variant="secondary" // Keep variant for styling consistency if desired
-            className="flex-grow sm:flex-grow-0 bg-primary hover:bg-primary/90 text-primary-foreground" // Explicitly set background/text colors
+            variant="secondary"
+            className="flex-grow sm:flex-grow-0 bg-primary hover:bg-primary/90 text-primary-foreground"
             aria-label={`Faire le choix : ${choice}`}
           >
             {choice}
@@ -405,22 +491,26 @@ const renderStory = () => (
         ))}
       </div>
 
-      {/* Custom Choice Input */}
-      <form onSubmit={handleCustomChoiceSubmit} className="flex gap-2 w-full max-w-lg mx-auto">
-          <Input
-            type="text"
-            value={customChoiceInput}
-            onChange={(e) => setCustomChoiceInput(e.target.value)}
-            placeholder="Que faites-vous ?"
-            className="flex-grow"
-            disabled={gameState.isLoading}
-            aria-label="Entrez votre propre action"
-          />
-          <Button type="submit" disabled={gameState.isLoading || !customChoiceInput.trim()} size="icon" className="bg-primary hover:bg-primary/90 text-primary-foreground">
-            <Send className="h-4 w-4" />
-            <span className="sr-only">Envoyer</span>
-          </Button>
-      </form>
+      {/* Custom Choice Input and Inventory Button */}
+      <div className="flex flex-col sm:flex-row gap-2 w-full max-w-lg mx-auto items-center">
+          <form onSubmit={handleCustomChoiceSubmit} className="flex-grow flex gap-2 w-full sm:w-auto">
+              <Input
+                type="text"
+                value={customChoiceInput}
+                onChange={(e) => setCustomChoiceInput(e.target.value)}
+                placeholder="Que faites-vous ? (ou utilisez un objet)"
+                className="flex-grow"
+                disabled={gameState.isLoading}
+                aria-label="Entrez votre propre action ou utilisez un objet"
+              />
+              <Button type="submit" disabled={gameState.isLoading || !customChoiceInput.trim()} size="icon" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+                <Send className="h-4 w-4" />
+                <span className="sr-only">Envoyer</span>
+              </Button>
+          </form>
+           {renderInventory()} {/* Render inventory button/popover here */}
+      </div>
+
     </div>
   );
 
@@ -584,17 +674,14 @@ const renderStory = () => (
   );
 
   return (
-    // Adjust main container for full height and flex column layout
     <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground">
-       {/* Make Card take full available height and use flex */}
        <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg flex flex-col flex-grow" style={{ height: '95vh' }}>
-        <CardHeader className="text-center flex-shrink-0"> {/* Prevent header from growing */}
+        <CardHeader className="text-center flex-shrink-0">
           <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
             <BookOpenText className="h-8 w-8 text-primary" />
             AdventureCraft
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-             {/* Dynamic description based on view */}
              {gameState.currentView === 'game_active' && gameState.theme && gameState.playerName
               ? `Aventure de ${gameState.playerName} : ${gameState.theme}`
               : gameState.currentView === 'theme_selection'
@@ -607,7 +694,6 @@ const renderStory = () => (
           </CardDescription>
         </CardHeader>
 
-        {/* Make CardContent grow and use flex */}
         <CardContent className="flex-grow flex flex-col overflow-hidden p-4 md:p-6">
           {gameState.currentView === 'menu' && renderMainMenu()}
           {gameState.currentView === 'theme_selection' && renderThemeSelection()}
@@ -615,16 +701,19 @@ const renderStory = () => (
           {gameState.currentView === 'loading_game' && renderLoadGame()}
           {gameState.currentView === 'game_active' && (
             <>
-              {renderStory()} {/* Story area will now grow */}
-              {!gameState.isLoading && renderChoicesAndInput()} {/* Choices and input stick to bottom */}
+              {renderStory()}
+              {!gameState.isLoading && renderChoicesAndInput()}
             </>
           )}
+          {/* Error Display */}
           {gameState.error && (
-             <p className="text-destructive mt-auto text-center font-medium p-2 bg-destructive/10 rounded-md">{gameState.error}</p> // mt-auto to push error down
+            <div className="mt-auto p-2 bg-destructive/10 rounded-md border border-destructive text-destructive text-sm flex items-center gap-2">
+                 <AlertCircle className="h-4 w-4 shrink-0" />
+                 <p className="flex-1">{gameState.error}</p>
+            </div>
           )}
         </CardContent>
 
-         {/* Footer remains at the bottom of the card */}
          {gameState.currentView === 'game_active' && gameState.story.length > 0 && (
             <CardFooter className="flex-shrink-0 flex flex-col sm:flex-row justify-center items-center gap-4 mt-auto pt-4 border-t border-border">
                  <Button variant="outline" onClick={handleOpenSaveDialog} disabled={gameState.isLoading}>
@@ -641,4 +730,3 @@ const renderStory = () => (
     </div>
   );
 }
-
