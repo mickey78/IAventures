@@ -23,6 +23,7 @@ interface GameHeaderProps {
     onInventoryAction: (actionPrefix: string, item: string) => void;
     onSave: () => void;
     onMainMenu: () => void;
+    shouldFlashInventory: boolean; // Added prop for flashing effect
 }
 
 const GameHeader: React.FC<GameHeaderProps> = ({
@@ -40,6 +41,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
     onInventoryAction,
     onSave,
     onMainMenu,
+    shouldFlashInventory, // Destructure flashing prop
 }) => {
 
     const getHeaderText = () => {
@@ -96,6 +98,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
                         onActionClick={onInventoryAction}
                         isLoading={isLoading}
                         isGameEnded={currentView === 'game_ended'}
+                        shouldFlash={shouldFlashInventory} // Pass the flashing state
                     />
                 )}
             </div>

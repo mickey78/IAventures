@@ -1,4 +1,3 @@
-
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -26,7 +25,7 @@ import StoryDisplay from '@/components/game/StoryDisplay';
 import ActionInput from '@/components/game/ActionInput';
 import SaveDialog from '@/components/game/SaveDialog';
 import GameEndedDisplay from '@/components/game/GameEndedDisplay';
-import { AlertCircle, Loader } from 'lucide-react';
+import { AlertCircle, Loader, Info } from 'lucide-react'; // Import Info icon
 import { cn } from '@/lib/utils';
 
 export default function IAventuresGame() {
@@ -51,6 +50,7 @@ export default function IAventuresGame() {
     maxTurns: 15, // Default max turns
     currentTurn: 1, // Default current turn
     generatingSegmentId: null, // Track which segment is generating an image
+    initialPromptDebugInfo: null, // Store initial prompt for debugging
   });
   const [savedGames, setSavedGames] = useState<Omit<GameStateToSave, 'story' | 'choices' | 'currentGameState' | 'playerChoicesHistory'>[]>([]); // Minimal info for list
   const [saveNameInput, setSaveNameInput] = useState('');
@@ -60,6 +60,7 @@ export default function IAventuresGame() {
   const [customChoiceInput, setCustomChoiceInput] = useState('');
   const [isInventoryPopoverOpen, setIsInventoryPopoverOpen] = useState(false);
   const [isCustomInputVisible, setIsCustomInputVisible] = useState(false);
+  const [shouldFlashInventory, setShouldFlashInventory] = useState(false); // State for inventory flash
 
   const { toast } = useToast();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -92,6 +93,18 @@ export default function IAventuresGame() {
     }
   }, [isCustomInputVisible]);
 
+   // --- Inventory Flash Effect ---
+   useEffect(() => {
+    if (shouldFlashInventory) {
+      // Set a timeout to remove the flash class after the animation duration (0.5s * 3 = 1.5s)
+      const timer = setTimeout(() => {
+        setShouldFlashInventory(false);
+      }, 1500); // Match the total animation duration (0.5s * 3 iterations)
+      return () => clearTimeout(timer); // Cleanup timer on unmount or if effect runs again
+    }
+  }, [shouldFlashInventory]);
+
+
   // --- Navigation Handlers ---
   const showMainMenu = () => {
     setGameState(prev => ({
@@ -116,6 +129,7 @@ export default function IAventuresGame() {
       maxTurns: 15,
       currentTurn: 1,
       generatingSegmentId: null,
+      initialPromptDebugInfo: null, // Clear debug info
     }));
     setSavedGames(listSaveGames());
     setIsInventoryPopoverOpen(false);
@@ -131,7 +145,8 @@ export default function IAventuresGame() {
       playerName: null,
       currentTurn: 1,
       maxTurns: 15,
-      currentGameState: { ...prev.currentGameState, location: 'Sélection du Thème', relationships: {}, emotions: [], events: [] } // Reset specific parts
+      currentGameState: { ...prev.currentGameState, location: 'Sélection du Thème', relationships: {}, emotions: [], events: [] }, // Reset specific parts
+      initialPromptDebugInfo: null, // Clear debug info
     }));
     setIsInventoryPopoverOpen(false);
     setIsCustomInputVisible(false);
@@ -148,7 +163,8 @@ export default function IAventuresGame() {
        theme: selectedThemeValue, // Set the main theme
        currentView: 'sub_theme_selection',
        subTheme: null, // Reset subtheme selection for this view
-       currentGameState: { ...prev.currentGameState, location: `Choix du Scénario: ${selectedThemeValue}` }
+       currentGameState: { ...prev.currentGameState, location: `Choix du Scénario: ${selectedThemeValue}` },
+       initialPromptDebugInfo: null, // Clear debug info
      }));
      setIsInventoryPopoverOpen(false);
      setIsCustomInputVisible(false);
@@ -167,7 +183,7 @@ export default function IAventuresGame() {
 
   const showLoadGameView = () => {
     setSavedGames(listSaveGames());
-    setGameState(prev => ({ ...prev, currentView: 'loading_game', currentGameState: { ...prev.currentGameState, location: 'Chargement de Partie' } }));
+    setGameState(prev => ({ ...prev, currentView: 'loading_game', currentGameState: { ...prev.currentGameState, location: 'Chargement de Partie' }, initialPromptDebugInfo: null }));
     setIsInventoryPopoverOpen(false);
     setIsCustomInputVisible(false);
   };
@@ -275,7 +291,7 @@ export default function IAventuresGame() {
       return;
     }
 
-     let initialScenarioPrompt = `Commence une aventure sur le thème "${themeToUse}" pour ${nameToUse}. Sois créatif !`; // Generic prompt if skipping
+     let initialScenarioPrompt = `Commence une aventure créative et surprenante pour ${nameToUse} dans le thème "${themeToUse}".`; // Generic prompt if skipping
      if (subThemeToUse) {
         // Find the specific subTheme prompt if one was selected
          const mainTheme = themes.find(t => t.value === themeToUse);
@@ -312,6 +328,7 @@ export default function IAventuresGame() {
         emotions: [],
         events: [],
       },
+      initialPromptDebugInfo: { theme: themeToUse, subThemePrompt: initialScenarioPrompt, playerName: nameToUse }, // Store debug info
     }));
     setIsInventoryPopoverOpen(false);
     setIsCustomInputVisible(false);
@@ -378,6 +395,7 @@ export default function IAventuresGame() {
         maxTurns: 15,
         currentTurn: 1,
         generatingSegmentId: null,
+        initialPromptDebugInfo: null, // Clear debug info on error
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de générer l'histoire initiale: ${errorMsg}`, variant: 'destructive' });
     }
@@ -455,6 +473,13 @@ export default function IAventuresGame() {
         imageGenerationPrompt: nextStoryData.generatedImagePrompt, // Store the new prompt
       };
       const updatedParsedGameState = parseGameState(nextStoryData.updatedGameState, gameState.playerName);
+
+      // Check if inventory length increased
+      const inventoryIncreased = updatedParsedGameState.inventory.length > previousGameState.inventory.length;
+       if (inventoryIncreased) {
+         setShouldFlashInventory(true); // Trigger the flash animation
+       }
+
 
       setGameState((prev) => ({
         ...prev,
@@ -610,6 +635,7 @@ export default function IAventuresGame() {
         maxTurns: loadedState.maxTurns,
         currentTurn: loadedState.currentTurn,
         generatingSegmentId: null, // Reset image generation tracking
+        initialPromptDebugInfo: null, // Clear debug info on load
       }));
       toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
       setIsInventoryPopoverOpen(false);
@@ -674,6 +700,18 @@ export default function IAventuresGame() {
       case 'game_active':
         return (
           <>
+             {/* Debug Info - Initial Prompt */}
+             {gameState.initialPromptDebugInfo && (
+               <div className="p-2 mb-2 bg-yellow-900/20 border border-yellow-800/30 rounded-md text-xs text-yellow-400 flex items-start gap-1.5">
+                 <Info className="h-3 w-3 mt-0.5 shrink-0" />
+                 <p className="font-mono break-words text-[10px] leading-tight">
+                    <span className='font-semibold'>DEBUG - Prompt Initial:</span><br/>
+                    Thème: {gameState.initialPromptDebugInfo.theme}<br/>
+                    Scénario: {gameState.initialPromptDebugInfo.subThemePrompt}<br/>
+                    Nom: {gameState.initialPromptDebugInfo.playerName}
+                 </p>
+               </div>
+             )}
             <StoryDisplay
                 story={gameState.story}
                 playerName={gameState.playerName}
@@ -746,6 +784,7 @@ export default function IAventuresGame() {
             onInventoryAction={handleInventoryActionClick}
             onSave={handleOpenSaveDialog}
             onMainMenu={showMainMenu}
+            shouldFlashInventory={shouldFlashInventory} // Pass flashing state
         />
 
         <div className={cn(

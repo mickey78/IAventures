@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Briefcase, Eye, Wand2, MoveUpRight, Trash2 } from 'lucide-react';
+import { cn } from '@/lib/utils'; // Import cn
 
 interface InventoryPopoverProps {
     inventory: string[];
@@ -14,6 +15,7 @@ interface InventoryPopoverProps {
     onActionClick: (actionPrefix: string, item: string) => void;
     isLoading: boolean;
     isGameEnded: boolean;
+    shouldFlash: boolean; // Added prop for flashing effect
 }
 
 const InventoryPopover: React.FC<InventoryPopoverProps> = ({
@@ -22,7 +24,8 @@ const InventoryPopover: React.FC<InventoryPopoverProps> = ({
     onOpenChange,
     onActionClick,
     isLoading,
-    isGameEnded
+    isGameEnded,
+    shouldFlash // Destructure flashing prop
 }) => {
     const isDisabled = isLoading || isGameEnded;
 
@@ -32,7 +35,10 @@ const InventoryPopover: React.FC<InventoryPopoverProps> = ({
                 <Button
                     variant="secondary"
                     size="sm"
-                    className="shrink-0"
+                    className={cn(
+                        "shrink-0",
+                        shouldFlash && "animate-flash-orange" // Conditionally apply animation class
+                    )}
                     disabled={isDisabled || inventory.length === 0}
                 >
                     <Briefcase className="mr-2 h-4 w-4" />

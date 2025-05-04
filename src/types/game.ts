@@ -23,6 +23,14 @@ export interface ParsedGameState {
     [key: string]: any; // Allow for other dynamic properties
 }
 
+// Debugging type for initial prompt info
+export interface InitialPromptDebugInfo {
+    theme: string;
+    subThemePrompt: string;
+    playerName: string;
+}
+
+
 // Represents the main application state
 export interface GameState {
   story: StorySegment[];
@@ -38,6 +46,7 @@ export interface GameState {
   maxTurns: number;
   currentTurn: number;
   generatingSegmentId: number | null; // ID of segment currently generating image, or null
+  initialPromptDebugInfo: InitialPromptDebugInfo | null; // Store initial prompt for debugging
 }
 
 // Represents the different views/screens of the application
