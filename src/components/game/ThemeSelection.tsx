@@ -10,7 +10,7 @@ interface ThemeSelectionProps {
     themes: Theme[];
     selectedTheme: string | null;
     onThemeSelect: (themeValue: string) => void;
-    onNext: () => void;
+    onNext: (selectedThemeValue: string) => void; // Changed to pass the selected theme value
     onBack: () => void;
 }
 
@@ -41,7 +41,7 @@ const ThemeSelection: React.FC<ThemeSelectionProps> = ({ themes, selectedTheme, 
                                     <CardTitle className="text-lg">{theme.label}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="text-center text-sm text-muted-foreground pt-0 pb-4 min-h-[60px]">
-                                    {theme.prompt}
+                                    {theme.description} {/* Changed from prompt to description */}
                                 </CardContent>
                             </Card>
                         );
@@ -50,13 +50,13 @@ const ThemeSelection: React.FC<ThemeSelectionProps> = ({ themes, selectedTheme, 
             </ScrollArea>
             <div className="flex flex-col sm:flex-row gap-2 mt-6 shrink-0"> {/* Footer buttons */}
                 <Button
-                    onClick={onNext}
+                    onClick={() => selectedTheme && onNext(selectedTheme)} // Pass the selected theme value
                     disabled={!selectedTheme}
                     size="lg"
                     variant="primary"
                     className="rounded-md shadow-md"
                 >
-                    Suivant
+                    Choisir un Scénario
                 </Button>
                 <Button variant="outline" onClick={onBack}>
                     Retour au Menu Principal

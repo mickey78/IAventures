@@ -6,10 +6,12 @@ import TurnCounter from './TurnCounter'; // Assuming TurnCounter is refactored
 import HeaderActions from './HeaderActions'; // Assuming HeaderActions is refactored
 import { BookOpenText, MapPin } from 'lucide-react';
 import type { ParsedGameState, GameView } from '@/types/game'; // Import shared types
+import { themes } from '@/config/themes'; // Import themes to get labels
 
 interface GameHeaderProps {
     currentView: GameView;
     theme: string | null;
+    subTheme: string | null; // Added subTheme prop
     playerName: string | null;
     location: string | undefined;
     inventory: string[];
@@ -26,6 +28,7 @@ interface GameHeaderProps {
 const GameHeader: React.FC<GameHeaderProps> = ({
     currentView,
     theme,
+    subTheme, // Destructure subTheme
     playerName,
     location,
     inventory,
@@ -40,23 +43,45 @@ const GameHeader: React.FC<GameHeaderProps> = ({
 }) => {
 
     const getHeaderText = () => {
+        let mainTitle = "Bienvenue ! Commencez une nouvelle aventure ou chargez une partie.";
+        let subTitle = "";
+
+        const mainThemeLabel = themes.find(t => t.value === theme)?.label;
+        const subThemeLabel = themes.find(t => t.value === theme)?.subThemes.find(st => st.value === subTheme)?.label;
+
+
         switch (currentView) {
             case 'game_active':
-                return theme && playerName ? `Aventure de ${playerName} : ${theme}` : "Aventure en cours";
+                mainTitle = playerName ? `Aventure de ${playerName}` : "Aventure en cours";
+                subTitle = mainThemeLabel ? `${mainThemeLabel}${subThemeLabel ? `: ${subThemeLabel}` : ''}` : '';
+                 break;
             case 'game_ended':
-                return theme && playerName ? `Aventure terminée de ${playerName} : ${theme}` : "Aventure terminée";
+                 mainTitle = playerName ? `Aventure terminée de ${playerName}` : "Aventure terminée";
+                 subTitle = mainThemeLabel ? `${mainThemeLabel}${subThemeLabel ? `: ${subThemeLabel}` : ''}` : '';
+                break;
             case 'theme_selection':
-                return "Choisissez un thème pour votre nouvelle aventure ! (8-12 ans)";
+                mainTitle = "Choisissez un thème pour votre nouvelle aventure !";
+                subTitle= "(8-12 ans)";
+                break;
+             case 'sub_theme_selection':
+                 mainTitle = `Choisissez un scénario pour "${mainThemeLabel || 'Thème Inconnu'}"`;
+                 break;
             case 'name_input':
-                return "Prépare-toi pour l'aventure !";
+                mainTitle = "Prépare-toi pour l'aventure !";
+                subTitle = mainThemeLabel && subThemeLabel ? `${mainThemeLabel} - ${subThemeLabel}` : '';
+                break;
             case 'loading_game':
-                return "Choisissez une partie à charger.";
+                mainTitle = "Choisissez une partie à charger.";
+                break;
             case 'menu':
             default:
-                return "Bienvenue ! Commencez une nouvelle aventure ou chargez une partie.";
+                 // Default title is already set
+                 break;
         }
+        return { mainTitle, subTitle };
     };
 
+    const { mainTitle, subTitle } = getHeaderText();
     const showGameControls = ['game_active', 'game_ended'].includes(currentView);
 
     return (
@@ -81,8 +106,9 @@ const GameHeader: React.FC<GameHeaderProps> = ({
                     <BookOpenText className="h-8 w-8 text-primary" />
                     IAventures
                 </CardTitle>
-                <CardDescription className="text-muted-foreground mt-1">
-                    {getHeaderText()}
+                <CardDescription className="text-muted-foreground mt-1 text-center">
+                     {mainTitle}
+                     {subTitle && <span className="block text-xs">{subTitle}</span>}
                 </CardDescription>
                 {/* Current Location Display */}
                 {showGameControls && location && (

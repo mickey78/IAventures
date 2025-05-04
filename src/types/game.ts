@@ -29,6 +29,7 @@ export interface GameState {
   choices: string[];
   currentGameState: ParsedGameState; // Use the parsed object, not the string
   theme: string | null;
+  subTheme: string | null; // Added subTheme field
   playerName: string | null;
   isLoading: boolean; // Overall loading state (e.g., waiting for AI)
   error: string | null;
@@ -40,13 +41,20 @@ export interface GameState {
 }
 
 // Represents the different views/screens of the application
-export type GameView = 'menu' | 'theme_selection' | 'name_input' | 'loading_game' | 'game_active' | 'game_ended';
+export type GameView = 'menu' | 'theme_selection' | 'sub_theme_selection' | 'name_input' | 'loading_game' | 'game_active' | 'game_ended'; // Added sub_theme_selection
+
+// Represents a sub-theme option
+export interface SubTheme {
+    value: string; // Unique value for the sub-theme (can be same as label)
+    label: string; // Display name for the sub-theme
+    prompt: string; // Specific starting scenario prompt for the AI
+}
 
 // Represents a theme option for the game
 export interface Theme {
-    value: string; // The value sent to the AI
+    value: string; // The value sent to the AI (main theme identifier)
     label: string; // Display name for the user
-    prompt: string; // Short description/prompt for the theme
+    description: string; // Short general description of the theme
     icon: LucideIcon; // Icon component from lucide-react
+    subThemes: SubTheme[]; // Array of specific sub-themes/scenarios
 }
-

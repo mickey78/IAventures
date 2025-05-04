@@ -4,9 +4,9 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { listSaveGames, type GameStateToSave } from '@/lib/saveLoadUtils';
-import type { StorySegment, ParsedGameState, GameState, GameView } from '@/types/game'; // Import shared types
+import type { StorySegment, ParsedGameState, GameState, GameView, Theme, SubTheme } from '@/types/game'; // Import shared types
 import { generateInitialStory } from '@/ai/flows/generate-initial-story';
-import type { GenerateInitialStoryOutput } from '@/ai/flows/generate-initial-story';
+import type { GenerateInitialStoryOutput, GenerateInitialStoryInput } from '@/ai/flows/generate-initial-story'; // Import Input type
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
 import type { GenerateStoryContentInput, GenerateStoryContentOutput } from '@/ai/flows/generate-story-content';
 import { generateImage } from '@/ai/flows/generate-image';
@@ -19,6 +19,7 @@ import { Card } from '@/components/ui/card';
 import GameHeader from '@/components/game/GameHeader';
 import MainMenu from '@/components/game/MainMenu';
 import ThemeSelection from '@/components/game/ThemeSelection';
+import SubThemeSelection from '@/components/game/SubThemeSelection'; // Import SubThemeSelection
 import NameInput from '@/components/game/NameInput';
 import LoadGame from '@/components/game/LoadGame';
 import StoryDisplay from '@/components/game/StoryDisplay';
@@ -41,6 +42,7 @@ export default function IAventuresGame() {
         events: [],
      }, // Initialize with default object and location
     theme: null,
+    subTheme: null, // Added subTheme state
     playerName: null,
     isLoading: false,
     error: null,
@@ -105,6 +107,7 @@ export default function IAventuresGame() {
           events: []
       },
       theme: null,
+      subTheme: null, // Reset subTheme
       playerName: null,
       isLoading: false,
       error: null,
@@ -124,6 +127,7 @@ export default function IAventuresGame() {
       ...prev,
       currentView: 'theme_selection',
       theme: null,
+      subTheme: null, // Reset subTheme when going back to theme selection
       playerName: null,
       currentTurn: 1,
       maxTurns: 15,
@@ -133,9 +137,27 @@ export default function IAventuresGame() {
     setIsCustomInputVisible(false);
   };
 
+  const showSubThemeSelection = (selectedThemeValue: string) => {
+    const selectedMainTheme = themes.find(t => t.value === selectedThemeValue);
+    if (!selectedMainTheme) {
+        toast({ title: 'Erreur', description: 'Thème principal non trouvé.', variant: 'destructive' });
+        return;
+    }
+     setGameState(prev => ({
+       ...prev,
+       theme: selectedThemeValue, // Set the main theme
+       currentView: 'sub_theme_selection',
+       subTheme: null, // Reset subtheme selection for this view
+       currentGameState: { ...prev.currentGameState, location: `Choix du Scénario: ${selectedThemeValue}` }
+     }));
+     setIsInventoryPopoverOpen(false);
+     setIsCustomInputVisible(false);
+   };
+
+
   const showNameInput = () => {
-    if (!gameState.theme) {
-      toast({ title: 'Erreur', description: 'Veuillez choisir un thème avant de continuer.', variant: 'destructive' });
+    if (!gameState.theme || !gameState.subTheme) { // Check for both theme and subTheme
+      toast({ title: 'Erreur', description: 'Veuillez choisir un thème et un scénario avant de continuer.', variant: 'destructive' });
       return;
     }
     setGameState(prev => ({ ...prev, currentView: 'name_input', currentGameState: { ...prev.currentGameState, location: 'Création du Personnage' } }));
@@ -152,8 +174,14 @@ export default function IAventuresGame() {
 
   // --- Game Logic ---
   const handleThemeSelect = (themeValue: string) => {
-    setGameState((prev) => ({ ...prev, theme: themeValue }));
+     // No need to change view here, just update the selected theme in state
+     setGameState((prev) => ({ ...prev, theme: themeValue, subTheme: null })); // Reset subtheme if main theme changes
   };
+
+  const handleSubThemeSelect = (subThemeValue: string) => {
+    setGameState((prev) => ({ ...prev, subTheme: subThemeValue }));
+  };
+
 
   const handleNameSubmit = () => {
     if (!playerNameInput.trim()) {
@@ -168,7 +196,7 @@ export default function IAventuresGame() {
       maxTurns: maxTurnsInput,
       currentTurn: 1,
     }));
-    startNewGame(trimmedName, gameState.theme, maxTurnsInput);
+    startNewGame(trimmedName, gameState.theme, gameState.subTheme, maxTurnsInput); // Pass subTheme
   }
 
   // --- Image Generation ---
@@ -225,13 +253,27 @@ export default function IAventuresGame() {
   };
 
 
-  const startNewGame = async (nameToUse: string, themeToUse: string | null, turns: number) => {
-    if (!themeToUse) {
-      console.error('Theme missing, cannot start game.');
-      toast({ title: 'Erreur', description: 'Veuillez sélectionner un thème.', variant: 'destructive' });
-      showThemeSelection();
+  const startNewGame = async (nameToUse: string, themeToUse: string | null, subThemeToUse: string | null, turns: number) => {
+    if (!themeToUse || !subThemeToUse) {
+      console.error('Theme or subTheme missing, cannot start game.');
+      toast({ title: 'Erreur', description: 'Veuillez sélectionner un thème et un scénario.', variant: 'destructive' });
+       // Decide where to send the user back - likely theme selection
+       if (!themeToUse) showThemeSelection();
+       else if (themeToUse) showSubThemeSelection(themeToUse); // Go back to subtheme selection if theme exists
       return;
     }
+
+     // Find the specific subTheme prompt
+     const mainTheme = themes.find(t => t.value === themeToUse);
+     const subThemeDetails = mainTheme?.subThemes.find(st => st.value === subThemeToUse);
+     if (!subThemeDetails) {
+        console.error('SubTheme details not found.');
+        toast({ title: 'Erreur', description: 'Détails du scénario non trouvés.', variant: 'destructive' });
+        showSubThemeSelection(themeToUse); // Go back to subtheme selection
+        return;
+     }
+     const initialScenarioPrompt = subThemeDetails.prompt;
+
 
     setGameState((prev) => ({
       ...prev,
@@ -242,6 +284,7 @@ export default function IAventuresGame() {
       playerChoicesHistory: [],
       currentView: 'game_active',
       theme: themeToUse,
+      subTheme: subThemeToUse, // Set subTheme
       playerName: nameToUse,
       maxTurns: turns,
       currentTurn: 1,
@@ -259,10 +302,14 @@ export default function IAventuresGame() {
     setIsCustomInputVisible(false);
 
     try {
-      const initialStoryData: GenerateInitialStoryOutput = await generateInitialStory({
-        theme: themeToUse,
-        playerName: nameToUse
-      });
+      const initialStoryInput: GenerateInitialStoryInput = { // Use the input type
+          theme: themeToUse,
+          subThemePrompt: initialScenarioPrompt, // Pass the specific sub-theme prompt
+          playerName: nameToUse,
+        };
+
+      const initialStoryData: GenerateInitialStoryOutput = await generateInitialStory(initialStoryInput);
+
 
       const initialSegmentId = Date.now();
       const initialStorySegment: StorySegment = {
@@ -302,6 +349,7 @@ export default function IAventuresGame() {
         isLoading: false,
         error: `Impossible de générer l'histoire initiale: ${errorMsg}`,
         theme: null,
+        subTheme: null, // Reset subTheme on error
         playerName: null,
         currentGameState: { // Ensure reset on error too
             playerName: null,
@@ -311,7 +359,7 @@ export default function IAventuresGame() {
             emotions: [],
             events: []
         },
-        currentView: 'theme_selection',
+        currentView: 'theme_selection', // Go back to theme selection on error
         maxTurns: 15,
         currentTurn: 1,
         generatingSegmentId: null,
@@ -325,7 +373,7 @@ export default function IAventuresGame() {
       toast({ title: "Action Vide", description: "Veuillez décrire votre action.", variant: "destructive" });
       return;
     }
-    if (!gameState.playerName || !gameState.theme) {
+    if (!gameState.playerName || !gameState.theme) { // SubTheme check not strictly needed here, main theme is enough for content generation
       console.error('Player name or theme missing during action handling.');
       toast({ title: 'Erreur', description: 'Erreur de jeu critique. Retour au menu principal.', variant: 'destructive' });
       showMainMenu();
@@ -367,7 +415,8 @@ export default function IAventuresGame() {
     const isLastTurn = nextTurn > gameState.maxTurns;
 
     const input: GenerateStoryContentInput = {
-      theme: gameState.theme,
+      theme: gameState.theme, // Pass main theme
+      // subTheme: gameState.subTheme, // Pass subTheme if needed by the content generation prompt later
       playerName: gameState.playerName,
       lastStorySegment: lastSegmentBeforeAction, // Pass previous segment for context and image prompt
       playerChoicesHistory: nextPlayerChoicesHistory,
@@ -455,9 +504,11 @@ export default function IAventuresGame() {
       return;
     }
     const dateStr = new Date().toLocaleDateString('fr-CA');
-    const suggestedName = gameState.theme && gameState.playerName
-      ? `${gameState.playerName} - ${gameState.theme} ${dateStr} (T${gameState.currentTurn}/${gameState.maxTurns})`
-      : `Sauvegarde ${dateStr}`;
+    const subThemeLabel = themes.find(t => t.value === gameState.theme)?.subThemes.find(st => st.value === gameState.subTheme)?.label || gameState.subTheme || '';
+    const suggestedName = gameState.theme && gameState.playerName && gameState.subTheme
+       ? `${gameState.playerName} - ${subThemeLabel} (T${gameState.currentTurn}/${gameState.maxTurns}) - ${dateStr}` // More specific name
+       : `Sauvegarde ${dateStr}`;
+
     setSaveNameInput(suggestedName);
     setIsSaveDialogOpen(true);
   };
@@ -472,8 +523,8 @@ export default function IAventuresGame() {
         setIsSaveDialogOpen(false);
         return;
     }
-    if (!gameState.theme || !gameState.playerName) { // Simplified check
-      toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes.", variant: "destructive" });
+    if (!gameState.theme || !gameState.subTheme || !gameState.playerName) { // Check for subTheme too
+      toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes (thème, scénario ou nom).", variant: "destructive" });
       return;
     }
 
@@ -483,6 +534,7 @@ export default function IAventuresGame() {
     // Prepare the state, ensuring story segments exclude transient/image data
     const stateToSave = {
       theme: gameState.theme,
+      subTheme: gameState.subTheme, // Save subTheme
       playerName: gameState.playerName,
       story: gameState.story.map(seg => { // Map to exclude fields for saving
           const { storyImageUrl, imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg;
@@ -507,14 +559,25 @@ export default function IAventuresGame() {
   };
 
  const handleLoadGame = (saveName: string) => {
-    const loadedState = loadGame(saveName); // loadGame now adds default image states
+    const loadedState = loadGame(saveName); // loadGame now adds default image states and subTheme
     if (loadedState) {
+       // Validate subTheme existence if possible (optional, depends on how strict you want to be)
+        const mainThemeExists = themes.some(t => t.value === loadedState.theme);
+        const subThemeExists = mainThemeExists && themes.find(t => t.value === loadedState.theme)?.subThemes.some(st => st.value === loadedState.subTheme);
+        if (!subThemeExists) {
+             toast({ title: "Erreur de Chargement", description: `Le scénario sauvegardé ("${loadedState.subTheme}") pour le thème "${loadedState.theme}" n'existe plus ou est invalide. Impossible de charger.`, variant: "destructive" });
+             setSavedGames(listSaveGames()); // Refresh list
+             return;
+         }
+
+
       const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName); // Ensure parsing
       const loadedView: GameView = loadedState.currentTurn > loadedState.maxTurns ? 'game_ended' : 'game_active'; // Determine view based on turns
 
       setGameState(prev => ({
         ...prev,
         theme: loadedState.theme,
+        subTheme: loadedState.subTheme, // Load subTheme
         playerName: loadedState.playerName,
         story: loadedState.story, // Use the story with rehydrated image states
         choices: loadedState.choices,
@@ -556,9 +619,19 @@ export default function IAventuresGame() {
                     themes={themes}
                     selectedTheme={gameState.theme}
                     onThemeSelect={handleThemeSelect}
-                    onNext={showNameInput}
+                    onNext={showSubThemeSelection} // Go to subtheme selection
                     onBack={showMainMenu}
                 />;
+      case 'sub_theme_selection': { // Added case for sub-theme selection
+        const selectedMainTheme = themes.find(t => t.value === gameState.theme);
+        return <SubThemeSelection
+                  mainTheme={selectedMainTheme}
+                  selectedSubTheme={gameState.subTheme}
+                  onSubThemeSelect={handleSubThemeSelect}
+                  onNext={showNameInput} // Go to name input
+                  onBack={showThemeSelection} // Go back to theme selection
+              />;
+        }
       case 'name_input':
         return <NameInput
                     playerName={playerNameInput}
@@ -566,7 +639,7 @@ export default function IAventuresGame() {
                     maxTurns={maxTurnsInput}
                     onMaxTurnsChange={setMaxTurnsInput}
                     onSubmit={handleNameSubmit}
-                    onBack={showThemeSelection}
+                    onBack={() => gameState.theme && showSubThemeSelection(gameState.theme)} // Go back to subtheme selection
                     isLoading={gameState.isLoading}
                 />;
       case 'loading_game':
@@ -631,7 +704,7 @@ export default function IAventuresGame() {
     }
   };
 
-  const shouldCenterContent = ['menu', 'theme_selection', 'name_input', 'loading_game'].includes(gameState.currentView);
+  const shouldCenterContent = ['menu', 'theme_selection', 'sub_theme_selection', 'name_input', 'loading_game'].includes(gameState.currentView); // Added sub_theme_selection
 
   return (
     <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground">
@@ -639,6 +712,7 @@ export default function IAventuresGame() {
         <GameHeader
             currentView={gameState.currentView}
             theme={gameState.theme}
+            subTheme={gameState.subTheme} // Pass subTheme
             playerName={gameState.playerName}
             location={gameState.currentGameState.location}
             inventory={gameState.currentGameState.inventory}
