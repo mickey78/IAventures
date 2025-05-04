@@ -2,54 +2,54 @@
 // src/ai/flows/generate-story-content.ts
 
 /**
- * @fileOverview Generates story content based on the chosen theme, player choices, inventory, player name, location, and turn count. It can also suggest an image prompt for significant visual moments, aiming for consistency.
+ * @fileOverview Génère le contenu de l'histoire en fonction du thème choisi, des choix du joueur, de l'inventaire, du nom du joueur, du lieu et du numéro de tour. Il peut également suggérer un prompt d'image pour les moments visuels importants, en visant la cohérence.
  *
- * - generateStoryContent - A function that generates story content.
- * - GenerateStoryContentInput - The input type for the generateStoryContent function.
- * - GenerateStoryContentOutput - The return type for the generateStoryContent function.
+ * - generateStoryContent - Fonction qui génère le contenu de l'histoire.
+ * - GenerateStoryContentInput - Type d'entrée pour la fonction generateStoryContent.
+ * - GenerateStoryContentOutput - Type de retour pour la fonction generateStoryContent.
  */
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
-import type { StorySegment, ParsedGameState } from '@/types/game'; // Import shared types
-import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils'; // Import helper
+import type { StorySegment, ParsedGameState } from '@/types/game'; // Importer les types partagés
+import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils'; // Importer l'aide
 
 const GenerateStoryContentInputSchema = z.object({
   theme: z
     .string()
     .describe(
-      'The theme of the story (e.g., Medieval Fantasy, Space Exploration, Pirates of the Caribbean, Western and Cowboys, Mystery and Investigation, Superhero School, Love Story, Trapped in the Game, Post-Apocalyptic Survival)'
+      "Le thème de l'histoire (ex: Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Mystère et Enquête, École des Super-Héros, Histoire d'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique)"
     ),
-  playerName: z.string().describe('The name of the player.'),
-  lastStorySegment: z.object({ // Add last story segment for context
+  playerName: z.string().describe('Le nom du joueur.'),
+  lastStorySegment: z.object({ // Ajouter le dernier segment de l'histoire pour le contexte
       id: z.number(),
       text: z.string(),
       speaker: z.enum(['player', 'narrator']),
-      storyImageUrl: z.string().url().optional().nullable(), // Include optional image URL from previous segment
-      imageGenerationPrompt: z.string().optional().nullable(), // Include previous image prompt for consistency
-  }).optional().describe('The very last segment of the story (player choice or narrator text) for immediate context and potential image consistency.'),
-  playerChoicesHistory: z.array(z.string()).optional().describe('The history of player choices made so far, ordered chronologically. The VERY LAST element is the most recent choice the AI must react to.'),
-  gameState: z.string().optional().describe('A JSON string representing the current game state (e.g., {"playerName": "Alex", "location": "Cave Entrance", "inventory": ["key", "map"], "relationships":{"NPC1":"friend"}, "emotions":["curious"], "events":[]}). Start with an empty object string if undefined.'), // Added location to example
-  currentTurn: z.number().int().positive().describe('The current turn number (starts at 1).'),
-  maxTurns: z.number().int().positive().describe('The maximum number of turns for this adventure.'),
-  isLastTurn: z.boolean().describe('Indicates if this is the final turn of the adventure.'),
+      storyImageUrl: z.string().url().optional().nullable(), // Inclure l'URL optionnelle de l'image du segment précédent
+      imageGenerationPrompt: z.string().optional().nullable(), // Inclure le prompt d'image précédent pour la cohérence
+  }).optional().describe("Le tout dernier segment de l'histoire (choix du joueur ou texte du narrateur) pour un contexte immédiat et une cohérence potentielle de l'image."),
+  playerChoicesHistory: z.array(z.string()).optional().describe("L'historique des choix du joueur effectués jusqu'à présent, classés par ordre chronologique. Le TOUT DERNIER élément est le choix le plus récent auquel l'IA doit réagir."),
+  gameState: z.string().optional().describe('Une chaîne JSON représentant l\'état actuel du jeu (ex: {"playerName": "Alex", "location": "Entrée de la Grotte", "inventory": ["clé", "carte"], "relationships":{"PNJ1":"ami"}, "emotions":["curieux"], "events":[]}). Commencez avec une chaîne d\'objet vide si non défini.'),
+  currentTurn: z.number().int().positive().describe('Le numéro du tour actuel (commence à 1).'),
+  maxTurns: z.number().int().positive().describe("Le nombre maximum de tours pour cette aventure."),
+  isLastTurn: z.boolean().describe('Indique si c\'est le dernier tour de l\'aventure.'),
 });
 export type GenerateStoryContentInput = z.infer<typeof GenerateStoryContentInputSchema>;
 
 const GenerateStoryContentOutputSchema = z.object({
-  storyContent: z.string().describe('The generated story content, describing the result of the player\'s last action and the current situation, addressing the player by name. If it\'s the last turn, this should be the concluding segment.'),
-  nextChoices: z.array(z.string()).describe('2-3 clear and simple choices for the player\'s next action, relevant to the current situation, theme, and inventory. Should be an empty array if it\'s the last turn.'),
-  updatedGameState: z.string().describe('The updated game state as a JSON string, reflecting changes based on the last action and story progression (including inventory and potentially location). Must be valid JSON.'), // Mentioned location update
-  generatedImagePrompt: z.string().optional().describe('A concise, descriptive prompt for image generation ONLY if a visually distinct scene occurs. MUST aim for consistency with previous images (if `lastStorySegment.imageGenerationPrompt` exists). Include theme, current location, player name, and specify "Style: Cartoon". Leave empty otherwise.'), // Added consistency requirement and player name
+  storyContent: z.string().describe("Le contenu de l'histoire généré, décrivant le résultat de la dernière action du joueur et la situation actuelle, en s'adressant au joueur par son nom. Si c'est le dernier tour, ce devrait être le segment de conclusion."),
+  nextChoices: z.array(z.string()).describe("2-3 choix clairs et simples pour la prochaine action du joueur, pertinents par rapport à la situation actuelle, au thème et à l'inventaire. Devrait être un tableau vide si c'est le dernier tour."),
+  updatedGameState: z.string().describe("L'état du jeu mis à jour sous forme de chaîne JSON, reflétant les changements basés sur la dernière action et la progression de l'histoire (y compris l'inventaire et potentiellement le lieu). Doit être un JSON valide."),
+  generatedImagePrompt: z.string().optional().describe("Un prompt concis et descriptif pour la génération d'images UNIQUEMENT si une scène visuellement distincte se produit. DOIT viser la cohérence avec les images précédentes (si `lastStorySegment.imageGenerationPrompt` existe). Inclure le thème, le lieu actuel, le nom du joueur et spécifier \"Style : Cartoon\". Laisser vide sinon."),
 });
 export type GenerateStoryContentOutput = z.infer<typeof GenerateStoryContentOutputSchema>;
 
 export async function generateStoryContent(input: GenerateStoryContentInput): Promise<GenerateStoryContentOutput> {
-  let initialGameState: ParsedGameState; // Use ParsedGameState type
+  let initialGameState: ParsedGameState; // Utiliser le type ParsedGameState
   try {
-    initialGameState = parseGameState(input.gameState, input.playerName); // Use the utility function
+    initialGameState = parseGameState(input.gameState, input.playerName); // Utiliser la fonction utilitaire
   } catch (e) {
-    console.warn("Invalid input gameState JSON, using default:", input.gameState, e);
-    // Ensure a proper default ParsedGameState structure
+    console.warn("JSON gameState d'entrée invalide, utilisation des valeurs par défaut :", input.gameState, e);
+    // Assurer une structure ParsedGameState par défaut appropriée
     initialGameState = {
         playerName: input.playerName,
         location: 'Lieu Inconnu',
@@ -60,7 +60,7 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
     };
   }
 
-  // Ensure essential keys exist after parsing/defaulting
+  // Assurer que les clés essentielles existent après l'analyse/la valeur par défaut
   if (!initialGameState.playerName) initialGameState.playerName = input.playerName;
   if (typeof initialGameState.location !== 'string' || !initialGameState.location.trim()) initialGameState.location = 'Lieu Indéterminé';
   if (!Array.isArray(initialGameState.inventory)) initialGameState.inventory = [];
@@ -71,10 +71,10 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
 
   const safeInput = {
     ...input,
-    gameState: safeJsonStringify(initialGameState), // Use the validated/defaulted object string
+    gameState: safeJsonStringify(initialGameState), // Utiliser la chaîne d'objet validée/par défaut
     playerChoicesHistory: input.playerChoicesHistory || [],
-    lastStorySegmentText: input.lastStorySegment?.text || "C'est le début de l'aventure.", // Provide default text if segment is missing
-    previousImagePrompt: input.lastStorySegment?.imageGenerationPrompt || null, // Pass previous prompt
+    lastStorySegmentText: input.lastStorySegment?.text || "C'est le début de l'aventure.", // Fournir un texte par défaut si le segment est manquant
+    previousImagePrompt: input.lastStorySegment?.imageGenerationPrompt || null, // Passer le prompt précédent
   };
 
   return generateStoryContentFlow(safeInput);
@@ -85,16 +85,16 @@ const prompt = ai.definePrompt({
   name: 'generateStoryContentPrompt',
   input: {
     schema: z.object({
-      theme: z.string().describe('The theme of the story.'),
-      playerName: z.string().describe('The name of the player.'),
-      lastStorySegmentText: z.string().describe('The text of the very last story segment (player or narrator) for immediate context.'),
-      previousImagePrompt: z.string().nullable().optional().describe('The prompt used for the previously generated image, if any, for consistency.'), // Added previous prompt input
-      playerChoicesHistory: z.array(z.string()).describe('History of player choices. The VERY LAST element is the most recent choice to react to.'),
-      gameState: z.string().describe('Current game state (JSON string). Example: {"playerName":"Hero", "location":"Forest Clearing", "inventory":["Sword","Potion"], "relationships":{"NPC1":"friend"}, "emotions":["happy"], "events":["found sword"]}'), // Updated example
-      current_date: z.string().describe('Current date, injected for potential story elements.'),
-      currentTurn: z.number().describe('The current turn number.'),
-      maxTurns: z.number().describe('The maximum number of turns.'),
-      isLastTurn: z.boolean().describe('Whether this is the last turn.'),
+      theme: z.string().describe("Le thème de l'histoire."),
+      playerName: z.string().describe('Le nom du joueur.'),
+      lastStorySegmentText: z.string().describe("Le texte du tout dernier segment de l'histoire (joueur ou narrateur) pour un contexte immédiat."),
+      previousImagePrompt: z.string().nullable().optional().describe("Le prompt utilisé pour l'image générée précédemment, le cas échéant, pour la cohérence."),
+      playerChoicesHistory: z.array(z.string()).describe("Historique des choix du joueur. Le TOUT DERNIER élément est le choix le plus récent auquel réagir."),
+      gameState: z.string().describe('État actuel du jeu (chaîne JSON). Exemple: {"playerName":"Héros", "location":"Clairière Forestière", "inventory":["Épée","Potion"], "relationships":{"PNJ1":"ami"}, "emotions":["heureux"], "events":["épée trouvée"]}'),
+      current_date: z.string().describe('Date actuelle, injectée pour des éléments potentiels de l\'histoire.'),
+      currentTurn: z.number().describe('Le numéro du tour actuel.'),
+      maxTurns: z.number().describe('Le nombre maximum de tours.'),
+      isLastTurn: z.boolean().describe('Indique si c\'est le dernier tour.'),
     }),
   },
   output: {
@@ -106,7 +106,7 @@ const prompt = ai.definePrompt({
 *   Thème Principal : **{{{theme}}}** (Tu dois IMPÉRATIVEMENT rester dans ce thème)
 *   Nom du joueur : {{{playerName}}}
 *   Tour Actuel : {{{currentTurn}}} / {{{maxTurns}}}
-*   État actuel du jeu (JSON string - parse-le pour l'utiliser) : {{{gameState}}}
+*   État actuel du jeu (chaîne JSON - analyse-le pour l'utiliser) : {{{gameState}}}
     *   Contient: 'playerName', 'location', 'inventory', 'relationships', 'emotions', 'events'.
 *   Dernier segment de l'histoire : "{{{lastStorySegmentText}}}"
 *   Prompt de l'image précédente (si applicable) : {{{previousImagePrompt}}}
@@ -176,27 +176,27 @@ const generateStoryContentFlow = ai.defineFlow<
 },
 async input => {
 
-   // Basic input validation
-   if (!input.theme) throw new Error("Theme is required.");
-   if (!input.playerName) throw new Error("Player name is required.");
-   if (!input.gameState) throw new Error("Game state is required.");
-   if (input.currentTurn === undefined || !input.maxTurns) throw new Error("Turn information is required."); // Check currentTurn specifically
+   // Validation de base de l'entrée
+   if (!input.theme) throw new Error("Le thème est requis.");
+   if (!input.playerName) throw new Error("Le nom du joueur est requis.");
+   if (!input.gameState) throw new Error("L'état du jeu est requis.");
+   if (input.currentTurn === undefined || !input.maxTurns) throw new Error("Les informations sur le tour sont requises."); // Vérifier spécifiquement currentTurn
 
 
    const safePlayerChoicesHistory = input.playerChoicesHistory || [];
-   if (safePlayerChoicesHistory.length === 0 && !input.lastStorySegmentText?.includes("début") && input.currentTurn > 1) { // Added turn check
-       console.warn("generateStoryContent called with empty choice history mid-game. This might indicate an issue.");
+   if (safePlayerChoicesHistory.length === 0 && !input.lastStorySegmentText?.includes("début") && input.currentTurn > 1) { // Ajout de la vérification du tour
+       console.warn("generateStoryContent appelé avec un historique de choix vide en milieu de partie. Cela pourrait indiquer un problème.");
    }
 
-    let currentGameStateObj: ParsedGameState; // Use ParsedGameState type
+    let currentGameStateObj: ParsedGameState; // Utiliser le type ParsedGameState
     try {
-        currentGameStateObj = parseGameState(input.gameState, input.playerName); // Use utility
+        currentGameStateObj = parseGameState(input.gameState, input.playerName); // Utiliser l'utilitaire
     } catch (e) {
-        console.error("Invalid input gameState JSON, resetting to default:", input.gameState, e);
-        // Provide a more complete default state if parsing fails
+        console.error("JSON gameState d'entrée invalide, réinitialisation aux valeurs par défaut :", input.gameState, e);
+        // Fournir un état par défaut plus complet si l'analyse échoue
         currentGameStateObj = {
             playerName: input.playerName,
-            location: 'Lieu Inconnu', // Default location
+            location: 'Lieu Inconnu', // Lieu par défaut
             inventory: [],
             relationships: {},
             emotions: [],
@@ -204,10 +204,10 @@ async input => {
         };
     }
 
-    // Simple random event logic (can be expanded) - Example: 10% chance per turn
-    // Moved inside flow for server-side execution context
-    const shouldGenerateEvent = Math.random() < 0.1; // Example: 10% chance
-    if (shouldGenerateEvent && input.currentTurn > 1) { // Avoid event on turn 1
+    // Logique d'événement aléatoire simple (peut être étendue) - Exemple : 10% de chance par tour
+    // Déplacé à l'intérieur du flux pour le contexte d'exécution côté serveur
+    const shouldGenerateEvent = Math.random() < 0.1; // Exemple : 10% de chance
+    if (shouldGenerateEvent && input.currentTurn > 1) { // Éviter l'événement au tour 1
         const events = [
             "Une pluie torrentielle s'abat soudainement.",
             "Un léger tremblement de terre secoue le sol.",
@@ -220,107 +220,106 @@ async input => {
         ];
         const randomEvent = events[Math.floor(Math.random() * events.length)];
         if (!Array.isArray(currentGameStateObj.events)) {
-            currentGameStateObj.events = []; // Initialize if missing
+            currentGameStateObj.events = []; // Initialiser si manquant
         }
-        // Add location context to the event
-        currentGameStateObj.events.push(`Événement aléatoire (${currentGameStateObj.location || 'lieu inconnu'}): ${randomEvent}`);
-        console.log("Random event triggered:", randomEvent, "at location:", currentGameStateObj.location);
+        // Ajouter le contexte du lieu à l'événement
+        currentGameStateObj.events.push(`Événement aléatoire (${currentGameStateObj.location || 'lieu inconnu'}) : ${randomEvent}`);
+        console.log("Événement aléatoire déclenché :", randomEvent, "au lieu :", currentGameStateObj.location);
     }
 
 
-    // Ensure essential keys exist after potentially resetting
+    // Assurer que les clés essentielles existent après une éventuelle réinitialisation
     if (!currentGameStateObj.playerName) currentGameStateObj.playerName = input.playerName;
-     if (typeof currentGameStateObj.location !== 'string' || !currentGameStateObj.location.trim()) currentGameStateObj.location = 'Lieu Indéterminé'; // Ensure location exists
+     if (typeof currentGameStateObj.location !== 'string' || !currentGameStateObj.location.trim()) currentGameStateObj.location = 'Lieu Indéterminé'; // Assurer que le lieu existe
     if (!Array.isArray(currentGameStateObj.inventory)) currentGameStateObj.inventory = [];
     if (typeof currentGameStateObj.relationships !== 'object' || currentGameStateObj.relationships === null) currentGameStateObj.relationships = {};
     if (!Array.isArray(currentGameStateObj.emotions)) currentGameStateObj.emotions = [];
     if (!Array.isArray(currentGameStateObj.events)) currentGameStateObj.events = [];
 
-    // Update the gameState with the new event (if any) before sending to prompt
+    // Mettre à jour le gameState avec le nouvel événement (le cas échéant) avant de l'envoyer au prompt
     const validatedInputGameStateString = safeJsonStringify(currentGameStateObj);
 
 
-  // Inject current date and previous prompt into the prompt context
+  // Injecter la date actuelle et le prompt précédent dans le contexte du prompt
   const promptInput = {
       ...input,
       playerChoicesHistory: safePlayerChoicesHistory,
-      gameState: validatedInputGameStateString, // Send validated/potentially updated state
+      gameState: validatedInputGameStateString, // Envoyer l'état validé/potentiellement mis à jour
       current_date: new Date().toLocaleDateString('fr-FR'),
       lastStorySegmentText: input.lastStorySegmentText || (safePlayerChoicesHistory.length > 0 ? safePlayerChoicesHistory[safePlayerChoicesHistory.length - 1] : "C'est le début de l'aventure."),
-      previousImagePrompt: input.previousImagePrompt, // Pass previous prompt for consistency check by AI
+      previousImagePrompt: input.previousImagePrompt, // Passer le prompt précédent pour vérification de cohérence par l'IA
   };
 
   const { output } = await prompt(promptInput);
 
-  // --- Output Validation ---
+  // --- Validation de la sortie ---
    if (!output || typeof output.storyContent !== 'string' || !Array.isArray(output.nextChoices) || typeof output.updatedGameState !== 'string') {
-        console.error("Invalid format received from AI for story content:", output);
-        // Attempt to recover gracefully
+        console.error("Format invalide reçu de l'IA pour le contenu de l'histoire :", output);
+        // Tenter de récupérer gracieusement
         return {
             storyContent: "Oups ! Le narrateur semble avoir perdu le fil de l'histoire à cause d'une interférence cosmique. Essayons autre chose.",
-            nextChoices: input.isLastTurn ? [] : ["Regarder autour de moi", "Vérifier mon inventaire"], // Provide generic safe choices, empty if last turn
-            updatedGameState: validatedInputGameStateString, // Return the last known valid state
-            generatedImagePrompt: undefined, // No image prompt on error
+            nextChoices: input.isLastTurn ? [] : ["Regarder autour de moi", "Vérifier mon inventaire"], // Fournir des choix génériques sûrs, vides si dernier tour
+            updatedGameState: validatedInputGameStateString, // Retourner le dernier état valide connu
+            generatedImagePrompt: undefined, // Pas de prompt d'image en cas d'erreur
         };
     }
 
-     // Additional validation for last turn: choices MUST be empty
+     // Validation supplémentaire pour le dernier tour : les choix DOIVENT être vides
     if (input.isLastTurn && output.nextChoices.length > 0) {
-        console.warn("AI returned choices on the last turn. Overriding to empty array.");
+        console.warn("L'IA a retourné des choix au dernier tour. Remplacement par un tableau vide.");
         output.nextChoices = [];
     }
-     // Validation for normal turn: choices SHOULD exist (unless AI has specific reason, e.g., forced wait)
-     if (!input.isLastTurn && output.nextChoices.length === 0 && output.storyContent.length > 0 && !output.storyContent.toLowerCase().includes("attendre")) { // Allow empty if story implies waiting
-         console.warn("AI returned empty choices on a normal turn without explicit wait. Providing fallback choices.");
+     // Validation pour un tour normal : les choix DEVRAIENT exister (sauf raison spécifique de l'IA, ex: attente forcée)
+     if (!input.isLastTurn && output.nextChoices.length === 0 && output.storyContent.length > 0 && !output.storyContent.toLowerCase().includes("attendre")) { // Autoriser le vide si l'histoire implique une attente
+         console.warn("L'IA a retourné des choix vides lors d'un tour normal sans attente explicite. Fourniture de choix de secours.");
          output.nextChoices = ["Regarder autour de moi", "Vérifier mon inventaire"];
          output.storyContent += "\n(Le narrateur semble chercher ses mots... Que fais-tu en attendant ?)";
      }
-     // Ensure generatedImagePrompt is a string or undefined, and if string, not empty
+     // Assurer que generatedImagePrompt est une chaîne ou undefined, et si chaîne, non vide
      if (output.generatedImagePrompt !== undefined && typeof output.generatedImagePrompt !== 'string') {
-          console.warn("AI returned invalid generatedImagePrompt format. Setting to undefined.");
+          console.warn("L'IA a retourné un format generatedImagePrompt invalide. Définition à undefined.");
           output.generatedImagePrompt = undefined;
      } else if (typeof output.generatedImagePrompt === 'string' && !output.generatedImagePrompt.trim()) {
-          console.warn("AI returned an empty generatedImagePrompt string. Setting to undefined.");
-          output.generatedImagePrompt = undefined; // Treat empty string as undefined
+          console.warn("L'IA a retourné une chaîne generatedImagePrompt vide. Définition à undefined.");
+          output.generatedImagePrompt = undefined; // Traiter la chaîne vide comme undefined
      }
 
 
-    // Validate updatedGameState JSON and ensure essential keys are present
-    let updatedGameStateObj: ParsedGameState; // Use ParsedGameState type
+    // Valider le JSON updatedGameState et assurer que les clés essentielles sont présentes
+    let updatedGameStateObj: ParsedGameState; // Utiliser le type ParsedGameState
     try {
-        // Use the parseGameState utility for robust parsing and validation
+        // Utiliser l'utilitaire parseGameState pour une analyse et une validation robustes
         updatedGameStateObj = parseGameState(output.updatedGameState, input.playerName);
 
-        // Additional check: Ensure player name syncs if it changed (unlikely but possible)
+        // Vérification supplémentaire : Assurer la synchronisation du nom du joueur s'il a changé (peu probable mais possible)
         if (updatedGameStateObj.playerName !== input.playerName) {
-            console.warn("AI changed playerName in updatedGameState. Reverting to original.");
+            console.warn("L'IA a changé playerName dans updatedGameState. Retour à l'original.");
             updatedGameStateObj.playerName = input.playerName;
         }
 
-    } catch (e) { // Catch potential errors from parseGameState although it should handle them internally
-        console.error("Error processing AI's updatedGameState:", output.updatedGameState, e);
-        console.warn("Attempting to return previous valid game state due to AI error.");
-        // Reset to the validated input state as a fallback
-        updatedGameStateObj = parseGameState(validatedInputGameStateString, input.playerName); // Parse validated input string again
-        // Add a message indicating the state might be stale
-        output.storyContent += "\n(Attention: L'état du jeu pourrait ne pas être à jour suite à une petite erreur technique.)";
-         // Provide safe fallback choices, considering if it was supposed to be the last turn
+    } catch (e) { // Intercepter les erreurs potentielles de parseGameState bien qu'il doive les gérer en interne
+        console.error("Erreur lors du traitement de updatedGameState de l'IA :", output.updatedGameState, e);
+        console.warn("Tentative de retour de l'état de jeu valide précédent en raison d'une erreur de l'IA.");
+        // Réinitialiser à l'état d'entrée validé comme solution de secours
+        updatedGameStateObj = parseGameState(validatedInputGameStateString, input.playerName); // Analyser à nouveau la chaîne d'entrée validée
+        // Ajouter un message indiquant que l'état pourrait être obsolète
+        output.storyContent += "\n(Attention : L'état du jeu pourrait ne pas être à jour suite à une petite erreur technique.)";
+         // Fournir des choix de secours sûrs, en considérant si c'était censé être le dernier tour
          output.nextChoices = input.isLastTurn ? [] : ["Regarder autour", "Vérifier inventaire"];
-         output.generatedImagePrompt = undefined; // No image on error
+         output.generatedImagePrompt = undefined; // Pas d'image en cas d'erreur
     }
 
-    // Reserialize the validated/corrected game state object
+    // Resérialiser l'objet d'état de jeu validé/corrigé
     output.updatedGameState = safeJsonStringify(updatedGameStateObj);
 
 
-    // Final check on choices array content (ensure strings)
+    // Vérification finale du contenu du tableau de choix (assurer que ce sont des chaînes)
     if (!output.nextChoices.every(choice => typeof choice === 'string')) {
-        console.error("Invalid choices format received from AI:", output.nextChoices);
-        output.nextChoices = input.isLastTurn ? [] : ["Regarder autour de moi", "Vérifier l'inventaire"]; // Fallback choices
+        console.error("Format de choix invalide reçu de l'IA :", output.nextChoices);
+        output.nextChoices = input.isLastTurn ? [] : ["Regarder autour de moi", "Vérifier l'inventaire"]; // Choix de secours
          output.storyContent += "\n(Le narrateur a eu un petit bug en proposant les choix...)";
     }
 
 
   return output;
 });
-

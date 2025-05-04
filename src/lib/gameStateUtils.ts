@@ -1,35 +1,34 @@
-
-import type { ParsedGameState } from '@/types/game'; // Import shared type
+import type { ParsedGameState } from '@/types/game'; // Importer le type partagé
 
 /**
- * Safely parses a JSON string representing the game state.
- * Provides default values and ensures basic structure.
- * @param stateString The JSON string to parse.
- * @param playerNameFallback The player name to use if missing in the parsed data.
- * @returns A ParsedGameState object.
+ * Analyse en toute sécurité une chaîne JSON représentant l'état du jeu.
+ * Fournit des valeurs par défaut et assure une structure de base.
+ * @param stateString La chaîne JSON à analyser.
+ * @param playerNameFallback Le nom du joueur à utiliser s'il manque dans les données analysées.
+ * @returns Un objet ParsedGameState.
  */
 export const parseGameState = (stateString: string | undefined | null, playerNameFallback: string | null = 'Joueur'): ParsedGameState => {
     const defaultState: ParsedGameState = {
         inventory: [],
         location: 'Lieu Inconnu',
-        playerName: playerNameFallback || 'Joueur Inconnu', // Ensure player name exists
+        playerName: playerNameFallback || 'Joueur Inconnu', // Assure que le nom du joueur existe
         relationships: {},
         emotions: [],
         events: [],
     };
 
     if (!stateString) {
-        return { ...defaultState }; // Return a fresh default object
+        return { ...defaultState }; // Retourne un nouvel objet par défaut
     }
 
     try {
         const parsed = JSON.parse(stateString);
         if (typeof parsed !== 'object' || parsed === null) {
-            console.warn("Parsed game state is not an object, returning default.");
+            console.warn("L'état du jeu analysé n'est pas un objet, retour aux valeurs par défaut.");
             return { ...defaultState };
         }
 
-        // Ensure core properties exist and have the correct type
+        // Assurer que les propriétés principales existent et ont le bon type
         const inventory = Array.isArray(parsed.inventory)
             ? parsed.inventory.filter((item: any): item is string => typeof item === 'string')
             : [];
@@ -44,9 +43,9 @@ export const parseGameState = (stateString: string | undefined | null, playerNam
             : defaultState.events;
 
 
-        // Return a well-structured object including other properties from parsed
+        // Retourne un objet bien structuré incluant d'autres propriétés de l'analyse
         return {
-            ...parsed, // Keep any other properties the AI might have added
+            ...parsed, // Conserve toutes les autres propriétés que l'IA aurait pu ajouter
             inventory,
             playerName,
             location,
@@ -55,40 +54,40 @@ export const parseGameState = (stateString: string | undefined | null, playerNam
             events,
         };
     } catch (error) {
-        console.error("Error parsing game state JSON:", error, "String was:", stateString);
-        return { ...defaultState }; // Return a fresh default object on error
+        console.error("Erreur lors de l'analyse du JSON de l'état du jeu :", error, "La chaîne était :", stateString);
+        return { ...defaultState }; // Retourne un nouvel objet par défaut en cas d'erreur
     }
 };
 
 
 /**
- * Safely stringifies a game state object.
- * @param gameStateObject The ParsedGameState object to stringify.
- * @returns A JSON string representation, or '{}' if stringification fails.
+ * Convertit en chaîne JSON un objet d'état de jeu en toute sécurité.
+ * @param gameStateObject L'objet ParsedGameState à convertir en chaîne.
+ * @returns Une représentation en chaîne JSON, ou '{}' si la conversion échoue.
  */
 export const safeJsonStringify = (gameStateObject: ParsedGameState | object): string => {
   try {
-    // Ensure essential fields are present before stringifying, using defaults if needed
-    const stateToSave = {
+    // Assure que les champs essentiels sont présents avant la conversion en chaîne, en utilisant des valeurs par défaut si nécessaire
+    const stateToSave: ParsedGameState = {
       playerName: gameStateObject.playerName || 'Joueur Inconnu',
       location: gameStateObject.location || 'Lieu Indéterminé',
       inventory: Array.isArray(gameStateObject.inventory) ? gameStateObject.inventory : [],
       relationships: typeof gameStateObject.relationships === 'object' && gameStateObject.relationships !== null ? gameStateObject.relationships : {},
       emotions: Array.isArray(gameStateObject.emotions) ? gameStateObject.emotions : [],
       events: Array.isArray(gameStateObject.events) ? gameStateObject.events : [],
-      ...gameStateObject, // Spread the rest of the properties
+      ...gameStateObject, // Étale le reste des propriétés
     };
     return JSON.stringify(stateToSave);
   } catch (e) {
-    console.error("Failed to stringify game state object:", gameStateObject, e);
-    // Return a minimal valid JSON string as a fallback
+    console.error("Échec de la conversion en chaîne de l'objet d'état du jeu :", gameStateObject, e);
+    // Retourne une chaîne JSON minimale valide comme solution de secours
     return JSON.stringify({
         playerName: gameStateObject.playerName || 'Erreur État',
         location: gameStateObject.location || 'Erreur',
         inventory: [],
         relationships: {},
         emotions: [],
-        events: ['error_stringifying_state'],
+        events: ['erreur_conversion_etat'],
     });
   }
 }

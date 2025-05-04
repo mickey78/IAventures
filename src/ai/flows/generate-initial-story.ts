@@ -1,12 +1,11 @@
-// src/ai/flows/generate-initial-story.ts
 'use server';
 
 /**
- * @fileOverview This file defines the Genkit flow for generating the initial story based on the chosen theme and player name. It now also generates an initial image prompt.
+ * @fileOverview Ce fichier définit le flux Genkit pour générer l'histoire initiale basée sur le thème choisi et le nom du joueur. Il génère également un prompt d'image initial.
  *
- * - generateInitialStory - A function that generates the initial story, location, and image prompt.
- * - GenerateInitialStoryInput - The input type for the generateInitialStory function.
- * - GenerateInitialStoryOutput - The return type for the generateInitialStory function.
+ * - generateInitialStory - Fonction qui génère l'histoire initiale, le lieu et le prompt d'image.
+ * - GenerateInitialStoryInput - Type d'entrée pour la fonction generateInitialStory.
+ * - GenerateInitialStoryOutput - Type de retour pour la fonction generateInitialStory.
  */
 
 import { ai } from '@/ai/ai-instance';
@@ -16,19 +15,19 @@ const GenerateInitialStoryInputSchema = z.object({
   theme: z
     .string()
     .describe(
-      'The theme chosen by the player for the adventure. Supported themes are: Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Mystère et Enquête, École des Super-Héros, Histoire d\'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique.'
+      'Le thème choisi par le joueur pour l\'aventure. Thèmes supportés : Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Mystère et Enquête, École des Super-Héros, Histoire d\'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique.'
     ),
-  playerName: z.string().describe('The name of the player.'),
+  playerName: z.string().describe('Le nom du joueur.'),
 });
 export type GenerateInitialStoryInput = z.infer<typeof GenerateInitialStoryInputSchema>;
 
 const GenerateInitialStoryOutputSchema = z.object({
-  story: z.string().describe('The initial story content based on the chosen theme, addressing the player by name.'),
+  story: z.string().describe("Le contenu initial de l'histoire basé sur le thème choisi, s'adressant au joueur par son nom."),
   choices: z
     .array(z.string())
-    .describe('The choices presented to the player as selectable buttons.'),
-  location: z.string().describe('The initial location/setting of the story.'),
-  generatedImagePrompt: z.string().optional().describe('A concise, descriptive prompt for generating an image representing the initial scene, mentioning the theme, location, and using a cartoon style.'), // Added image prompt output
+    .describe('Les choix présentés au joueur sous forme de boutons sélectionnables.'),
+  location: z.string().describe("Le lieu/cadre initial de l'histoire."),
+  generatedImagePrompt: z.string().optional().describe("Un prompt concis et descriptif pour générer une image représentant la scène initiale, mentionnant le thème, le lieu et utilisant un style cartoon."),
 });
 export type GenerateInitialStoryOutput = z.infer<typeof GenerateInitialStoryOutputSchema>;
 
@@ -43,19 +42,19 @@ const prompt = ai.definePrompt({
       theme: z
         .string()
         .describe(
-          'The theme chosen by the player for the adventure. Supported themes are: Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Mystère et Enquête, École des Super-Héros, Histoire d\'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique.'
+          'Le thème choisi par le joueur pour l\'aventure. Thèmes supportés : Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Mystère et Enquête, École des Super-Héros, Histoire d\'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique.'
         ),
-      playerName: z.string().describe('The name of the player.'),
+      playerName: z.string().describe('Le nom du joueur.'),
     }),
   },
   output: {
     schema: z.object({
-      story: z.string().describe('The initial story content based on the chosen theme, addressing the player by name.'),
+      story: z.string().describe("Le contenu initial de l'histoire basé sur le thème choisi, s'adressant au joueur par son nom."),
       choices: z
         .array(z.string())
-        .describe('The choices presented to the player as selectable buttons.'),
-      location: z.string().describe('The initial location/setting of the story (e.g., "Forêt Sombre", "Pont du Vaisseau Spatial", "Saloon Poussiéreux").'),
-      generatedImagePrompt: z.string().optional().describe('A concise, descriptive prompt for generating an image representing the initial scene, mentioning the theme, location, and using a cartoon style. Example: "Un chevalier souriant nommé {{{playerName}}} dans une forêt enchantée colorée (lieu: Forêt Murmurante). Thème : Fantasy Médiévale. Style : Cartoon."'), // Added image prompt output schema
+        .describe('Les choix présentés au joueur sous forme de boutons sélectionnables.'),
+      location: z.string().describe("Le lieu/cadre initial de l'histoire (ex: 'Forêt Sombre', 'Pont du Vaisseau Spatial', 'Saloon Poussiéreux')."),
+      generatedImagePrompt: z.string().optional().describe('Un prompt concis et descriptif pour générer une image représentant la scène initiale, mentionnant le thème, le lieu et utilisant un style cartoon. Exemple : "Un chevalier souriant nommé {{{playerName}}} dans une forêt enchantée colorée (lieu: Forêt Murmurante). Thème : Fantasy Médiévale. Style : Cartoon."'),
     }),
   },
   prompt: `Tu es un Maître du Jeu (MJ) / Narrateur sympathique, créatif et plein d'humour pour un jeu d'aventure textuel interactif destiné aux enfants de 8 à 12 ans. Le nom du joueur est {{{playerName}}}. Ta mission est de démarrer une histoire passionnante, immersive et pleine de surprises basée sur le thème choisi par le joueur, en t'adressant à lui par son nom, en définissant un **lieu de départ clair**, en proposant des choix et en générant un **prompt d'image initial**, tout en respectant les règles ci-dessous.
@@ -108,28 +107,28 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
   },
   async input => {
     const { output } = await prompt(input);
-    // Basic validation to ensure output structure
+    // Validation de base pour assurer la structure de sortie
     if (!output || typeof output.story !== 'string' || !Array.isArray(output.choices) || output.choices.length === 0 || typeof output.location !== 'string' || !output.location.trim()) {
-        console.error("Invalid format received from AI for initial story:", output);
-         // Provide a more informative error or fallback
+        console.error("Format invalide reçu de l'IA pour l'histoire initiale:", output);
+         // Fournir une erreur plus informative ou une solution de secours
          const missingFields = [];
          if (typeof output?.story !== 'string') missingFields.push('story');
          if (!Array.isArray(output?.choices) || output?.choices.length === 0) missingFields.push('choices');
          if (typeof output?.location !== 'string' || !output?.location?.trim()) missingFields.push('location');
-         // generatedImagePrompt is optional, so we don't fail if it's missing, but we check its type if present
-         if (output?.generatedImagePrompt !== undefined && typeof output.generatedImagePrompt !== 'string') missingFields.push('generatedImagePrompt (invalid type)');
+         // generatedImagePrompt est optionnel, donc on ne lance pas d'erreur s'il manque, mais on vérifie son type si présent
+         if (output?.generatedImagePrompt !== undefined && typeof output.generatedImagePrompt !== 'string') missingFields.push('generatedImagePrompt (type invalide)');
 
         throw new Error(`Format invalide reçu de l'IA pour l'histoire initiale. Champs manquants ou invalides: ${missingFields.join(', ')}`);
     }
-     // Ensure choices are strings
+     // Assurer que les choix sont des chaînes de caractères
      if (!output.choices.every(choice => typeof choice === 'string')) {
-        console.error("Invalid choices format received from AI:", output.choices);
+        console.error("Format de choix invalide reçu de l'IA:", output.choices);
         throw new Error("Format invalide reçu de l'IA pour les choix.");
     }
 
-    // Ensure generatedImagePrompt is either a non-empty string or undefined/null
+    // Assurer que generatedImagePrompt est soit une chaîne non vide, soit undefined/null
     if (output.generatedImagePrompt !== undefined && output.generatedImagePrompt !== null && typeof output.generatedImagePrompt === 'string' && !output.generatedImagePrompt.trim()) {
-        console.warn("AI returned an empty generatedImagePrompt, setting to undefined.");
+        console.warn("L'IA a retourné un generatedImagePrompt vide, le définissant à undefined.");
         output.generatedImagePrompt = undefined;
     }
 
