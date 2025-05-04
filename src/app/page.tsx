@@ -253,6 +253,8 @@ export default function AdventureCraftGame() {
     const previousStory = [...gameState.story];
     const previousChoices = [...gameState.choices]; // Store previous choices for potential revert
     const previousGameState = gameState.currentGameState; // Store previous parsed state
+    const lastSegmentBeforeAction = previousStory[previousStory.length - 1]; // Get last segment for AI context
+
 
     // Optimistic update: show player action, clear choices, start loading
     setGameState((prev) => ({
@@ -270,10 +272,10 @@ export default function AdventureCraftGame() {
     const input: GenerateStoryContentInput = {
       theme: gameState.theme,
       playerName: gameState.playerName,
-      // Pass the last narrator segment OR player choice if it's the very first turn
-      lastStorySegment: previousStory.length > 0 ? previousStory[previousStory.length - 1] : undefined,
+      // Pass the last segment BEFORE the current player action
+      lastStorySegment: lastSegmentBeforeAction,
       playerChoicesHistory: nextPlayerChoicesHistory, // Send updated history including the current action
-      gameState: JSON.stringify(gameState.currentGameState), // Send current state stringified
+      gameState: JSON.stringify(previousGameState), // Send the state BEFORE the current action
     };
 
     try {
@@ -284,7 +286,7 @@ export default function AdventureCraftGame() {
 
       setGameState((prev) => ({
         ...prev,
-        story: [...prev.story, narratorResponseSegment],
+        story: [...prev.story, narratorResponseSegment], // Add the narrator's response
         choices: nextStoryData.nextChoices,
         currentGameState: updatedParsedGameState, // Store the new parsed state
         isLoading: false,
@@ -294,11 +296,12 @@ export default function AdventureCraftGame() {
     } catch (err) {
       console.error('Error generating story content:', err);
       const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
+      // Revert state: Remove player's action and restore previous state
       setGameState((prev) => ({
         ...prev,
         isLoading: false,
         error: `Impossible de continuer l'histoire: ${errorMsg}`,
-        story: previousStory, // Revert story
+        story: previousStory, // Revert story (remove optimistic player action)
         choices: previousChoices, // Revert choices
         currentGameState: previousGameState, // Revert game state
         playerChoicesHistory: prev.playerChoicesHistory.slice(0, -1), // Revert history
@@ -458,7 +461,7 @@ const renderStory = () => (
  const renderInventory = () => (
      <Popover>
          <PopoverTrigger asChild>
-             <Button variant="secondary" className="shrink-0" disabled={gameState.isLoading || gameState.currentGameState.inventory.length === 0}> {/* Changed variant to secondary */}
+             <Button variant="secondary" className="shrink-0" disabled={gameState.isLoading || gameState.currentGameState.inventory.length === 0}>
                  <Briefcase className="mr-2 h-4 w-4" />
                  Inventaire ({gameState.currentGameState.inventory.length})
              </Button>
@@ -500,8 +503,8 @@ const renderStory = () => (
             key={index}
             onClick={() => handleAction(choice)} // Use handleAction
             disabled={gameState.isLoading}
-            variant="primary" // Changed variant to primary
-            className="flex-grow sm:flex-grow-0" // Removed explicit color classes
+            variant="primary"
+            className="flex-grow sm:flex-grow-0"
             aria-label={`Faire le choix : ${choice}`}
           >
             {choice}
@@ -521,7 +524,7 @@ const renderStory = () => (
                 disabled={gameState.isLoading}
                 aria-label="Entrez votre propre action ou utilisez un objet"
               />
-              <Button type="submit" disabled={gameState.isLoading || !customChoiceInput.trim()} size="icon" variant="primary"> {/* Changed variant to primary */}
+              <Button type="submit" disabled={gameState.isLoading || !customChoiceInput.trim()} size="icon" variant="primary">
                 <Send className="h-4 w-4" />
                 <span className="sr-only">Envoyer</span>
               </Button>
@@ -533,9 +536,9 @@ const renderStory = () => (
   );
 
   const renderThemeSelection = () => (
-      <div className="flex flex-col items-center space-y-6">
+      <div className="flex flex-col items-center space-y-6 w-full">
           <p className="text-xl font-semibold text-center">Choisissez votre univers d'aventure :</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-5xl">
               {themes.map((theme) => {
                   const Icon = theme.icon;
                   const isSelected = gameState.theme === theme.value;
@@ -567,8 +570,8 @@ const renderStory = () => (
               onClick={showNameInput}
               disabled={!gameState.theme}
               size="lg"
-              variant="primary" // Changed variant to primary
-              className="rounded-md shadow-md mt-6" // Removed explicit color classes
+              variant="primary"
+              className="rounded-md shadow-md mt-6"
           >
               Suivant
           </Button>
@@ -579,7 +582,7 @@ const renderStory = () => (
   );
 
   const renderNameInput = () => (
-      <div className="flex flex-col items-center space-y-6 w-full max-w-sm">
+      <div className="flex flex-col items-center justify-center space-y-6 w-full max-w-sm h-full"> {/* Added justify-center and h-full */}
           <Label htmlFor="playerName" className="text-xl font-semibold text-center">Comment t'appelles-tu, aventurier(ère) ?</Label>
           <Input
                 id="playerName"
@@ -587,15 +590,15 @@ const renderStory = () => (
                 value={playerNameInput}
                 onChange={(e) => setPlayerNameInput(e.target.value)}
                 placeholder="Entre ton nom ici"
-                className="text-center"
+                className="text-center w-full" // Ensure full width within max-w-sm
                 maxLength={50}
             />
           <Button
               onClick={handleNameSubmit}
               disabled={!playerNameInput.trim() || gameState.isLoading}
               size="lg"
-              variant="primary" // Changed variant to primary
-              className="rounded-md shadow-md mt-6" // Removed explicit color classes
+              variant="primary"
+              className="rounded-md shadow-md w-full" // Make button full width
           >
               {gameState.isLoading ? (
                   <>
@@ -609,16 +612,16 @@ const renderStory = () => (
                   </>
               )}
           </Button>
-          <Button variant="outline" onClick={showThemeSelection} className="mt-2">
+          <Button variant="outline" onClick={showThemeSelection} className="mt-2 w-full"> {/* Make button full width */}
               Retour au choix du thème
           </Button>
       </div>
   );
 
   const renderMainMenu = () => (
-    <div className="flex flex-col items-center space-y-4">
+    <div className="flex flex-col items-center justify-center space-y-4 h-full"> {/* Added justify-center and h-full */}
         <h2 className="text-2xl font-semibold">Menu Principal</h2>
-        <Button onClick={showThemeSelection} size="lg" className="w-60" variant="primary"> {/* Changed variant to primary */}
+        <Button onClick={showThemeSelection} size="lg" className="w-60" variant="primary">
             <PlusCircle className="mr-2 h-5 w-5" /> Nouvelle Partie
         </Button>
         <Button onClick={showLoadGameView} size="lg" className="w-60" variant="secondary" disabled={savedGames.length === 0}>
@@ -629,7 +632,7 @@ const renderStory = () => (
   );
 
   const renderLoadGame = () => (
-    <div className="flex flex-col items-center space-y-4 w-full">
+    <div className="flex flex-col items-center space-y-4 w-full h-full justify-center"> {/* Added justify-center and h-full */}
         <h2 className="text-2xl font-semibold mb-4">Charger une Partie</h2>
         {savedGames.length > 0 ? (
              <ScrollAreaPrimitive.Root className="w-full max-w-md h-[300px] rounded-md border">
@@ -693,6 +696,10 @@ const renderStory = () => (
     </Dialog>
   );
 
+  // Determine if the current view should have centered content
+  const shouldCenterContent = ['menu', 'theme_selection', 'name_input', 'loading_game'].includes(gameState.currentView);
+
+
   return (
     <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground">
        <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg flex flex-col flex-grow" style={{ height: '95vh' }}>
@@ -714,7 +721,10 @@ const renderStory = () => (
           </CardDescription>
         </CardHeader>
 
-        <CardContent className="flex-grow flex flex-col overflow-hidden p-4 md:p-6">
+         <CardContent className={cn(
+            "flex-grow flex flex-col overflow-hidden p-4 md:p-6",
+             shouldCenterContent && "items-center justify-center" // Center content for specific views
+         )}>
           {gameState.currentView === 'menu' && renderMainMenu()}
           {gameState.currentView === 'theme_selection' && renderThemeSelection()}
           {gameState.currentView === 'name_input' && renderNameInput()}
@@ -750,4 +760,3 @@ const renderStory = () => (
     </div>
   );
 }
-
