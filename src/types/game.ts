@@ -17,10 +17,9 @@ export interface ParsedGameState {
     inventory: string[];
     playerName: string | null; // Can be null initially
     location?: string; // Current location
-    // Add other potential gameState fields here as needed by the AI
-    relationships?: Record<string, string>; // Example: { "Goblin": "hostile" }
-    emotions?: string[]; // Example: ["curious", "cautious"]
-    events?: string[]; // Example: ["found key", "escaped cave"]
+    relationships?: Record<string, string>; // Example: { "Gobelin": "ennemi", "Marchand": "neutre" }
+    emotions?: string[]; // Example: ["curieux", "prudent", "effrayé"]
+    events?: string[]; // Example: ["trouvé clé", "échappé grotte", "rencontré gobelin"]
     [key: string]: any; // Allow for other dynamic properties
 }
 
@@ -50,3 +49,4 @@ export interface Theme {
     prompt: string; // Short description/prompt for the theme
     icon: LucideIcon; // Icon component from lucide-react
 }
+

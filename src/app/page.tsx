@@ -32,7 +32,14 @@ export default function IAventuresGame() {
   const [gameState, setGameState] = useState<GameState>({
     story: [],
     choices: [],
-    currentGameState: { inventory: [], location: 'Menu Principal', playerName: null }, // Initialize with default object and location
+    currentGameState: {
+        playerName: null,
+        location: 'Menu Principal',
+        inventory: [],
+        relationships: {},
+        emotions: [],
+        events: [],
+     }, // Initialize with default object and location
     theme: null,
     playerName: null,
     isLoading: false,
@@ -89,7 +96,14 @@ export default function IAventuresGame() {
       ...prev,
       story: [],
       choices: [],
-      currentGameState: { inventory: [], playerName: null, location: 'Menu Principal' },
+      currentGameState: { // Reset inner state completely
+          playerName: null,
+          location: 'Menu Principal',
+          inventory: [],
+          relationships: {},
+          emotions: [],
+          events: []
+      },
       theme: null,
       playerName: null,
       isLoading: false,
@@ -113,7 +127,7 @@ export default function IAventuresGame() {
       playerName: null,
       currentTurn: 1,
       maxTurns: 15,
-      currentGameState: { ...prev.currentGameState, location: 'Sélection du Thème' }
+      currentGameState: { ...prev.currentGameState, location: 'Sélection du Thème', relationships: {}, emotions: [], events: [] } // Reset specific parts
     }));
     setIsInventoryPopoverOpen(false);
     setIsCustomInputVisible(false);
@@ -232,8 +246,7 @@ export default function IAventuresGame() {
       maxTurns: turns,
       currentTurn: 1,
       generatingSegmentId: null,
-      currentGameState: { // Reset game state inner parts
-        ...prev.currentGameState, // Keep playerName if already set
+      currentGameState: { // Reset game state inner parts completely for new game
         playerName: nameToUse, // Ensure player name is set here too
         location: 'Chargement...',
         inventory: [],
@@ -268,12 +281,12 @@ export default function IAventuresGame() {
         choices: initialStoryData.choices,
         isLoading: false,
         currentGameState: {
-          ...prev.currentGameState,
+          ...prev.currentGameState, // Keep playerName, inventory already reset
           location: initialStoryData.location,
-          inventory: [], // Ensure inventory is reset
+          // Initialize relationships and emotions based on story? Or keep empty? For now, keep empty.
           relationships: {},
           emotions: [],
-          events: [],
+          events: [], // Start with no events
         }
       }));
 
@@ -290,7 +303,14 @@ export default function IAventuresGame() {
         error: `Impossible de générer l'histoire initiale: ${errorMsg}`,
         theme: null,
         playerName: null,
-        currentGameState: { inventory: [], location: 'Erreur', playerName: null },
+        currentGameState: { // Ensure reset on error too
+            playerName: null,
+            location: 'Erreur',
+            inventory: [],
+            relationships: {},
+            emotions: [],
+            events: []
+        },
         currentView: 'theme_selection',
         maxTurns: 15,
         currentTurn: 1,
@@ -325,7 +345,7 @@ export default function IAventuresGame() {
     const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, actionText.trim()];
     const previousStory = [...gameState.story];
     const previousChoices = [...gameState.choices];
-    const previousGameState = gameState.currentGameState;
+    const previousGameState = gameState.currentGameState; // This is now ParsedGameState object
     const lastSegmentBeforeAction = previousStory.length > 0 ? previousStory[previousStory.length - 1] : undefined;
     const nextTurn = gameState.currentTurn + 1;
 
@@ -351,7 +371,7 @@ export default function IAventuresGame() {
       playerName: gameState.playerName,
       lastStorySegment: lastSegmentBeforeAction, // Pass previous segment for context and image prompt
       playerChoicesHistory: nextPlayerChoicesHistory,
-      gameState: safeJsonStringify(previousGameState), // Use safe stringify
+      gameState: safeJsonStringify(previousGameState), // Stringify the ParsedGameState object
       currentTurn: nextTurn,
       maxTurns: gameState.maxTurns,
       isLastTurn: isLastTurn,
@@ -376,7 +396,7 @@ export default function IAventuresGame() {
         ...prev,
         story: [...prev.story, narratorResponseSegment],
         choices: nextStoryData.nextChoices,
-        currentGameState: updatedParsedGameState,
+        currentGameState: updatedParsedGameState, // Store the parsed object
         isLoading: false,
         currentView: isLastTurn ? 'game_ended' : 'game_active',
       }));
@@ -398,7 +418,7 @@ export default function IAventuresGame() {
         error: `Impossible de continuer l'histoire: ${errorMsg}`,
         story: previousStory,
         choices: previousChoices,
-        currentGameState: previousGameState,
+        currentGameState: previousGameState, // Revert to previous ParsedGameState object
         playerChoicesHistory: prev.playerChoicesHistory.slice(0, -1),
         currentTurn: prev.currentTurn - 1, // Revert turn count on error
       }));

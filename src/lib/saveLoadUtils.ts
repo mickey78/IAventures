@@ -1,3 +1,4 @@
+
 'use client'; // Marquer comme composant client car il utilise localStorage
 
 import type { StorySegment, ParsedGameState } from '@/types/game'; // Importer les types partagés depuis leur nouvel emplacement
@@ -8,7 +9,7 @@ export interface GameStateToSave {
   playerName: string; // Nom du joueur ajouté
   story: Omit<StorySegment, 'imageIsLoading' | 'imageError' | 'imageGenerationPrompt' | 'storyImageUrl'>[]; // Exclure explicitement storyImageUrl du type sauvegardé
   choices: string[];
-  currentGameState: string; // Stocké sous forme de chaîne JSON (contient lieu, inventaire, etc.)
+  currentGameState: string; // Stocké sous forme de chaîne JSON (contient lieu, inventaire, relations, émotions, etc.)
   playerChoicesHistory: string[];
   timestamp: number;
   saveName: string;
@@ -82,10 +83,13 @@ export function listSaveGames(): LoadedGameState[] {
                  // Assurer que l'inventaire est un tableau de chaînes
                  if (!Array.isArray(currentGameStateObj.inventory)) currentGameStateObj.inventory = [];
                  currentGameStateObj.inventory = currentGameStateObj.inventory.filter((item: any) => typeof item === 'string');
-                 // Vérifier optionnellement d'autres champs attendus comme relationships, emotions, events si critiques
-                 if (!Array.isArray(currentGameStateObj.events)) currentGameStateObj.events = [];
+                 // Vérifier les champs relationships, emotions, events
                  if (typeof currentGameStateObj.relationships !== 'object' || currentGameStateObj.relationships === null) currentGameStateObj.relationships = {};
                  if (!Array.isArray(currentGameStateObj.emotions)) currentGameStateObj.emotions = [];
+                 currentGameStateObj.emotions = currentGameStateObj.emotions.filter((e: any) => typeof e === 'string');
+                 if (!Array.isArray(currentGameStateObj.events)) currentGameStateObj.events = [];
+                 currentGameStateObj.events = currentGameStateObj.events.filter((e: any) => typeof e === 'string');
+
 
             } catch (e: any) {
                 console.warn(`Sauvegarde "${save.saveName || 'INCONNU'}" a un JSON ou une structure invalide dans currentGameState: ${e.message}. Ignorer.`);
@@ -171,7 +175,7 @@ export function listSaveGames(): LoadedGameState[] {
  * Attend que gameState.currentGameState soit une chaîne JSON valide contenant le lieu.
  * **Crucialement, omet `storyImageUrl` des segments d'histoire avant de sauvegarder pour éviter les problèmes de stockage.**
  * @param saveName Le nom/identifiant de l'emplacement de sauvegarde.
- * @param gameState L'état du jeu à sauvegarder (incluant playerName, currentGameState converti en chaîne avec lieu, et infos de tour).
+ * @param gameState L'état du jeu à sauvegarder (incluant playerName, currentGameState converti en chaîne avec lieu, relations, émotions et infos de tour).
  * @returns True si la sauvegarde a réussi, false sinon.
  */
 export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'timestamp' | 'saveName'> & { story: StorySegment[] }): boolean { // Attend temporairement le StorySegment[] complet
@@ -226,10 +230,12 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
         }
         // Assurer que les éléments de l'inventaire sont des chaînes
         parsedStateForSave.inventory = parsedStateForSave.inventory.filter((item: any) => typeof item === 'string');
-        // Assurer que d'autres champs optionnels ont le bon type s'ils existent
-        if (parsedStateForSave.relationships && (typeof parsedStateForSave.relationships !== 'object' || parsedStateForSave.relationships === null)) parsedStateForSave.relationships = {};
-        if (parsedStateForSave.emotions && !Array.isArray(parsedStateForSave.emotions)) parsedStateForSave.emotions = [];
-        if (parsedStateForSave.events && !Array.isArray(parsedStateForSave.events)) parsedStateForSave.events = [];
+        // Assurer que les autres champs optionnels ont le bon type s'ils existent
+        if (typeof parsedStateForSave.relationships !== 'object' || parsedStateForSave.relationships === null) parsedStateForSave.relationships = {};
+        if (!Array.isArray(parsedStateForSave.emotions)) parsedStateForSave.emotions = [];
+        parsedStateForSave.emotions = parsedStateForSave.emotions.filter((e: any) => typeof e === 'string');
+        if (!Array.isArray(parsedStateForSave.events)) parsedStateForSave.events = [];
+        parsedStateForSave.events = parsedStateForSave.events.filter((e: any) => typeof e === 'string');
 
 
     } catch (e: any) {
@@ -319,7 +325,7 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
  * Charge un état de jeu spécifique depuis localStorage par nom de sauvegarde.
  * Ajoute des états d'image transitoires par défaut (imageIsLoading: false, imageError: false, storyImageUrl: null) aux segments d'histoire.
  * @param saveName Le nom de l'emplacement de sauvegarde à charger.
- * @returns L'état de jeu chargé (avec currentGameState comme chaîne contenant le lieu et les infos de tour) ou null si non trouvé ou en cas d'erreur.
+ * @returns L'état de jeu chargé (avec currentGameState comme chaîne contenant lieu, relations, émotions et infos de tour) ou null si non trouvé ou en cas d'erreur.
  */
 export function loadGame(saveName: string): (LoadedGameState & { story: StorySegment[] }) | null {
   if (typeof window === 'undefined') {
@@ -336,11 +342,12 @@ export function loadGame(saveName: string): (LoadedGameState & { story: StorySeg
 
     // L'objet save retourné par listSaveGames devrait être valide
     let locationInfo = 'lieu inconnu'; // Texte de lieu par défaut
+    let parsedState: ParsedGameState | null = null;
      try {
-         const parsedState = JSON.parse(save.currentGameState);
-         locationInfo = parsedState.location || locationInfo;
+         parsedState = JSON.parse(save.currentGameState); // Analyse une fois
+         locationInfo = parsedState?.location || locationInfo;
      } catch (e) {
-         console.warn(`Impossible d'analyser le lieu depuis la partie sauvegardée "${saveName}".`);
+         console.warn(`Impossible d'analyser le gameState depuis la partie sauvegardée "${saveName}".`);
      }
 
      // Réhydrater les segments d'histoire avec les états transitoires par défaut et une URL d'image nulle
@@ -353,7 +360,7 @@ export function loadGame(saveName: string): (LoadedGameState & { story: StorySeg
      }));
 
 
-    console.log(`Partie "${saveName}" chargée pour le joueur "${save.playerName}" au tour ${save.currentTurn}/${save.maxTurns} au lieu "${locationInfo}".`);
+    console.log(`Partie "${saveName}" chargée pour le joueur "${save.playerName}" au tour ${save.currentTurn}/${save.maxTurns} au lieu "${locationInfo}". Relations: ${JSON.stringify(parsedState?.relationships)}, Émotions: ${JSON.stringify(parsedState?.emotions)}`);
     // Caster le résultat vers le type attendu incluant l'histoire réhydratée
     return { ...save, story: storyWithTransientState } as (LoadedGameState & { story: StorySegment[] });
   } catch (error) {

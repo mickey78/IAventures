@@ -1,3 +1,4 @@
+
 import type { ParsedGameState } from '@/types/game'; // Importer le type partagé
 
 /**
@@ -12,8 +13,8 @@ export const parseGameState = (stateString: string | undefined | null, playerNam
         inventory: [],
         location: 'Lieu Inconnu',
         playerName: playerNameFallback || 'Joueur Inconnu', // Assure que le nom du joueur existe
-        relationships: {},
-        emotions: [],
+        relationships: {}, // Default empty relationships
+        emotions: [], // Default empty emotions
         events: [],
     };
 
@@ -31,7 +32,7 @@ export const parseGameState = (stateString: string | undefined | null, playerNam
         // Assurer que les propriétés principales existent et ont le bon type
         const inventory = Array.isArray(parsed.inventory)
             ? parsed.inventory.filter((item: any): item is string => typeof item === 'string')
-            : [];
+            : defaultState.inventory;
         const playerName = typeof parsed.playerName === 'string' && parsed.playerName.trim() ? parsed.playerName.trim() : defaultState.playerName;
         const location = typeof parsed.location === 'string' && parsed.location.trim() ? parsed.location.trim() : defaultState.location;
         const relationships = typeof parsed.relationships === 'object' && parsed.relationships !== null ? parsed.relationships : defaultState.relationships;
