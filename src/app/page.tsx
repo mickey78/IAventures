@@ -1,10 +1,13 @@
+// src/app/page.tsx
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"; // Import primitives
+import { ScrollBar } from "@/components/ui/scroll-area"; // Import ScrollBar separately
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { ScrollArea } from '@/components/ui/scroll-area';
+// Removed unused ScrollArea import
 import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
 import type { GenerateStoryContentInput } from '@/ai/flows/generate-story-content';
@@ -41,7 +44,7 @@ export default function AdventureCraftGame() {
   const [gameState, setGameState] = useState<GameState>({
     story: [],
     choices: [],
-    currentGameState: '',
+    currentGameState: '{}', // Default to empty JSON string
     theme: null,
     isLoading: false,
     error: null,
@@ -49,21 +52,24 @@ export default function AdventureCraftGame() {
   });
 
   const { toast } = useToast();
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const viewportRef = useRef<HTMLDivElement>(null);
+  const viewportRef = useRef<HTMLDivElement>(null); // Ref for the scrollable viewport
 
   const scrollToBottom = useCallback(() => {
-    setTimeout(() => {
+    // Use requestAnimationFrame for smoother scrolling after render
+    requestAnimationFrame(() => {
         if (viewportRef.current) {
            viewportRef.current.scrollTo({ top: viewportRef.current.scrollHeight, behavior: 'smooth' });
         }
-    }, 100); // Short delay to ensure content is rendered
+    });
   }, []);
 
 
   useEffect(() => {
-    scrollToBottom();
-  }, [gameState.story, scrollToBottom]);
+      // Scroll whenever story updates, including initial load and subsequent additions
+      if (gameState.story.length > 0) {
+          scrollToBottom();
+      }
+  }, [gameState.story, scrollToBottom]); // Depend on story array and the callback
 
   const handleThemeSelect = (themeValue: string) => {
     setGameState((prev) => ({
@@ -71,7 +77,7 @@ export default function AdventureCraftGame() {
       theme: themeValue,
       story: [], // Reset story on new theme selection
       choices: [],
-      currentGameState: '',
+      currentGameState: '{}', // Reset game state
       playerChoicesHistory: [],
       error: null,
     }));
@@ -83,7 +89,7 @@ export default function AdventureCraftGame() {
       return;
     }
 
-    setGameState((prev) => ({ ...prev, isLoading: true, error: null }));
+    setGameState((prev) => ({ ...prev, isLoading: true, error: null, story: [], choices: [], currentGameState: '{}', playerChoicesHistory: [] })); // Full reset before start
 
     try {
       const initialStoryData = await generateInitialStory({ theme: gameState.theme });
@@ -91,11 +97,10 @@ export default function AdventureCraftGame() {
         ...prev,
         story: [{ id: Date.now(), text: initialStoryData.story }],
         choices: initialStoryData.choices,
-        currentGameState: 'Initial state set.', // Initialize game state
+        currentGameState: '{}', // Initialize game state explicitly
         isLoading: false,
-        playerChoicesHistory: [], // Reset history
       }));
-      scrollToBottom();
+      // scrollToBottom will be called by the useEffect hook
     } catch (err) {
       console.error('Error generating initial story:', err);
       const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
@@ -109,69 +114,79 @@ export default function AdventureCraftGame() {
   };
 
   const handleChoice = async (choice: string) => {
+    // Add player choice optimistically and immediately scroll
+    const playerChoiceSegment = { id: Date.now(), text: `> ${choice}`, isPlayerChoice: true };
     setGameState((prev) => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-      story: [...prev.story, { id: Date.now(), text: `> ${choice}`, isPlayerChoice: true }],
-      choices: [], // Clear choices while loading next part
-      playerChoicesHistory: [...prev.playerChoicesHistory, choice],
+        ...prev,
+        isLoading: true,
+        error: null,
+        story: [...prev.story, playerChoiceSegment],
+        choices: [], // Clear choices while loading next part
+        playerChoicesHistory: [...prev.playerChoicesHistory, choice],
     }));
-    scrollToBottom(); // Scroll after adding player choice
+    scrollToBottom(); // Scroll immediately after adding player choice
 
     const input: GenerateStoryContentInput = {
       theme: gameState.theme!,
-      playerChoices: gameState.playerChoicesHistory.concat(choice), // Include current choice in history for API
-      gameState: gameState.currentGameState,
+      playerChoices: gameState.playerChoicesHistory, // History already updated in setGameState
+      gameState: gameState.currentGameState || '{}', // Ensure gameState is passed
     };
 
     try {
       const nextStoryData = await generateStoryContent(input);
       setGameState((prev) => ({
         ...prev,
-        story: [...prev.story, { id: Date.now() + 1, text: nextStoryData.storyContent }], // Use a slightly different ID just in case
+        // Replace the loading state with the new story content
+        story: [...prev.story, { id: Date.now() + 1, text: nextStoryData.storyContent }],
         choices: nextStoryData.nextChoices,
         currentGameState: nextStoryData.updatedGameState,
         isLoading: false,
       }));
-      scrollToBottom();
+      // scrollToBottom will be called by the useEffect hook
     } catch (err) {
       console.error('Error generating story content:', err);
-       const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
+      const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
       setGameState((prev) => ({
         ...prev,
         isLoading: false,
-        // Re-enable previous choices on error
-        choices: prev.choices.length > 0 ? prev.choices : ['Réessayer'],
+        // Re-enable previous choices if available, otherwise provide retry
+        choices: prev.playerChoicesHistory.length > 0 && prev.story.length > 1 ? prev.choices : ['Réessayer la dernière action'], // Logic needs review, maybe store last valid choices?
         error: `Impossible de continuer l'histoire: ${errorMsg}`,
-        // Remove player choice and the failed segment attempt if necessary (optional)
-         story: prev.story.slice(0, -1), // Removes the player choice text added optimistically
+        // Remove player choice text added optimistically as the API call failed
+         story: prev.story.slice(0, -1),
          playerChoicesHistory: prev.playerChoicesHistory.slice(0,-1), // Remove last choice from history
       }));
-       toast({ title: 'Erreur de Génération', description: `Impossible de continuer l'histoire: ${errorMsg}`, variant: 'destructive' });
+      toast({ title: 'Erreur de Génération', description: `Impossible de continuer l'histoire: ${errorMsg}`, variant: 'destructive' });
     }
   };
 
-  const renderStory = () => (
-    <ScrollArea className="h-[400px] w-full rounded-md border p-4 bg-card text-card-foreground mb-4" ref={scrollAreaRef}>
-       <div ref={viewportRef}>
+ const renderStory = () => (
+    // Use ScrollArea primitives directly to attach ref to Viewport
+    <ScrollAreaPrimitive.Root className="relative overflow-hidden h-[400px] w-full rounded-md border mb-4">
+        <ScrollAreaPrimitive.Viewport
+            ref={viewportRef} // Attach ref here
+            className="h-full w-full rounded-[inherit] p-4 bg-card text-card-foreground" // Apply styling here
+        >
             {gameState.story.map((segment) => (
             <p key={segment.id} className={`mb-2 ${segment.isPlayerChoice ? 'italic text-muted-foreground' : ''}`}>
                 {segment.text}
             </p>
             ))}
-            {gameState.isLoading && (
+            {gameState.isLoading && gameState.story.length > 0 && ( // Show loading only after the story starts
                 <div className="flex items-center space-x-2 text-muted-foreground mt-4">
                     <Loader className="h-4 w-4 animate-spin" />
-                    <span>Génération de l'histoire...</span>
+                    <span>Génération de la suite...</span>
                 </div>
             )}
-       </div>
-    </ScrollArea>
-  );
+        </ScrollAreaPrimitive.Viewport>
+        <ScrollBar />
+        <ScrollAreaPrimitive.Corner />
+    </ScrollAreaPrimitive.Root>
+ );
+
 
   const renderChoices = () => (
-    <div className="flex flex-wrap gap-2 mt-4">
+    <div className="flex flex-wrap gap-2 mt-4 justify-center">
       {gameState.choices.map((choice, index) => (
         <Button
           key={index}
@@ -179,6 +194,7 @@ export default function AdventureCraftGame() {
           disabled={gameState.isLoading}
           variant="secondary"
           className="flex-grow sm:flex-grow-0"
+          aria-label={`Faire le choix : ${choice}`} // Accessibility
         >
           {choice}
         </Button>
@@ -188,7 +204,7 @@ export default function AdventureCraftGame() {
 
   return (
     <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground">
-      <Card className="w-full max-w-3xl shadow-lg border-border">
+      <Card className="w-full max-w-3xl shadow-lg border-border rounded-lg">
         <CardHeader className="text-center">
           <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
             <BookOpenText className="h-8 w-8 text-primary" />
@@ -219,7 +235,7 @@ export default function AdventureCraftGame() {
                 onClick={startGame}
                 disabled={!gameState.theme || gameState.isLoading}
                 size="lg"
-                className="bg-primary hover:bg-primary/90 text-primary-foreground"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md" // Added styling
               >
                 {gameState.isLoading ? (
                   <>
@@ -241,21 +257,21 @@ export default function AdventureCraftGame() {
             </>
           )}
           {gameState.error && (
-            <p className="text-destructive mt-4 text-center">{gameState.error}</p>
+             <p className="text-destructive mt-4 text-center font-medium p-2 bg-destructive/10 rounded-md">{gameState.error}</p>
           )}
         </CardContent>
          {gameState.story.length > 0 && (
-            <CardFooter className="flex justify-center mt-4">
+            <CardFooter className="flex justify-center mt-4 pt-4 border-t border-border">
                  <Button variant="outline" onClick={() => setGameState({
                      story: [],
                      choices: [],
-                     currentGameState: '',
+                     currentGameState: '{}',
                      theme: null,
                      isLoading: false,
                      error: null,
                      playerChoicesHistory: [],
                  })}>
-                    Recommencer (Choisir un autre thème)
+                    Recommencer
                 </Button>
             </CardFooter>
          )}
@@ -263,3 +279,5 @@ export default function AdventureCraftGame() {
     </div>
   );
 }
+
+    
