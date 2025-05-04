@@ -1,4 +1,3 @@
-// src/lib/saveLoadUtils.ts
 'use client'; // Mark as client component because it uses localStorage
 
 import type { StorySegment } from '@/app/page'; // Adjust the import path as needed
@@ -18,6 +17,7 @@ export interface GameStateToSave {
 }
 
 const SAVE_GAME_KEY = 'adventureCraftSaves_v1'; // Use a versioned key
+const LOCAL_STORAGE_LIMIT_WARN_BYTES = 4.5 * 1024 * 1024; // ~4.5MB warning threshold
 
 /**
  * Retrieves all saved games from localStorage.
@@ -36,86 +36,124 @@ export function listSaveGames(): GameStateToSave[] {
     let savedGames = JSON.parse(savedGamesJson) as GameStateToSave[]; // Use let for potential modification
     // Basic validation - check if it's an array
     if (!Array.isArray(savedGames)) {
-        console.error("Invalid save data found in localStorage. Expected an array.");
+        console.error("Invalid save data found in localStorage. Expected an array. Clearing invalid data.");
         localStorage.removeItem(SAVE_GAME_KEY); // Clear invalid data
         return [];
     }
      // Further validation for essential fields and inner gameState structure
-     savedGames = savedGames.map(save => { // Use map to return a new array with validated saves
-        let currentGameStateObj: any = {};
-        try {
-            currentGameStateObj = JSON.parse(save.currentGameState || '{}');
-            if (typeof currentGameStateObj !== 'object' || currentGameStateObj === null) throw new Error("Not an object");
-        } catch (e) {
-            console.warn(`Save game "${save.saveName}" has invalid JSON in currentGameState. Resetting gameState.`);
-            currentGameStateObj = { // Reset to a basic valid structure
-                playerName: save.playerName || 'Joueur Inconnu',
-                location: 'Lieu Inconnu',
-                inventory: []
-            };
-            save.currentGameState = JSON.stringify(currentGameStateObj); // Update the save object itself for consistency
-        }
+     let validatedSaves = savedGames.reduce((acc: GameStateToSave[], save) => { // Use reduce to filter out invalid saves
+        try { // Outer try block for validating a single save object
+            let isValid = true;
+            let currentGameStateObj: any = {};
 
-        if (typeof save.playerName !== 'string' || !save.playerName.trim()) {
-             console.warn(`Save game "${save.saveName}" missing or invalid player name. Defaulting.`);
-            save.playerName = 'Joueur Inconnu'; // Assign a default if needed
-             if (!currentGameStateObj.playerName) currentGameStateObj.playerName = save.playerName; // Sync with inner state
-        }
-        if (typeof currentGameStateObj.location !== 'string' || !currentGameStateObj.location.trim()) {
-            console.warn(`Save game "${save.saveName}" missing or invalid location in gameState. Defaulting.`);
-            currentGameStateObj.location = 'Lieu Indéterminé';
-        }
-        if (!Array.isArray(currentGameStateObj.inventory)) {
-            console.warn(`Save game "${save.saveName}" missing or invalid inventory in gameState. Defaulting.`);
-            currentGameStateObj.inventory = [];
-        }
-        // Ensure inventory items are strings
-        currentGameStateObj.inventory = currentGameStateObj.inventory.filter((item: any) => typeof item === 'string');
+            // Validate top-level required fields first
+             if (typeof save.saveName !== 'string' || !save.saveName.trim()) {
+                 console.warn(`Skipping save with invalid or missing saveName.`);
+                 isValid = false;
+             }
+             if (typeof save.theme !== 'string' || !save.theme.trim()) {
+                  console.warn(`Save game "${save.saveName || 'UNKNOWN'}" missing or invalid theme. Skipping.`);
+                 isValid = false;
+             }
+             if (typeof save.playerName !== 'string' || !save.playerName.trim()) {
+                console.warn(`Save game "${save.saveName || 'UNKNOWN'}" missing or invalid player name. Assigning default.`);
+                save.playerName = 'Joueur Inconnu'; // Assign a default but allow save
+            }
+             if (typeof save.timestamp !== 'number' || save.timestamp <= 0) {
+                 console.warn(`Save game "${save.saveName || 'UNKNOWN'}" missing or invalid timestamp. Skipping.`);
+                 isValid = false;
+             }
 
+             // Validate currentGameState JSON string and its structure
+            try { // Nested try-catch for JSON parsing specifically
+                if (typeof save.currentGameState !== 'string') throw new Error("currentGameState is not a string.");
+                currentGameStateObj = JSON.parse(save.currentGameState);
+                if (typeof currentGameStateObj !== 'object' || currentGameStateObj === null) throw new Error("Parsed gameState is not an object.");
+                 // Sync player name if needed
+                 if (!currentGameStateObj.playerName || typeof currentGameStateObj.playerName !== 'string') currentGameStateObj.playerName = save.playerName;
+                 // Ensure location exists and is a string
+                 if (typeof currentGameStateObj.location !== 'string' || !currentGameStateObj.location.trim()) currentGameStateObj.location = 'Lieu Indéterminé';
+                 // Ensure inventory is an array of strings
+                 if (!Array.isArray(currentGameStateObj.inventory)) currentGameStateObj.inventory = [];
+                 currentGameStateObj.inventory = currentGameStateObj.inventory.filter((item: any) => typeof item === 'string');
+                 // Optionally check for other expected fields like relationships, emotions, events if critical
+                 if (!Array.isArray(currentGameStateObj.events)) currentGameStateObj.events = [];
+                 if (typeof currentGameStateObj.relationships !== 'object' || currentGameStateObj.relationships === null) currentGameStateObj.relationships = {};
+                 if (!Array.isArray(currentGameStateObj.emotions)) currentGameStateObj.emotions = [];
 
-        // Validate turn numbers (assign defaults if missing)
-        if (typeof save.maxTurns !== 'number' || save.maxTurns <= 0) {
-            console.warn(`Save game "${save.saveName}" missing or invalid maxTurns. Defaulting to 15.`);
-            save.maxTurns = 15;
+            } catch (e: any) {
+                console.warn(`Save game "${save.saveName || 'UNKNOWN'}" has invalid JSON or structure in currentGameState: ${e.message}. Skipping.`);
+                isValid = false;
+            }
+
+            // Validate turn numbers
+            if (typeof save.maxTurns !== 'number' || save.maxTurns <= 0) {
+                console.warn(`Save game "${save.saveName || 'UNKNOWN'}" missing or invalid maxTurns. Defaulting to 15.`);
+                save.maxTurns = 15; // Assign default but allow save if otherwise valid
+            }
+            if (typeof save.currentTurn !== 'number' || save.currentTurn <= 0) {
+                console.warn(`Save game "${save.saveName || 'UNKNOWN'}" missing or invalid currentTurn. Defaulting to 1.`);
+                save.currentTurn = 1; // Assign default but allow save if otherwise valid
+            }
+            // Clamp currentTurn (allow one over for ended state)
+            if (save.currentTurn > save.maxTurns + 1) {
+                console.warn(`Save game "${save.saveName || 'UNKNOWN'}" has currentTurn (${save.currentTurn}) exceeding maxTurns (${save.maxTurns}). Clamping.`);
+                save.currentTurn = save.maxTurns + 1;
+            }
+
+             // Validate story segments (basic checks)
+             if (!Array.isArray(save.story)) {
+                console.warn(`Save game "${save.saveName || 'UNKNOWN'}" has invalid story format. Resetting story.`);
+                save.story = []; // Allow save but with empty story
+             } else {
+                // Ensure storyImageUrl is string or null/undefined and remove transient/debug states
+                save.story = save.story.map(seg => {
+                    if (seg.storyImageUrl !== undefined && seg.storyImageUrl !== null && typeof seg.storyImageUrl !== 'string') {
+                        console.warn(`Invalid storyImageUrl found in save "${save.saveName}". Setting to null.`);
+                        seg.storyImageUrl = null;
+                    }
+                    // Remove transient/debug states if they somehow got saved
+                    const { imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg as any;
+                    return rest;
+                });
+             }
+
+             // Validate choices array
+              if (!Array.isArray(save.choices)) {
+                  console.warn(`Save game "${save.saveName || 'UNKNOWN'}" missing or invalid choices array. Resetting.`);
+                  save.choices = [];
+              } else {
+                  // Ensure choices are strings
+                  save.choices = save.choices.filter(choice => typeof choice === 'string');
+              }
+
+             // Validate playerChoicesHistory array
+             if (!Array.isArray(save.playerChoicesHistory)) {
+                 console.warn(`Save game "${save.saveName || 'UNKNOWN'}" missing or invalid playerChoicesHistory array. Resetting.`);
+                 save.playerChoicesHistory = [];
+             } else {
+                 // Ensure history items are strings
+                 save.playerChoicesHistory = save.playerChoicesHistory.filter(hist => typeof hist === 'string');
+             }
+
+            // Re-stringify the potentially corrected inner gameState
+            save.currentGameState = JSON.stringify(currentGameStateObj);
+
+            if (isValid) {
+                acc.push(save); // Add the validated/corrected save object to the result
+            }
+        } catch (error) { // Catch errors during the overall validation of a single save
+            console.error(`Unexpected error validating save "${save?.saveName || 'UNKNOWN'}". Skipping.`, error);
         }
-        if (typeof save.currentTurn !== 'number' || save.currentTurn <= 0) {
-            console.warn(`Save game "${save.saveName}" missing or invalid currentTurn. Defaulting to 1.`);
-            save.currentTurn = 1;
-        }
-        // Ensure current turn doesn't exceed max turns (could happen with manual edits)
-        if (save.currentTurn > save.maxTurns + 1) { // Allow one over for "ended" state
-             console.warn(`Save game "${save.saveName}" has currentTurn exceeding maxTurns. Clamping.`);
-             save.currentTurn = save.maxTurns + 1;
-        }
-         // Validate story segments (basic checks)
-         if (!Array.isArray(save.story)) {
-            console.warn(`Save game "${save.saveName}" has invalid story format. Resetting story.`);
-            save.story = [];
-         } else {
-            // Ensure storyImageUrl is string or null/undefined and remove transient/debug states
-            save.story = save.story.map(seg => {
-                if (seg.storyImageUrl !== undefined && seg.storyImageUrl !== null && typeof seg.storyImageUrl !== 'string') {
-                    console.warn(`Invalid storyImageUrl found in save "${save.saveName}". Setting to null.`);
-                    seg.storyImageUrl = null;
-                }
-                // Remove transient/debug states if they somehow got saved
-                const { imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg as any;
-                return rest;
-            });
-         }
+        return acc; // Return the accumulator
+     }, []); // End of reduce
 
-
-        // Re-stringify the potentially corrected inner gameState
-        save.currentGameState = JSON.stringify(currentGameStateObj);
-
-        return save; // Return the validated/corrected save object
-     });
 
     // Sort by timestamp descending (most recent first)
-    return savedGames.sort((a, b) => b.timestamp - a.timestamp);
+    return validatedSaves.sort((a, b) => b.timestamp - a.timestamp);
   } catch (error) {
     console.error('Error loading save games from localStorage:', error);
-    // Optionally clear corrupted data
+    // Optionally clear corrupted data if parsing fails fundamentally
     // localStorage.removeItem(SAVE_GAME_KEY);
     return [];
   }
@@ -135,31 +173,65 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
     console.error('Cannot save game on the server.');
     return false;
   }
-  if (!gameState.playerName) {
-      console.error('Cannot save game without a player name.');
+  if (!gameState.playerName || typeof gameState.playerName !== 'string' || !gameState.playerName.trim()) {
+      console.error('Cannot save game without a valid player name.');
       return false;
   }
-   // Validate that currentGameState is a string before saving
-   if (typeof gameState.currentGameState !== 'string') {
-        console.error('Error saving: currentGameState must be a stringified JSON.');
+   if (!gameState.theme || typeof gameState.theme !== 'string' || !gameState.theme.trim()) {
+      console.error('Cannot save game without a valid theme.');
+      return false;
+  }
+   if (typeof gameState.maxTurns !== 'number' || gameState.maxTurns <= 0 || typeof gameState.currentTurn !== 'number' || gameState.currentTurn <= 0) {
+        console.error('Error saving: Invalid turn data provided.', { maxTurns: gameState.maxTurns, currentTurn: gameState.currentTurn });
         return false;
-   }
-    // Validate the JSON structure within the string *before* saving
-    let parsedState: any;
+    }
+    if (!Array.isArray(gameState.story)) {
+        console.error('Error saving: gameState.story is not an array.');
+        return false;
+    }
+    if (!Array.isArray(gameState.choices)) {
+        console.error('Error saving: gameState.choices is not an array.');
+        return false;
+    }
+     if (!Array.isArray(gameState.playerChoicesHistory)) {
+        console.error('Error saving: gameState.playerChoicesHistory is not an array.');
+        return false;
+    }
+
+   // Validate currentGameState string and its content *before* attempting save
+    let parsedStateForSave: any;
     try {
-         parsedState = JSON.parse(gameState.currentGameState);
-         if (typeof parsedState !== 'object' || parsedState === null || !parsedState.playerName || !Array.isArray(parsedState.inventory) || typeof parsedState.location !== 'string' || !parsedState.location.trim()) { // Added location check
-            throw new Error("Invalid structure or missing fields (playerName, location, inventory) in currentGameState JSON");
-         }
-    } catch (e) {
-        console.error('Error saving: Invalid JSON structure or missing fields in currentGameState string.', e, gameState.currentGameState);
-        return false;
+        if (typeof gameState.currentGameState !== 'string') {
+            throw new Error("currentGameState is not a string.");
+        }
+        parsedStateForSave = JSON.parse(gameState.currentGameState);
+        if (typeof parsedStateForSave !== 'object' || parsedStateForSave === null) {
+            throw new Error("Parsed currentGameState is not an object.");
+        }
+        if (typeof parsedStateForSave.playerName !== 'string' || !parsedStateForSave.playerName.trim()) {
+            console.warn("Player name missing in currentGameState JSON, adding from top level.");
+            parsedStateForSave.playerName = gameState.playerName;
+        }
+        if (!Array.isArray(parsedStateForSave.inventory)) {
+            throw new Error("Missing or invalid 'inventory' array in currentGameState JSON.");
+        }
+        if (typeof parsedStateForSave.location !== 'string' || !parsedStateForSave.location.trim()) {
+            throw new Error("Missing or invalid 'location' string in currentGameState JSON.");
+        }
+        // Ensure inventory items are strings
+        parsedStateForSave.inventory = parsedStateForSave.inventory.filter((item: any) => typeof item === 'string');
+        // Ensure other optional fields are correct type if they exist
+        if (parsedStateForSave.relationships && (typeof parsedStateForSave.relationships !== 'object' || parsedStateForSave.relationships === null)) parsedStateForSave.relationships = {};
+        if (parsedStateForSave.emotions && !Array.isArray(parsedStateForSave.emotions)) parsedStateForSave.emotions = [];
+        if (parsedStateForSave.events && !Array.isArray(parsedStateForSave.events)) parsedStateForSave.events = [];
+
+
+    } catch (e: any) {
+        console.error('Error saving: Invalid JSON or structure in currentGameState string.', e.message, gameState.currentGameState);
+        return false; // Prevent saving invalid state
     }
-    // Validate turns before saving
-    if (typeof gameState.maxTurns !== 'number' || gameState.maxTurns <= 0 || typeof gameState.currentTurn !== 'number' || gameState.currentTurn <= 0) {
-        console.error('Error saving: Invalid turn data provided.');
-        return false;
-    }
+    // Use the validated and potentially corrected parsed state string for saving
+    const validatedGameStateString = JSON.stringify(parsedStateForSave);
 
 
   try {
@@ -168,33 +240,67 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
 
     // Prepare story state for saving (remove transient/debug flags)
     const storyToSave = gameState.story.map(seg => {
+        // Basic validation of segment structure
+        if (typeof seg.id !== 'number' || typeof seg.text !== 'string' || (seg.speaker !== 'player' && seg.speaker !== 'narrator')) {
+            console.warn("Invalid story segment structure found during save preparation:", seg);
+            // Decide how to handle - skip segment? return minimal? Here, we return a minimal valid version.
+            return { id: seg.id || 0, text: seg.text || '?', speaker: seg.speaker || 'narrator' };
+        }
         const { imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg;
+         // Ensure storyImageUrl is string or null/undefined before saving
+         if (rest.storyImageUrl !== undefined && rest.storyImageUrl !== null && typeof rest.storyImageUrl !== 'string') {
+            console.warn(`Correcting invalid storyImageUrl type in segment ${rest.id} during save.`);
+            rest.storyImageUrl = null;
+        }
         return rest;
     });
 
 
     const newState: GameStateToSave = {
-        ...gameState, // Includes stringified currentGameState with location and turn info
+        theme: gameState.theme,
+        playerName: gameState.playerName,
         story: storyToSave, // Use the cleaned story array
+        choices: gameState.choices.filter(c => typeof c === 'string'), // Ensure choices are strings
+        currentGameState: validatedGameStateString, // Use the validated string
+        playerChoicesHistory: gameState.playerChoicesHistory.filter(h => typeof h === 'string'), // Ensure history items are strings
+        maxTurns: gameState.maxTurns,
+        currentTurn: gameState.currentTurn,
         saveName: saveName,
         timestamp: now,
     }
 
     const existingIndex = saves.findIndex(s => s.saveName === saveName);
+    let updatedSaves: GameStateToSave[];
 
     if (existingIndex > -1) {
-        saves[existingIndex] = newState;
+        updatedSaves = [...saves];
+        updatedSaves[existingIndex] = newState;
     } else {
-        saves.push(newState);
+        updatedSaves = [newState, ...saves]; // Add new save to the beginning (already sorted by timestamp effectively)
     }
 
-    saves.sort((a, b) => b.timestamp - a.timestamp);
+    // Check potential size before saving
+    const saveDataString = JSON.stringify(updatedSaves);
+    const saveDataSize = new Blob([saveDataString]).size;
+    console.log(`Estimated size of save data: ${(saveDataSize / 1024 / 1024).toFixed(2)} MB`);
+    if (saveDataSize > LOCAL_STORAGE_LIMIT_WARN_BYTES) {
+        console.warn(`LocalStorage save data size is approaching limits (${(saveDataSize / 1024 / 1024).toFixed(2)} MB). Oldest saves might be pruned or saving could fail.`);
+        // Implement pruning logic here if desired (e.g., keep only the 10 most recent saves)
+    }
 
-    localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(saves));
-    console.log(`Game saved as "${saveName}" for player "${gameState.playerName}" at turn ${gameState.currentTurn}/${gameState.maxTurns} in location "${parsedState.location}"`); // Log location
+    // Attempt to save
+    localStorage.setItem(SAVE_GAME_KEY, saveDataString);
+    console.log(`Game saved as "${saveName}" for player "${gameState.playerName}" at turn ${gameState.currentTurn}/${gameState.maxTurns} in location "${parsedStateForSave.location}".`);
     return true;
-  } catch (error) {
+
+  } catch (error: any) {
     console.error('Error saving game to localStorage:', error);
+    if (error.name === 'QuotaExceededError') {
+         console.error("LocalStorage quota exceeded! Cannot save game. The save data might be too large, possibly due to many generated images.");
+         alert("Erreur de Sauvegarde : L'espace de stockage est plein ! Impossible de sauvegarder la partie. Cela peut être dû à un grand nombre d'images générées dans l'histoire.");
+    } else {
+         alert(`Erreur de Sauvegarde : Impossible de sauvegarder la partie. Détails : ${error.message}`);
+    }
     return false;
   }
 }
@@ -261,6 +367,8 @@ export function deleteSaveGame(saveName: string): boolean {
 
     if (saves.length === initialLength) {
         console.warn(`Save game "${saveName}" not found for deletion.`);
+        // Return true because the desired state (save not existing) is achieved
+        return true;
     }
 
     if (saves.length === 0) {

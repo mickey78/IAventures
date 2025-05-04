@@ -478,10 +478,10 @@ export default function IAventuresGame() {
 
   // --- Save/Load Handlers ---
   const handleOpenSaveDialog = () => {
-    // Prevent saving if game ended
+    // Prevent saving if game ended but allow viewing saves
     if (gameState.currentView === 'game_ended') {
-        toast({ title: "Action Impossible", description: "Vous ne pouvez pas sauvegarder une partie terminée.", variant: "destructive" });
-        return;
+        toast({ title: "Partie Terminée", description: "Vous ne pouvez pas sauvegarder une partie terminée, mais vous pouvez en charger une autre ou revenir au menu.", variant: "default" });
+        // Don't return, allow dialog to open to see saves if needed, but save button will be disabled effectively
     }
     const dateStr = new Date().toLocaleDateString('fr-CA');
     const suggestedName = gameState.theme && gameState.playerName
@@ -496,17 +496,23 @@ export default function IAventuresGame() {
         toast({ title: "Nom Invalide", description: "Veuillez entrer un nom pour la sauvegarde.", variant: "destructive" });
         return;
     }
-    // Allow saving even if game ended (might want to save the final state)
-    if (!gameState.theme || !gameState.playerName || !['game_active', 'game_ended'].includes(gameState.currentView)) {
-        toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes.", variant: "destructive" });
+     // Double check if game ended before saving (though button might be disabled)
+     if (gameState.currentView === 'game_ended') {
+        toast({ title: "Action Impossible", description: "Vous ne pouvez pas sauvegarder une partie terminée.", variant: "destructive" });
+        setIsSaveDialogOpen(false); // Close dialog if save is attempted on ended game
+        return;
+    }
+    if (!gameState.theme || !gameState.playerName || !['game_active'].includes(gameState.currentView)) { // Only allow saving in 'game_active'
+        toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes ou partie non active.", variant: "destructive" });
         return;
     }
 
     // Prepare the state to be saved, ensuring currentGameState is stringified
+    // This structure matches what saveGame expects (omit timestamp/saveName)
     const stateToSave: Omit<GameStateToSave, 'timestamp' | 'saveName'> = {
         theme: gameState.theme,
         playerName: gameState.playerName,
-        story: gameState.story.map(s => ({...s, imageIsLoading: false, imageError: false, imageGenerationPrompt: undefined })), // Don't save loading/error/prompt states for images
+        story: gameState.story.map(s => ({...s, imageIsLoading: undefined, imageError: undefined, imageGenerationPrompt: undefined })), // Clean transient/debug states
         choices: gameState.choices,
         currentGameState: JSON.stringify(gameState.currentGameState), // Stringify the parsed state (including location)
         playerChoicesHistory: gameState.playerChoicesHistory,
@@ -519,7 +525,9 @@ export default function IAventuresGame() {
         setSavedGames(listSaveGames());
         setIsSaveDialogOpen(false);
     } else {
-        toast({ title: "Erreur de Sauvegarde", description: "Impossible de sauvegarder la partie.", variant: "destructive" });
+         // Specific error message for quota exceeded is handled within saveGame utility
+         // General error message here
+        toast({ title: "Erreur de Sauvegarde", description: "Impossible de sauvegarder la partie. Vérifiez la console pour plus de détails.", variant: "destructive" });
     }
   };
 
@@ -534,7 +542,7 @@ export default function IAventuresGame() {
             ...prev,
             theme: loadedState.theme,
             playerName: loadedState.playerName,
-            story: loadedState.story.map(s => ({...s, imageIsLoading: false, imageError: false, imageGenerationPrompt: undefined })), // Ensure loaded images aren't marked as loading/error/prompt
+            story: loadedState.story, // Story is already rehydrated by loadGame
             choices: loadedState.choices,
             currentGameState: parsedLoadedGameState, // Store the parsed state (including location)
             playerChoicesHistory: loadedState.playerChoicesHistory,
@@ -1016,7 +1024,7 @@ const renderStory = () => (
                  <DialogClose asChild>
                     <Button type="button" variant="secondary">Annuler</Button>
                  </DialogClose>
-                <Button type="button" onClick={handleSaveGame} disabled={!saveNameInput.trim()}>Sauvegarder</Button>
+                <Button type="button" onClick={handleSaveGame} disabled={!saveNameInput.trim() || gameState.currentView !== 'game_active'}>Sauvegarder</Button> {/* Disable if not active */}
             </DialogFooter>
         </DialogContent>
     </Dialog>
@@ -1106,7 +1114,7 @@ const renderStory = () => (
          {/* Footer appears only when game is active or ended */}
          {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && gameState.story.length > 0 && (
             <CardFooter className="flex-shrink-0 flex flex-col sm:flex-row justify-center items-center gap-4 pt-4 border-t border-border"> {/* Removed mt-auto */}
-                 <Button variant="outline" onClick={handleOpenSaveDialog} disabled={gameState.isLoading}>
+                 <Button variant="outline" onClick={handleOpenSaveDialog} disabled={gameState.isLoading || gameState.currentView === 'game_ended'}> {/* Disable save button if game ended */}
                     <Save className="mr-2 h-4 w-4" />
                     Sauvegarder
                  </Button>
