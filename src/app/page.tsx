@@ -113,48 +113,59 @@ export default function AdventureCraftGame() {
     }
   };
 
-  const handleChoice = async (choice: string) => {
-    // Add player choice optimistically and immediately scroll
+ const handleChoice = async (choice: string) => {
+    // 1. Calculate next state values BEFORE setting state
     const playerChoiceSegment = { id: Date.now(), text: `> ${choice}`, isPlayerChoice: true };
+    // Use previous state to ensure the history passed to AI includes the current choice
+    const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, choice];
+
+    // 2. Prepare the input using the calculated values
+    const input: GenerateStoryContentInput = {
+      theme: gameState.theme!,
+      playerChoices: nextPlayerChoicesHistory, // Use the updated history directly
+      gameState: gameState.currentGameState || '{}', // Pass the current game state string
+    };
+
+    // Store the choices before clearing them for potential error recovery
+    const previousChoices = [...gameState.choices];
+
+    // 3. Set state for optimistic update and loading
     setGameState((prev) => ({
-        ...prev,
-        isLoading: true,
-        error: null,
-        story: [...prev.story, playerChoiceSegment],
-        choices: [], // Clear choices while loading next part
-        playerChoicesHistory: [...prev.playerChoicesHistory, choice],
+      ...prev,
+      isLoading: true,
+      error: null,
+      story: [...prev.story, playerChoiceSegment], // Add optimistic choice
+      choices: [], // Clear choices while loading
+      playerChoicesHistory: nextPlayerChoicesHistory, // Store the updated history in state
     }));
     scrollToBottom(); // Scroll immediately after adding player choice
 
-    const input: GenerateStoryContentInput = {
-      theme: gameState.theme!,
-      playerChoices: gameState.playerChoicesHistory, // History already updated in setGameState
-      gameState: gameState.currentGameState || '{}', // Ensure gameState is passed
-    };
-
+    // 4. Make the API call
     try {
-      const nextStoryData = await generateStoryContent(input);
+      const nextStoryData = await generateStoryContent(input); // Pass the correctly prepared input
       setGameState((prev) => ({
         ...prev,
-        // Replace the loading state with the new story content
+        // Add the new story content from AI
         story: [...prev.story, { id: Date.now() + 1, text: nextStoryData.storyContent }],
         choices: nextStoryData.nextChoices,
         currentGameState: nextStoryData.updatedGameState,
         isLoading: false,
       }));
-      // scrollToBottom will be called by the useEffect hook
+      // scrollToBottom will be called by the useEffect hook triggering on story change
     } catch (err) {
       console.error('Error generating story content:', err);
       const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
+      // Revert optimistic updates on error
       setGameState((prev) => ({
         ...prev,
         isLoading: false,
-        // Re-enable previous choices if available, otherwise provide retry
-        choices: prev.playerChoicesHistory.length > 0 && prev.story.length > 1 ? prev.choices : ['Réessayer la dernière action'], // Logic needs review, maybe store last valid choices?
+        // Restore previous choices if API call failed
+        choices: previousChoices.length > 0 ? previousChoices : ['Réessayer la dernière action'],
         error: `Impossible de continuer l'histoire: ${errorMsg}`,
-        // Remove player choice text added optimistically as the API call failed
-         story: prev.story.slice(0, -1),
-         playerChoicesHistory: prev.playerChoicesHistory.slice(0,-1), // Remove last choice from history
+        // Remove the optimistically added player choice segment
+        story: prev.story.slice(0, -1),
+        // Revert history update in state
+        playerChoicesHistory: prev.playerChoicesHistory.slice(0, -1),
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de continuer l'histoire: ${errorMsg}`, variant: 'destructive' });
     }
@@ -168,7 +179,7 @@ export default function AdventureCraftGame() {
             className="h-full w-full rounded-[inherit] p-4 bg-card text-card-foreground" // Apply styling here
         >
             {gameState.story.map((segment) => (
-            <p key={segment.id} className={`mb-2 ${segment.isPlayerChoice ? 'italic text-muted-foreground' : ''}`}>
+            <p key={segment.id} className={`mb-2 whitespace-pre-wrap ${segment.isPlayerChoice ? 'italic text-muted-foreground' : ''}`}>
                 {segment.text}
             </p>
             ))}
@@ -279,5 +290,3 @@ export default function AdventureCraftGame() {
     </div>
   );
 }
-
-    

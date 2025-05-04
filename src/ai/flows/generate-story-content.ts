@@ -34,6 +34,8 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
   const safeInput = {
     ...input,
     gameState: input.gameState || '{}',
+    // Provide an empty array if playerChoices is undefined
+    playerChoices: input.playerChoices || [],
   };
   return generateStoryContentFlow(safeInput);
 }
@@ -43,23 +45,30 @@ const prompt = ai.definePrompt({
   input: {
     schema: z.object({
       theme: z.string().describe('The theme of the story.'),
-      playerChoices: z.array(z.string()).optional().describe('History of player choices. The last element is the most recent choice.'),
+      playerChoices: z.array(z.string()).describe('History of player choices. The last element is the most recent choice.'), // Keep the optional here for flexibility if needed upstream
       gameState: z.string().describe('Current game state (JSON string).'),
     }),
   },
   output: {
     schema: GenerateStoryContentOutputSchema,
   },
-  prompt: `Tu es un Maître du Jeu (MJ) / Narrateur amical et imaginatif pour un jeu d'aventure textuel interactif destiné aux enfants de 8 à 12 ans. Ta mission est de continuer l'histoire de manière amusante et logique, en te basant sur le choix du joueur et l'état actuel du jeu.
+  prompt: `Tu es un Maître du Jeu (MJ) / Narrateur amical et imaginatif pour un jeu d'aventure textuel interactif destiné aux enfants de 8 à 12 ans. Ta mission est de continuer l'histoire de manière amusante et logique, en te basant sur le **dernier choix du joueur** et l'état actuel du jeu.
 
   **Contexte de l'Aventure :**
   *   Thème : {{{theme}}}
   *   État actuel du jeu (variables, objets, lieu, etc.) : {{{gameState}}}
-  *   Historique des choix du joueur (le dernier est le plus récent) : {{#if playerChoices}}{{playerChoices}}{{else}}C'est le début de l'aventure !{{/if}}
+  *   Historique des choix du joueur (le **dernier élément** de cette liste est le choix auquel tu dois réagir) :
+      {{#if playerChoices}}
+      {{#each playerChoices}}
+      - {{{this}}}
+      {{/each}}
+      {{else}}
+      C'est le début de l'aventure !
+      {{/if}}
 
   **Instructions pour ta réponse :**
 
-  1.  **Réagis au dernier choix** : Décris ce qui se passe suite au dernier choix du joueur (s'il y en a un). Rends cela vivant et intéressant !
+  1.  **Réagis au dernier choix** : Décris ce qui se passe suite au **dernier choix** du joueur (celui à la fin de la liste ci-dessus). Rends cela vivant et intéressant !
   2.  **Décris la nouvelle situation** : Explique clairement où se trouve le joueur maintenant et ce qu'il perçoit. Adapte la description à l'âge (8-12 ans) : simple, visuel, et pas trop effrayant.
   3.  **Propose de nouveaux choix** : Donne 2 ou 3 options claires et simples pour la prochaine action du joueur. Les choix doivent être logiques par rapport à la situation actuelle et faire avancer l'histoire.
   4.  **Mets à jour l'état du jeu** : Réfléchis à comment le dernier choix et la nouvelle situation affectent l'état du jeu (Ex: le joueur a trouvé un objet, changé de lieu, rencontré un personnage). Décris ces changements dans la variable 'updatedGameState'. Si rien ne change, renvoie l'état du jeu actuel. L'état du jeu DOIT être une chaîne JSON valide.
@@ -77,7 +86,7 @@ const prompt = ai.definePrompt({
 
   **Important** : Reste cohérent avec le thème et l'historique. Assure-toi que l'histoire progresse. La date actuelle est {{current_date}} si jamais tu en as besoin pour un élément de l'histoire.
 
-  Génère la suite de l'histoire maintenant.
+  Génère la suite de l'histoire maintenant en réagissant au **dernier choix** de la liste.
   `,
 });
 
@@ -95,10 +104,13 @@ async input => {
    if (!input.theme) {
        throw new Error("Theme is required to generate story content.");
    }
+   // Ensure playerChoices is an array, even if empty, for the prompt
+   const safePlayerChoices = input.playerChoices || [];
 
   // Inject current date into the prompt context if needed by the prompt
   const promptInput = {
       ...input,
+      playerChoices: safePlayerChoices, // Use the safe array
       current_date: new Date().toLocaleDateString(), // Add current date
   };
 
