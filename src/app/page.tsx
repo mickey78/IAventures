@@ -207,16 +207,16 @@ export default function AdventureCraftGame() {
     const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, choice];
     const previousStory = [...gameState.story]; // Keep previous story for potential revert
 
-    // Update state immediately to show player choice
+    // Update state immediately to show player choice and start loading for AI response
     setGameState((prev) => ({
       ...prev,
-      isLoading: true, // Start loading for AI response
+      isLoading: true,
       error: null,
       story: [...prev.story, playerChoiceSegment], // Add player choice bubble
       choices: [], // Clear choices while loading
       playerChoicesHistory: nextPlayerChoicesHistory,
     }));
-    // Scroll down after showing player choice (useEffect handles this)
+    // Scroll down is handled by useEffect based on story change
 
     // Prepare input for AI
     const input: GenerateStoryContentInput = {
@@ -227,11 +227,13 @@ export default function AdventureCraftGame() {
     };
 
     try {
+      // Await the AI response
       const nextStoryData = await generateStoryContent(input);
+
       // Narrator's response segment
       const narratorResponseSegment: StorySegment = { id: Date.now() + 1, text: nextStoryData.storyContent, speaker: 'narrator' };
 
-      // Update state with AI response
+      // Update state with AI response *after* it's received
       setGameState((prev) => ({
         ...prev,
         story: [...prev.story, narratorResponseSegment], // Add narrator response bubble
@@ -239,7 +241,8 @@ export default function AdventureCraftGame() {
         currentGameState: nextStoryData.updatedGameState,
         isLoading: false, // Stop loading
       }));
-      // scrollToBottom is handled by useEffect
+       // Scroll down is handled by useEffect based on story change
+
     } catch (err) {
       console.error('Error generating story content:', err);
       const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
@@ -249,12 +252,13 @@ export default function AdventureCraftGame() {
         isLoading: false,
         error: `Impossible de continuer l'histoire: ${errorMsg}`,
         story: previousStory, // Revert to story before player choice was added
-        choices: gameState.choices, // Restore choices (or should fetch previous?) - let's keep current (which are empty) or restore prev
+        choices: gameState.choices, // Restore previous choices (maybe fetch again or keep previous state's choices?)
         playerChoicesHistory: prev.playerChoicesHistory.slice(0, -1), // Revert history
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de continuer l'histoire: ${errorMsg}`, variant: 'destructive' });
     }
   };
+
 
   // --- Save/Load Handlers ---
   const handleOpenSaveDialog = () => {
@@ -330,7 +334,7 @@ const renderStory = () => (
     <ScrollAreaPrimitive.Root className="relative overflow-hidden flex-1 w-full rounded-md border mb-4 bg-card"> {/* Use flex-1 to take available space */}
         <ScrollAreaPrimitive.Viewport
             ref={viewportRef}
-            className="h-full w-full rounded-[inherit] p-4 space-y-4" // Add space between bubbles
+            className="h-full w-full rounded-[inherit] p-4 space-y-4" // space-y-4 adds vertical space between bubbles (1rem/16px by default)
         >
             {gameState.story.map((segment) => (
             <div
@@ -356,7 +360,7 @@ const renderStory = () => (
             </div>
             ))}
             {/* Loading indicator */}
-            {gameState.isLoading && (
+            {gameState.isLoading && gameState.choices.length === 0 && ( // Show loading only when waiting for AI response (choices are empty)
                 <div className="flex items-center justify-center space-x-2 text-muted-foreground mt-4">
                     <Loader className="h-5 w-5 animate-spin" />
                     <span>Génération de la suite...</span>
