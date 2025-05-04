@@ -458,7 +458,7 @@ const renderStory = () => (
  const renderInventory = () => (
      <Popover>
          <PopoverTrigger asChild>
-             <Button variant="outline" className="shrink-0" disabled={gameState.isLoading || gameState.currentGameState.inventory.length === 0}>
+             <Button variant="secondary" className="shrink-0" disabled={gameState.isLoading || gameState.currentGameState.inventory.length === 0}> {/* Changed variant to secondary */}
                  <Briefcase className="mr-2 h-4 w-4" />
                  Inventaire ({gameState.currentGameState.inventory.length})
              </Button>
@@ -500,8 +500,8 @@ const renderStory = () => (
             key={index}
             onClick={() => handleAction(choice)} // Use handleAction
             disabled={gameState.isLoading}
-            variant="secondary"
-            className="flex-grow sm:flex-grow-0 bg-primary hover:bg-primary/90 text-primary-foreground"
+            variant="primary" // Changed variant to primary
+            className="flex-grow sm:flex-grow-0" // Removed explicit color classes
             aria-label={`Faire le choix : ${choice}`}
           >
             {choice}
@@ -521,7 +521,7 @@ const renderStory = () => (
                 disabled={gameState.isLoading}
                 aria-label="Entrez votre propre action ou utilisez un objet"
               />
-              <Button type="submit" disabled={gameState.isLoading || !customChoiceInput.trim()} size="icon" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+              <Button type="submit" disabled={gameState.isLoading || !customChoiceInput.trim()} size="icon" variant="primary"> {/* Changed variant to primary */}
                 <Send className="h-4 w-4" />
                 <span className="sr-only">Envoyer</span>
               </Button>
@@ -567,7 +567,8 @@ const renderStory = () => (
               onClick={showNameInput}
               disabled={!gameState.theme}
               size="lg"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md mt-6"
+              variant="primary" // Changed variant to primary
+              className="rounded-md shadow-md mt-6" // Removed explicit color classes
           >
               Suivant
           </Button>
@@ -593,7 +594,8 @@ const renderStory = () => (
               onClick={handleNameSubmit}
               disabled={!playerNameInput.trim() || gameState.isLoading}
               size="lg"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md mt-6"
+              variant="primary" // Changed variant to primary
+              className="rounded-md shadow-md mt-6" // Removed explicit color classes
           >
               {gameState.isLoading ? (
                   <>
@@ -616,7 +618,7 @@ const renderStory = () => (
   const renderMainMenu = () => (
     <div className="flex flex-col items-center space-y-4">
         <h2 className="text-2xl font-semibold">Menu Principal</h2>
-        <Button onClick={showThemeSelection} size="lg" className="w-60 bg-primary hover:bg-primary/90 text-primary-foreground">
+        <Button onClick={showThemeSelection} size="lg" className="w-60" variant="primary"> {/* Changed variant to primary */}
             <PlusCircle className="mr-2 h-5 w-5" /> Nouvelle Partie
         </Button>
         <Button onClick={showLoadGameView} size="lg" className="w-60" variant="secondary" disabled={savedGames.length === 0}>
