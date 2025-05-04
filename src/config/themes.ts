@@ -99,8 +99,7 @@ export const themes: Theme[] = [
       { value: 'La Nature Reprend ses Droits', label: 'La Forêt Mutante', prompt: 'Vous devez traverser une forêt où la nature a muté après la catastrophe. Les plantes et les animaux sont étranges et potentiellement dangereux.' },
       { value: 'Ville Souterraine', label: 'Les Secrets du Bunker', prompt: 'Tu découvres l\'entrée d\'un ancien bunker gouvernemental. Est-il sûr ? Contient-il des ressources vitales ou de nouveaux dangers ?' },
       { value: 'Groupe Rival', label: 'Conflit de Territoire', prompt: 'Tu rencontres un autre groupe de survivants qui revendique le même territoire riche en ressources. Vas-tu négocier, te battre, ou chercher ailleurs ?' },
-      { value: 'Remède Possible', label: 'La Légende du Remède', prompt: 'Une rumeur parle d\'un laboratoire abandonné qui pourrait contenir un remède à la catastrophe (ou à une maladie). Tu décides de vérifier cette piste dangereuse.' },
+      { value: 'Attaque Zombie', label: 'L\'Attaque Zombie', prompt: 'Les morts-vivants attaquent votre campement de fortune ! Vous devez rapidement organiser une défense avec les maigres ressources disponibles ou trouver un moyen de fuir.' }, // Changed scenario
     ]
   },
 ];
-
