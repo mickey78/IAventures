@@ -137,13 +137,17 @@ export default function AdventureCraftGame() {
       toast({ title: 'Nom Invalide', description: 'Veuillez entrer votre nom.', variant: 'destructive' });
       return;
     }
-    setGameState(prev => ({ ...prev, playerName: playerNameInput.trim() }));
-    startNewGame(); // Proceed to start the game
+    // Trim the name before setting it
+    const trimmedName = playerNameInput.trim();
+    setGameState(prev => ({ ...prev, playerName: trimmedName }));
+    // Call startNewGame AFTER the state update completes
+    startNewGame(trimmedName);
   }
 
-  const startNewGame = async () => {
+  const startNewGame = async (nameToUse?: string) => {
+    const currentPlayerName = nameToUse || gameState.playerName; // Use provided name or state name
     // Now checks for both theme and player name before starting
-    if (!gameState.theme || !gameState.playerName) {
+    if (!gameState.theme || !currentPlayerName) {
       console.error('Theme or Player Name missing, cannot start game.');
       // This case should ideally not be reached due to prior checks, but added as a safeguard
        toast({ title: 'Erreur', description: 'Une erreur interne est survenue. Veuillez réessayer.', variant: 'destructive' });
@@ -157,15 +161,16 @@ export default function AdventureCraftGame() {
         error: null,
         story: [],
         choices: [],
-        currentGameState: JSON.stringify({ playerName: prev.playerName }), // Include player name in initial state
+        currentGameState: JSON.stringify({ playerName: currentPlayerName }), // Include player name in initial state
         playerChoicesHistory: [],
-        currentView: 'game_active' // Switch view to active game
+        currentView: 'game_active', // Switch view to active game
+        playerName: currentPlayerName, // Ensure player name is set correctly in the state object being updated
     }));
 
     try {
       const initialStoryData = await generateInitialStory({
           theme: gameState.theme,
-          playerName: gameState.playerName
+          playerName: currentPlayerName // Use the validated player name
       });
       setGameState((prev) => ({
         ...prev,
@@ -405,7 +410,7 @@ export default function AdventureCraftGame() {
   );
 
   const renderNameInput = () => (
-      <div className="flex flex-col items-center space-y-6 w-full max-w-sm">
+      <div className="flex flex-col items-center space-y-6 w-full max-w-sm"> {/* Apply centering and max-width */}
           <Label htmlFor="playerName" className="text-xl font-semibold text-center">Comment t'appelles-tu, aventurier(ère) ?</Label>
           <Input
                 id="playerName"
@@ -413,14 +418,14 @@ export default function AdventureCraftGame() {
                 value={playerNameInput}
                 onChange={(e) => setPlayerNameInput(e.target.value)}
                 placeholder="Entre ton nom ici"
-                className="text-center"
+                className="text-center" // Center text inside input
                 maxLength={50} // Optional: limit name length
             />
           <Button
               onClick={handleNameSubmit}
               disabled={!playerNameInput.trim() || gameState.isLoading}
               size="lg"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md mt-6"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md mt-6" // Button is already centered by flex-col items-center
           >
               {gameState.isLoading ? (
                   <>
@@ -434,7 +439,7 @@ export default function AdventureCraftGame() {
                   </>
               )}
           </Button>
-          <Button variant="outline" onClick={showThemeSelection} className="mt-2">
+          <Button variant="outline" onClick={showThemeSelection} className="mt-2"> {/* Button is already centered */}
               Retour au choix du thème
           </Button>
       </div>
@@ -572,3 +577,4 @@ export default function AdventureCraftGame() {
     </div>
   );
 }
+
