@@ -662,7 +662,7 @@ const renderStory = () => (
                  Inventaire ({gameState.currentGameState.inventory.length})
              </Button>
          </PopoverTrigger>
-         <PopoverContent className="w-72 p-2" align="end">
+         <PopoverContent className="w-72 p-2" align="start"> {/* Changed align to start */}
               <TooltipProvider delayDuration={300}>
                  <div className="space-y-2">
                      <h4 className="font-medium leading-none text-center pb-2">Inventaire</h4>
@@ -778,7 +778,7 @@ const renderStory = () => (
       {gameState.choices.length > 0 && gameState.currentView === 'game_active' && <Separator className="my-2" />}
 
 
-      {/* Custom Choice Input and Inventory Button */}
+      {/* Custom Choice Input */}
       {gameState.currentView === 'game_active' && ( // Only show if game active
           <div className="flex flex-col sm:flex-row gap-2 w-full max-w-lg mx-auto items-center justify-center">
               <form onSubmit={handleCustomChoiceSubmit} className="flex-grow flex gap-2 w-full sm:w-auto">
@@ -797,7 +797,7 @@ const renderStory = () => (
                     <span className="sr-only">Envoyer</span>
                   </Button>
               </form>
-               {renderInventory()} {/* Render inventory button/popover here */}
+              {/* Inventory button is moved to header */}
           </div>
       )}
 
@@ -999,8 +999,14 @@ const renderStory = () => (
        {/* ThemeSwitcher stays top right - handled in layout.tsx */}
 
        <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg flex flex-col flex-grow mt-10" style={{ height: 'calc(95vh - 40px)' }}> {/* Adjust height and margin */}
-        <CardHeader className="relative text-center flex-shrink-0 pt-6 pb-2 flex flex-row items-center justify-between"> {/* Flex row */}
-            <div className="flex-1 flex flex-col items-center"> {/* Centered title/desc/location */}
+        <CardHeader className="relative text-center flex-shrink-0 pt-4 pb-2 flex items-center justify-between border-b border-border"> {/* Adjusted padding & add border */}
+             {/* Left Aligned: Inventory Button (only visible in game) */}
+            <div className="absolute top-3 left-4"> {/* Position absolutely left */}
+                {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && renderInventory()}
+            </div>
+
+            {/* Centered: Title, Description, Location */}
+            <div className="flex-1 flex flex-col items-center mx-auto px-16"> {/* Added padding to avoid overlap */}
                 <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
                     <BookOpenText className="h-8 w-8 text-primary" />
                     IAventures
@@ -1026,9 +1032,9 @@ const renderStory = () => (
                     </div>
                   )}
              </div>
-             {/* Turn Counter - visible only during active game or ended game, aligned to the top right */}
+             {/* Right Aligned: Turn Counter */}
              {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && (
-                <div className="absolute top-4 right-4"> {/* Use absolute positioning within the relative header */}
+                <div className="absolute top-3 right-4"> {/* Position absolutely right */}
                     {renderTurnCounter()}
                 </div>
              )}
