@@ -13,7 +13,7 @@ import type { GenerateStoryContentInput, GenerateStoryContentOutput } from '@/ai
 import { generateImage } from '@/ai/flows/generate-image'; // Import the image generation flow
 import type { GenerateImageOutput } from '@/ai/flows/generate-image'; // Import the image generation output type
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History, MapPin, Image as ImageIcon, ImageOff } from 'lucide-react'; // Added MapPin, ImageIcon, ImageOff
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History, MapPin, ImageIcon, ImageOff } from 'lucide-react'; // Added MapPin, ImageIcon, ImageOff
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -922,7 +922,7 @@ const renderStory = () => (
     <div className="flex flex-col items-center space-y-4 w-full h-full justify-center"> {/* Added justify-center and h-full */}
         <h2 className="text-2xl font-semibold mb-4">Charger une Partie</h2>
         {savedGames.length > 0 ? (
-             <ScrollAreaPrimitive.Root className="w-full max-w-md h-[300px] rounded-md border">
+             <ScrollAreaPrimitive.Root className="w-full max-w-lg h-[300px] rounded-md border"> {/* Increased max-width to lg */}
                 <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] p-4">
                     <ul className="space-y-3">
                         {savedGames.map((save) => (
