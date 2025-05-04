@@ -38,6 +38,7 @@ export interface StorySegment {
   storyImageUrl?: string | null; // Optional URL for the generated image
   imageIsLoading?: boolean; // Flag to indicate image is being generated
   imageError?: boolean; // Flag to indicate image generation failed
+  imageGenerationPrompt?: string | null; // Store the prompt used for generation (for debugging)
 }
 
 // Define ParsedGameState structure
@@ -404,6 +405,7 @@ export default function IAventuresGame() {
           storyImageUrl: null, // Initially null
           imageIsLoading: !!nextStoryData.generatedImagePrompt, // True if prompt exists
           imageError: false,
+          imageGenerationPrompt: nextStoryData.generatedImagePrompt, // Store the prompt for debugging
       };
       const updatedParsedGameState = parseGameState(nextStoryData.updatedGameState, gameState.playerName); // Parse the response
 
@@ -504,7 +506,7 @@ export default function IAventuresGame() {
     const stateToSave: Omit<GameStateToSave, 'timestamp' | 'saveName'> = {
         theme: gameState.theme,
         playerName: gameState.playerName,
-        story: gameState.story.map(s => ({...s, imageIsLoading: false, imageError: false})), // Don't save loading/error states for images
+        story: gameState.story.map(s => ({...s, imageIsLoading: false, imageError: false, imageGenerationPrompt: undefined })), // Don't save loading/error/prompt states for images
         choices: gameState.choices,
         currentGameState: JSON.stringify(gameState.currentGameState), // Stringify the parsed state (including location)
         playerChoicesHistory: gameState.playerChoicesHistory,
@@ -532,7 +534,7 @@ export default function IAventuresGame() {
             ...prev,
             theme: loadedState.theme,
             playerName: loadedState.playerName,
-            story: loadedState.story.map(s => ({...s, imageIsLoading: false, imageError: false})), // Ensure loaded images aren't marked as loading/error
+            story: loadedState.story.map(s => ({...s, imageIsLoading: false, imageError: false, imageGenerationPrompt: undefined })), // Ensure loaded images aren't marked as loading/error/prompt
             choices: loadedState.choices,
             currentGameState: parsedLoadedGameState, // Store the parsed state (including location)
             playerChoicesHistory: loadedState.playerChoicesHistory,
@@ -634,6 +636,14 @@ const renderStory = () => (
                             style={{ objectFit: 'cover' }} // Cover the area
                             priority={gameState.story[gameState.story.length - 1].id === segment.id} // Prioritize last image
                          />
+                     </div>
+                 )}
+                 {/* Image Generation Prompt (Debugging) */}
+                 {segment.speaker === 'narrator' && segment.imageGenerationPrompt && (
+                     <div className="mt-2 p-2 bg-blue-900/30 border border-blue-700 rounded-md text-xs text-blue-300">
+                         <p className="font-mono break-words">
+                            <span className='font-bold'>Prompt Image (Debug):</span> {segment.imageGenerationPrompt}
+                         </p>
                      </div>
                  )}
                  {/* Text Content */}

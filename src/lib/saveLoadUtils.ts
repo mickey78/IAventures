@@ -7,7 +7,7 @@ import type { StorySegment } from '@/app/page'; // Adjust the import path as nee
 export interface GameStateToSave {
   theme: string;
   playerName: string; // Added player name
-  story: Omit<StorySegment, 'imageIsLoading' | 'imageError'>[]; // Exclude transient image states
+  story: Omit<StorySegment, 'imageIsLoading' | 'imageError' | 'imageGenerationPrompt'>[]; // Exclude transient image states and prompt
   choices: string[];
   currentGameState: string; // Stored as JSON string (contains location, inventory, etc.)
   playerChoicesHistory: string[];
@@ -92,14 +92,14 @@ export function listSaveGames(): GameStateToSave[] {
             console.warn(`Save game "${save.saveName}" has invalid story format. Resetting story.`);
             save.story = [];
          } else {
-            // Ensure storyImageUrl is string or null/undefined
+            // Ensure storyImageUrl is string or null/undefined and remove transient/debug states
             save.story = save.story.map(seg => {
                 if (seg.storyImageUrl !== undefined && seg.storyImageUrl !== null && typeof seg.storyImageUrl !== 'string') {
                     console.warn(`Invalid storyImageUrl found in save "${save.saveName}". Setting to null.`);
                     seg.storyImageUrl = null;
                 }
-                // Remove transient states if they somehow got saved
-                const { imageIsLoading, imageError, ...rest } = seg as any;
+                // Remove transient/debug states if they somehow got saved
+                const { imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg as any;
                 return rest;
             });
          }
@@ -125,7 +125,7 @@ export function listSaveGames(): GameStateToSave[] {
  * Saves the current game state to localStorage.
  * Finds an existing save with the same name or adds a new one.
  * Expects gameState.currentGameState to be a valid JSON string containing location.
- * Omits transient image states (imageIsLoading, imageError) from story segments.
+ * Omits transient image states (imageIsLoading, imageError, imageGenerationPrompt) from story segments.
  * @param saveName The name/identifier for the save slot.
  * @param gameState The game state to save (including playerName, stringified currentGameState with location, and turn info).
  * @returns True if save was successful, false otherwise.
@@ -166,9 +166,9 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
     const saves = listSaveGames(); // Gets validated saves
     const now = Date.now();
 
-    // Prepare story state for saving (remove transient flags)
+    // Prepare story state for saving (remove transient/debug flags)
     const storyToSave = gameState.story.map(seg => {
-        const { imageIsLoading, imageError, ...rest } = seg;
+        const { imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg;
         return rest;
     });
 
@@ -232,6 +232,7 @@ export function loadGame(saveName: string): GameStateToSave | null {
         ...seg,
         imageIsLoading: false,
         imageError: false,
+        imageGenerationPrompt: undefined, // Ensure prompt is not loaded
      }));
 
 
