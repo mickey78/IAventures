@@ -7,10 +7,11 @@ import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area"; // Import S
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { generateInitialStory } from '@/ai/flows/generate-initial-story';
+import type { GenerateInitialStoryOutput } from '@/ai/flows/generate-initial-story'; // Import specific type
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
 import type { GenerateStoryContentInput, GenerateStoryContentOutput } from '@/ai/flows/generate-story-content';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History } from 'lucide-react';
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History, MapPin } from 'lucide-react'; // Added MapPin
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -37,7 +38,7 @@ export interface StorySegment {
 interface ParsedGameState {
     inventory: string[];
     playerName?: string;
-    location?: string;
+    location?: string; // Added location
     status?: string;
     // Add other potential gameState fields here
     [key: string]: any; // Allow for other properties
@@ -79,7 +80,7 @@ const themes: Theme[] = [
 
 // Helper function to safely parse game state JSON
 const parseGameState = (stateString: string | undefined | null, playerNameFallback: string | null = 'Joueur'): ParsedGameState => {
-    const defaultState: ParsedGameState = { inventory: [], playerName: playerNameFallback || undefined };
+    const defaultState: ParsedGameState = { inventory: [], location: 'Lieu Inconnu', playerName: playerNameFallback || undefined }; // Added default location
     if (!stateString) {
         return defaultState;
     }
@@ -95,8 +96,10 @@ const parseGameState = (stateString: string | undefined | null, playerNameFallba
             : [];
         // Ensure playerName is a string
         const playerName = typeof parsed.playerName === 'string' ? parsed.playerName : playerNameFallback || undefined;
+        // Ensure location is a string
+        const location = typeof parsed.location === 'string' ? parsed.location : 'Lieu Indéterminé'; // Added location parsing
 
-        return { ...parsed, inventory, playerName };
+        return { ...parsed, inventory, playerName, location }; // Added location to return
     } catch (error) {
         console.error("Error parsing game state JSON:", error, "String was:", stateString);
         return defaultState;
@@ -108,7 +111,7 @@ export default function IAventuresGame() {
   const [gameState, setGameState] = useState<GameState>({
     story: [],
     choices: [],
-    currentGameState: { inventory: [] }, // Initialize with default object
+    currentGameState: { inventory: [], location: 'Menu Principal' }, // Initialize with default object and location
     theme: null,
     playerName: null,
     isLoading: false,
@@ -156,7 +159,7 @@ export default function IAventuresGame() {
         ...prev,
         story: [],
         choices: [],
-        currentGameState: { inventory: [], playerName: null }, // Reset state
+        currentGameState: { inventory: [], playerName: null, location: 'Menu Principal' }, // Reset state including location
         theme: null,
         playerName: null,
         isLoading: false,
@@ -171,7 +174,7 @@ export default function IAventuresGame() {
   }
 
   const showThemeSelection = () => {
-    setGameState(prev => ({ ...prev, currentView: 'theme_selection', theme: null, playerName: null, currentTurn: 1, maxTurns: 15 }));
+    setGameState(prev => ({ ...prev, currentView: 'theme_selection', theme: null, playerName: null, currentTurn: 1, maxTurns: 15, currentGameState: {...prev.currentGameState, location: 'Sélection du Thème'} })); // Update location
     setIsInventoryPopoverOpen(false);
   };
 
@@ -180,13 +183,13 @@ export default function IAventuresGame() {
       toast({ title: 'Erreur', description: 'Veuillez choisir un thème avant de continuer.', variant: 'destructive' });
       return;
     }
-    setGameState(prev => ({ ...prev, currentView: 'name_input' }));
+    setGameState(prev => ({ ...prev, currentView: 'name_input', currentGameState: {...prev.currentGameState, location: 'Création du Personnage'} })); // Update location
     setIsInventoryPopoverOpen(false);
   }
 
   const showLoadGameView = () => {
     setSavedGames(listSaveGames());
-    setGameState(prev => ({ ...prev, currentView: 'loading_game' }));
+    setGameState(prev => ({ ...prev, currentView: 'loading_game', currentGameState: {...prev.currentGameState, location: 'Chargement de Partie'} })); // Update location
      setIsInventoryPopoverOpen(false);
   };
 
@@ -205,7 +208,7 @@ export default function IAventuresGame() {
     setGameState(prev => ({
         ...prev,
         playerName: trimmedName,
-        currentGameState: { ...prev.currentGameState, playerName: trimmedName },
+        currentGameState: { ...prev.currentGameState, playerName: trimmedName, location: 'Initialisation...' }, // Update location
         maxTurns: maxTurnsInput, // Set maxTurns from slider
         currentTurn: 1, // Reset current turn for new game
     }));
@@ -228,7 +231,7 @@ export default function IAventuresGame() {
         error: null,
         story: [],
         choices: [],
-        currentGameState: { playerName: nameToUse, inventory: [] }, // Initialize with name and empty inventory
+        // currentGameState already set in handleNameSubmit with player name, location is placeholder
         playerChoicesHistory: [],
         currentView: 'game_active', // Switch view
         theme: themeToUse, // Ensure theme is set
@@ -239,7 +242,7 @@ export default function IAventuresGame() {
      setIsInventoryPopoverOpen(false); // Ensure closed on new game
 
     try {
-      const initialStoryData = await generateInitialStory({
+      const initialStoryData: GenerateInitialStoryOutput = await generateInitialStory({ // Specify output type
           theme: themeToUse,
           playerName: nameToUse
       });
@@ -248,7 +251,11 @@ export default function IAventuresGame() {
         story: [{ id: Date.now(), text: initialStoryData.story, speaker: 'narrator' }], // Initial story is from narrator
         choices: initialStoryData.choices,
         isLoading: false,
-         // Initial GameState from AI? Let's assume not for now, initialize manually
+        currentGameState: { // Set initial GameState including location from AI
+            ...prev.currentGameState,
+            location: initialStoryData.location, // Use location from AI response
+            inventory: [], // Start with empty inventory
+        }
       }));
     } catch (err) {
       console.error('Error generating initial story:', err);
@@ -259,7 +266,7 @@ export default function IAventuresGame() {
         error: `Impossible de générer l'histoire initiale: ${errorMsg}`,
         theme: null,
         playerName: null,
-        currentGameState: { inventory: [] }, // Reset state
+        currentGameState: { inventory: [], location: 'Erreur' }, // Reset state with error location
         currentView: 'theme_selection', // Go back
         maxTurns: 15,
         currentTurn: 1,
@@ -304,6 +311,7 @@ export default function IAventuresGame() {
       choices: [], // Clear standard choices
       playerChoicesHistory: nextPlayerChoicesHistory,
       currentTurn: nextTurn, // Increment turn optimistically
+      // Location might change, so we wait for AI response to update it
     }));
     setCustomChoiceInput(''); // Clear custom input if used
     setIsInventoryPopoverOpen(false); // Close inventory popover after action
@@ -317,7 +325,7 @@ export default function IAventuresGame() {
       playerName: gameState.playerName,
       lastStorySegment: lastSegmentBeforeAction, // Send the segment BEFORE the player's action
       playerChoicesHistory: nextPlayerChoicesHistory, // Send history including the new action
-      gameState: JSON.stringify(previousGameState), // Send state BEFORE the action
+      gameState: JSON.stringify(previousGameState), // Send state BEFORE the action (including current location)
       currentTurn: nextTurn, // Send the *new* turn number
       maxTurns: gameState.maxTurns,
       isLastTurn: isLastTurn, // Tell AI if it's the last turn
@@ -333,7 +341,7 @@ export default function IAventuresGame() {
         ...prev,
         story: [...prev.story, narratorResponseSegment], // Add the narrator's response AFTER player's action
         choices: nextStoryData.nextChoices, // Use AI's choices (might be empty if ending)
-        currentGameState: updatedParsedGameState, // Store the new parsed state
+        currentGameState: updatedParsedGameState, // Store the new parsed state (including potentially updated location)
         isLoading: false,
         // currentTurn is already updated optimistically
         currentView: isLastTurn ? 'game_ended' : 'game_active', // Update view based on turn check
@@ -354,7 +362,7 @@ export default function IAventuresGame() {
         error: `Impossible de continuer l'histoire: ${errorMsg}`,
         story: previousStory, // Revert story (remove optimistic player action)
         choices: previousChoices, // Revert choices
-        currentGameState: previousGameState, // Revert game state
+        currentGameState: previousGameState, // Revert game state (including location)
         playerChoicesHistory: prev.playerChoicesHistory.slice(0, -1), // Revert history
         currentTurn: prev.currentTurn - 1, // Revert turn count (back to previous turn)
       }));
@@ -420,7 +428,7 @@ export default function IAventuresGame() {
         playerName: gameState.playerName,
         story: gameState.story,
         choices: gameState.choices,
-        currentGameState: JSON.stringify(gameState.currentGameState), // Stringify the parsed state
+        currentGameState: JSON.stringify(gameState.currentGameState), // Stringify the parsed state (including location)
         playerChoicesHistory: gameState.playerChoicesHistory,
         maxTurns: gameState.maxTurns, // Save maxTurns
         currentTurn: gameState.currentTurn, // Save currentTurn
@@ -438,7 +446,7 @@ export default function IAventuresGame() {
   const handleLoadGame = (saveName: string) => {
     const loadedState = loadGame(saveName);
     if (loadedState) {
-        const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName); // Parse the loaded string
+        const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName); // Parse the loaded string (including location)
         // Determine view based on loaded turns: if current > max, it's ended
         const loadedView = loadedState.currentTurn > loadedState.maxTurns ? 'game_ended' : 'game_active';
 
@@ -448,7 +456,7 @@ export default function IAventuresGame() {
             playerName: loadedState.playerName,
             story: loadedState.story,
             choices: loadedState.choices,
-            currentGameState: parsedLoadedGameState, // Store the parsed state
+            currentGameState: parsedLoadedGameState, // Store the parsed state (including location)
             playerChoicesHistory: loadedState.playerChoicesHistory,
             isLoading: false,
             error: null,
@@ -545,6 +553,7 @@ const renderStory = () => (
                      <p className="font-semibold text-lg">Fin de l'Aventure</p>
                      <p className="text-sm text-muted-foreground">
                         Votre histoire s'est conclue après {gameState.maxTurns} tours.
+                        {gameState.currentGameState.location && ` Vous terminez à : ${gameState.currentGameState.location}.`}
                      </p>
                      <Button variant="primary" size="sm" onClick={showMainMenu} className="mt-4">
                          Retour au Menu Principal
@@ -903,7 +912,7 @@ const renderStory = () => (
 
        <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg flex flex-col flex-grow mt-10" style={{ height: 'calc(95vh - 40px)' }}> {/* Adjust height and margin */}
         <CardHeader className="relative text-center flex-shrink-0 pt-6 pb-2 flex flex-row items-center justify-between"> {/* Flex row */}
-            <div className="flex-1 flex flex-col items-center"> {/* Centered title/desc */}
+            <div className="flex-1 flex flex-col items-center"> {/* Centered title/desc/location */}
                 <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
                     <BookOpenText className="h-8 w-8 text-primary" />
                     IAventures
@@ -921,6 +930,13 @@ const renderStory = () => (
                      ? "Choisissez une partie à charger."
                      : "Bienvenue ! Commencez une nouvelle aventure ou chargez une partie."}
                  </CardDescription>
+                 {/* Current Location Display */}
+                  {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && gameState.currentGameState.location && (
+                    <div className="mt-1 text-sm text-accent-foreground flex items-center gap-1">
+                         <MapPin className="h-4 w-4 text-accent" />
+                         Lieu: <span className="font-medium">{gameState.currentGameState.location}</span>
+                    </div>
+                  )}
              </div>
              {/* Turn Counter - visible only during active game or ended game, aligned to the top right */}
              {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && (
@@ -971,3 +987,4 @@ const renderStory = () => (
     </div>
   );
 }
+

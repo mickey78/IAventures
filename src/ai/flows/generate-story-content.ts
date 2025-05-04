@@ -2,13 +2,12 @@
 // src/ai/flows/generate-story-content.ts
 
 /**
- * @fileOverview Generates story content based on the chosen theme, player choices, inventory, player name, and turn count.
+ * @fileOverview Generates story content based on the chosen theme, player choices, inventory, player name, location, and turn count.
  *
  * - generateStoryContent - A function that generates story content.
  * - GenerateStoryContentInput - The input type for the generateStoryContent function.
  * - GenerateStoryContentOutput - The return type for the generateStoryContent function.
  */
-import React from 'react'; // Import React
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
 import type { StorySegment } from '@/app/page'; // Import StorySegment type
@@ -41,53 +40,10 @@ function safeJsonStringify(jsonObject: object): string {
   }
 }
 
-// Client-side state for randomness - This hook cannot be used in a Server Component/Action.
-// It needs to be called within a Client Component context.
-// We will generate the random number on the client side before calling the flow if needed,
-// or handle random events differently within the AI flow itself.
-/*
-function generateRandomEvent(): string | null {
-    const [randomValue, setRandomValue] = React.useState<number | null>(null);
-    const [randomIndex, setRandomIndex] = React.useState<number | null>(null);
-
-    React.useEffect(() => {
-        const newRandomValue = Math.random();
-        setRandomValue(newRandomValue);
-        if (newRandomValue <= 0.1) {
-             const events = [
-                "Une pluie torrentielle s'abat sur la région.",
-                "Un tremblement de terre secoue les alentours.",
-                "Un personnage important croise votre chemin.",
-                "Un objet rare est découvert.",
-                "Un ennemi inattendu apparait.",
-                "Vous tombez sur un villageois qui à besoin d'aide.",
-                "Une musique étrange résonne dans les environs.",
-                "Le brouillard devient très épais.",
-            ];
-            setRandomIndex(Math.floor(Math.random() * events.length));
-        }
-    }, []); // Empty dependency array ensures this runs once on mount (client-side)
-
-    if (randomValue === null || randomValue > 0.1 || randomIndex === null) {
-        return null;
-    }
-    const events = [
-        "Une pluie torrentielle s'abat sur la région.",
-        "Un tremblement de terre secoue les alentours.",
-        "Un personnage important croise votre chemin.",
-        "Un objet rare est découvert.",
-        "Un ennemi inattendu apparait.",
-        "Vous tombez sur un villageois qui à besoin d'aide.",
-        "Une musique étrange résonne dans les environs.",
-        "Le brouillard devient très épais.",
-    ];
-    return events[randomIndex];
-}
-*/
-// Recommendation: Let the AI decide on random events based on turn count or context.
 
 const GameStateSchema = z.object({
   playerName: z.string(),
+  location: z.string().optional().describe('The current location of the player.'), // Added location
   inventory: z.array(z.string()),
   relationships: z.record(z.string(), z.string()).optional(),
   emotions: z.array(z.string()).optional(),
@@ -106,7 +62,7 @@ const GenerateStoryContentInputSchema = z.object({
       speaker: z.enum(['player', 'narrator'])
   }).optional().describe('The very last segment of the story (player choice or narrator text) for immediate context.'),
   playerChoicesHistory: z.array(z.string()).optional().describe('The history of player choices made so far, ordered chronologically. The VERY LAST element is the most recent choice the AI must react to.'),
-  gameState: z.string().optional().describe('A JSON string representing the current game state (e.g., {"inventory": ["key", "map"], "location": "Cave", "playerName": "Alex", "relationships":{"NPC1":"friend", "NPC2":"enemy"}, "emotions":["happy", "curious"]}). Start with an empty object string if undefined.'),
+  gameState: z.string().optional().describe('A JSON string representing the current game state (e.g., {"playerName": "Alex", "location": "Cave Entrance", "inventory": ["key", "map"], "relationships":{"NPC1":"friend"}, "emotions":["curious"], "events":[]}). Start with an empty object string if undefined.'), // Added location to example
   currentTurn: z.number().int().positive().describe('The current turn number (starts at 1).'),
   maxTurns: z.number().int().positive().describe('The maximum number of turns for this adventure.'),
   isLastTurn: z.boolean().describe('Indicates if this is the final turn of the adventure.'),
@@ -116,17 +72,21 @@ export type GenerateStoryContentInput = z.infer<typeof GenerateStoryContentInput
 const GenerateStoryContentOutputSchema = z.object({
   storyContent: z.string().describe('The generated story content, describing the result of the player\'s last action and the current situation, addressing the player by name. If it\'s the last turn, this should be the concluding segment.'),
   nextChoices: z.array(z.string()).describe('2-3 clear and simple choices for the player\'s next action, relevant to the current situation, theme, and inventory. Should be an empty array if it\'s the last turn.'),
-  updatedGameState: z.string().describe('The updated game state as a JSON string, reflecting changes based on the last action and story progression (including inventory). Must be valid JSON.'),
+  updatedGameState: z.string().describe('The updated game state as a JSON string, reflecting changes based on the last action and story progression (including inventory and potentially location). Must be valid JSON.'), // Mentioned location update
 });
 export type GenerateStoryContentOutput = z.infer<typeof GenerateStoryContentOutputSchema>;
 
 export async function generateStoryContent(input: GenerateStoryContentInput): Promise<GenerateStoryContentOutput> {
-  let initialGameState = safeJsonParse(input.gameState, { playerName: input.playerName, inventory: [], relationships: {}, emotions: [], events: [] }); // Use let
+  let initialGameState = safeJsonParse(input.gameState, { playerName: input.playerName, location: 'Lieu Inconnu', inventory: [], relationships: {}, emotions: [], events: [] }); // Use let, added default location
 
     // Ensure player name, inventory, relationships and emotions exist in the initial game state object
   if (!initialGameState.playerName) {
       initialGameState.playerName = input.playerName;
   }
+   // Ensure location is a string
+   if (typeof initialGameState.location !== 'string' || !initialGameState.location.trim()) {
+       initialGameState.location = 'Lieu Indéterminé';
+   }
   if (!Array.isArray(initialGameState.inventory)) {
       initialGameState.inventory = [];
   }
@@ -163,7 +123,7 @@ const prompt = ai.definePrompt({
       playerName: z.string().describe('The name of the player.'),
       lastStorySegmentText: z.string().describe('The text of the very last story segment (player or narrator) for immediate context.'),
       playerChoicesHistory: z.array(z.string()).describe('History of player choices. The VERY LAST element is the most recent choice to react to.'),
-      gameState: z.string().describe('Current game state (JSON string). Example: {"location":"Forest","inventory":["Sword","Potion"],"status":"Healthy","playerName":"Hero", "relationships":{"NPC1":"friend"}, "emotions":["happy"], "events":[]}'),
+      gameState: z.string().describe('Current game state (JSON string). Example: {"playerName":"Hero", "location":"Forest Clearing", "inventory":["Sword","Potion"], "relationships":{"NPC1":"friend"}, "emotions":["happy"], "events":["found sword"]}'), // Updated example
       current_date: z.string().describe('Current date, injected for potential story elements.'),
       currentTurn: z.number().describe('The current turn number.'),
       maxTurns: z.number().describe('The maximum number of turns.'),
@@ -173,14 +133,14 @@ const prompt = ai.definePrompt({
   output: {
     schema: GenerateStoryContentOutputSchema,
   },
-  prompt: `Tu es un Maître du Jeu (MJ) / Narrateur amical et imaginatif pour un jeu d'aventure textuel interactif destiné aux enfants de 8-12 ans. Le nom du joueur est {{{playerName}}}. L'aventure dure au maximum {{{maxTurns}}} tours. Nous sommes actuellement au tour {{{currentTurn}}}. Ta mission est de continuer l'histoire de manière amusante, logique et **strictement cohérente avec le thème**, en te basant sur le **dernier choix effectué par le joueur**, l'état actuel du jeu, et en t'adressant au joueur par son nom.
+  prompt: `Tu es un Maître du Jeu (MJ) / Narrateur amical et imaginatif pour un jeu d'aventure textuel interactif destiné aux enfants de 8-12 ans. Le nom du joueur est {{{playerName}}}. L'aventure dure au maximum {{{maxTurns}}} tours. Nous sommes actuellement au tour {{{currentTurn}}}. Ta mission est de continuer l'histoire de manière amusante, logique et **strictement cohérente avec le thème**, en te basant sur le **dernier choix effectué par le joueur**, l'état actuel du jeu (y compris le **lieu**), et en t'adressant au joueur par son nom.
 
 **Contexte de l'Aventure :**
 *   Thème Principal : **{{{theme}}}** (Tu dois IMPÉRATIVEMENT rester dans ce thème)
 *   Nom du joueur : {{{playerName}}}
 *   Tour Actuel : {{{currentTurn}}} / {{{maxTurns}}}
 *   État actuel du jeu (JSON string) : {{{gameState}}}
-    *   Note : L'état du jeu contient 'playerName', 'inventory' (tableau d'objets), et peut aussi contenir 'relationships' (objet PNJ:statut), 'emotions' (tableau d'émotions), et 'events' (tableau d'événements).
+    *   Note : L'état du jeu contient 'playerName', 'location' (le lieu actuel), 'inventory' (tableau d'objets), et peut aussi contenir 'relationships' (objet PNJ:statut), 'emotions' (tableau d'émotions), et 'events' (tableau d'événements).
 *   Dernier segment de l'histoire : "{{{lastStorySegmentText}}}"
 *   Historique des actions du joueur (le **dernier élément** est l'action à laquelle tu dois réagir) :
     {{#if playerChoicesHistory}}
@@ -193,43 +153,45 @@ const prompt = ai.definePrompt({
 
 **Règles strictes pour ta réponse (MJ) :**
 
-1.  **Réagis à la DERNIÈRE ACTION** : Ta réponse DOIT commencer par décrire le résultat direct et logique de la **dernière action** de {{{playerName}}} (le dernier élément de \`playerChoicesHistory\`). Adresse-toi toujours à {{{playerName}}} par son nom.
+1.  **Réagis à la DERNIÈRE ACTION** : Ta réponse DOIT commencer par décrire le résultat direct et logique de la **dernière action** de {{{playerName}}} (le dernier élément de playerChoicesHistory). Adresse-toi toujours à {{{playerName}}} par son nom.
     *   **Gestion Inventaire** :
-        *   Si le dernier choix implique **l'utilisation** ou la **perte** d'un objet (ex: "Utiliser Clé", "Lancer Potion", "Se débarrasser de Pierre"), décris le résultat et **retire** l'objet de la liste \`inventory\` dans \`updatedGameState\` si l'action réussit et consomme l'objet.
-        *   Si le dernier choix fait **trouver** un nouvel objet, décris-le et **ajoute**-le à la liste \`inventory\` dans \`updatedGameState\`. Annonce clairement la trouvaille dans \`storyContent\`, ex: "Tu as trouvé une **vieille clé rouillée** ! Ajoutée à l'inventaire !".
+        *   Si le dernier choix implique **l'utilisation** ou la **perte** d'un objet (ex: "Utiliser Clé", "Lancer Potion", "Se débarrasser de Pierre"), décris le résultat et **retire** l'objet de la liste 'inventory' dans 'updatedGameState' si l'action réussit et consomme l'objet.
+        *   Si le dernier choix fait **trouver** un nouvel objet, décris-le et **ajoute**-le à la liste 'inventory' dans 'updatedGameState'. Annonce clairement la trouvaille dans 'storyContent', ex: "Tu as trouvé une **vieille clé rouillée** ! Ajoutée à l'inventaire !".
         *   Si le dernier choix est "Inspecter {objet}", décris l'objet plus en détail sans le retirer de l'inventaire.
 2.  **Cohérence des Personnages**: Maintiens la personnalité et les caractéristiques des PNJ créés. Adapte leurs réactions en fonction des 'relationships' dans le gameState.
-3.  **Cohérence des Lieux**: Souviens-toi des lieux et de leurs caractéristiques.
+3.  **Cohérence des Lieux**: Souviens-toi des lieux et de leurs caractéristiques. Si une action **change le lieu** du joueur (ex: "Entrer dans la grotte", "Aller au marché"), **mets à jour la clé 'location'** dans 'updatedGameState' avec le nouveau nom de lieu. Décris brièvement le nouveau lieu dans 'storyContent'.
 4.  **Chronologie & Causalité**: Respecte l'ordre des événements. Les actions doivent avoir des conséquences logiques sur la suite. Utilise le tableau 'events' du gameState pour te souvenir des faits importants.
-5.  **Décris la nouvelle situation** : Après le résultat de l'action, explique la situation actuelle : où est {{{playerName}}} ? Que perçoit-il/elle ? Qu'est-ce qui a changé ? Que se passe-t-il maintenant ?
-6.  **Gestion Actions Hors-Contexte/Impossibles** : Si le **dernier choix** est illogique, hors thème, dangereux, impossible, refuse GENTIMENT ou réinterprète. Explique pourquoi ("Hmm, {{{playerName}}}, essayer de {action impossible} ne semble pas fonctionner ici.") et propose immédiatement de nouvelles actions VALIDES via 'nextChoices' (sauf si c'est le dernier tour).
+5.  **Décris la nouvelle situation** : Après le résultat de l'action, explique la situation actuelle : où est {{{playerName}}} (confirme le lieu actuel) ? Que perçoit-il/elle ? Qu'est-ce qui a changé ? Que se passe-t-il maintenant ?
+6.  **Gestion Actions Hors-Contexte/Impossibles** : Si le **dernier choix** est illogique, hors thème, dangereux, impossible, refuse GENTIMENT ou réinterprète. Explique pourquoi ("Hmm, {{{playerName}}}, essayer de {action impossible} ne semble pas fonctionner ici dans {{{gameState.location}}}'.") et propose immédiatement de nouvelles actions VALIDES via 'nextChoices' (sauf si c'est le dernier tour).
 7.  **Gestion du Dernier Tour (quand isLastTurn est vrai)** :
     *   Si l'indicateur {{isLastTurn}} est vrai, c'est la fin ! Ne propose **AUCUN** nouveau choix (la clé 'nextChoices' dans la sortie JSON doit être un tableau vide []).
-    *   Décris une **conclusion** à l'aventure basée sur le dernier choix et l'état final du jeu. La conclusion doit être satisfaisante et cohérente avec l'histoire et le thème. Elle peut être ouverte ou fermée. Exemple: "Et c'est ainsi, {{{playerName}}}, qu'après avoir {dernière action}, tu {conclusion}. Ton aventure sur {lieu/thème} se termine ici... pour l'instant !".
-    *   Mets quand même à jour 'updatedGameState' une dernière fois si nécessaire.
-8.  **Propose de Nouveaux Choix (si PAS le dernier tour)** : Si l'indicateur {{isLastTurn}} est FAUX, offre 2 ou 3 options claires, simples, pertinentes pour la situation et le thème. PAS d'actions d'inventaire directes dans \`nextChoices\`. Le joueur utilise l'interface d'inventaire pour ça.
-9.  **Mets à Jour l'État du Jeu ('updatedGameState')** : Réfléchis aux conséquences du **dernier choix** (inventaire, lieu, relations, émotions, événements). Mets à jour **IMPÉRATIVEMENT** 'inventory' si besoin, mais aussi 'relationships', 'emotions', 'events' le cas échéant. \`updatedGameState\` doit être une chaîne JSON valide contenant AU MINIMUM 'playerName' et 'inventory'. Si rien n'a changé, renvoie le \`gameState\` précédent (stringify), mais valide.
+    *   Décris une **conclusion** à l'aventure basée sur le dernier choix et l'état final du jeu (y compris le lieu final). La conclusion doit être satisfaisante et cohérente avec l'histoire et le thème. Elle peut être ouverte ou fermée. Exemple: "Et c'est ainsi, {{{playerName}}}, qu'après avoir {dernière action} dans {{{updatedGameState.location}}}, tu {conclusion}. Ton aventure sur {lieu/thème} se termine ici... pour l'instant !".
+    *   Mets quand même à jour 'updatedGameState' une dernière fois si nécessaire (lieu final, inventaire final, etc.).
+8.  **Propose de Nouveaux Choix (si PAS le dernier tour)** : Si l'indicateur {{isLastTurn}} est FAUX, offre 2 ou 3 options claires, simples, pertinentes pour la situation actuelle, le lieu actuel ({{{gameState.location}}}), et le thème. PAS d'actions d'inventaire directes dans 'nextChoices'. Le joueur utilise l'interface d'inventaire pour ça.
+9.  **Mets à Jour l'État du Jeu ('updatedGameState')** : Réfléchis aux conséquences du **dernier choix** (inventaire, **lieu**, relations, émotions, événements). Mets à jour **IMPÉRATIVEMENT** 'inventory' si besoin, et **'location' si le joueur change de lieu**. Mets aussi à jour 'relationships', 'emotions', 'events' le cas échéant. 'updatedGameState' doit être une chaîne JSON valide contenant AU MINIMUM 'playerName', 'location', et 'inventory'. Si rien n'a changé, renvoie le 'gameState' précédent (stringify), mais valide.
 10. **Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant : 'storyContent' (string), 'nextChoices' (array de strings, vide si {{isLastTurn}} est vrai), 'updatedGameState' (string JSON valide). RIEN d'autre.
 11. **Ton rôle** : Reste UNIQUEMENT le narrateur. Pas de sortie de rôle, pas de discussion hors aventure, pas de mention d'IA.
 12. **Public (8-12 ans)** : Langage simple, adapté, positif, aventureux. Pas de violence/peur excessive/thèmes adultes. Utilise les 'emotions' du gameState pour influencer l'ambiance.
+13. **Gestion des relations et émotions**: Utilise les informations contenues dans 'relationships' et 'emotions' pour adapter les interactions des PNJ et l'ambiance de l'histoire. Exemple: Si la relation avec un PNJ est "ennemi", il sera hostile. Si le joueur est "triste", l'ambiance sera plus sombre.
+14. **Mort d'un PNJ**: Si un PNJ important meurt, tu dois en tenir compte dans la suite de l'histoire. Les autres PNJ peuvent être tristes, en colère, ou vouloir se venger. L'ambiance doit s'adapter en conséquence. L'histoire doit avancer et s'adapter à cet évènement.
 
-**Exemple de sortie (Tour normal)**
+**Exemple de sortie (Tour normal, changement de lieu)**
 {
-  "storyContent": "Alex, tu utilises la Clé Ancienne sur la serrure rouillée... *Clic !* La porte s'ouvre en grinçant, révélant un passage sombre. La clé s'est malheureusement cassée dans la serrure.",
-  "nextChoices": ["Entrer dans le passage sombre", "Examiner les environs avant d'entrer", "Appeler pour voir si quelqu'un répond"],
-  "updatedGameState": "{\"playerName\":\"Alex\",\"inventory\":[\"Lampe de poche\"],\"location\":\"Entrée du passage\",\"relationships\":{},\"emotions\":[\"curieux\"],\"events\":[\"porte ouverte\"]}"
+  "storyContent": "Alex, tu pousses la lourde porte en bois qui s'ouvre sur une vaste caverne souterraine. L'air est frais et humide. Des stalactites pendent du plafond et un petit ruisseau scintille au loin. La porte se referme derrière toi avec un bruit sourd.",
+  "nextChoices": ["Suivre le ruisseau", "Examiner les parois de la caverne", "Écouter les bruits ambiants"],
+  "updatedGameState": "{\"playerName\":\"Alex\",\"location\":\"Caverne Souterraine\",\"inventory\":[\"Lampe de poche\"],\"relationships\":{},\"emotions\":[\"curieux\",\"un peu inquiet\"],\"events\":[\"porte ouverte\", \"entré dans caverne\"]}"
 }
 
 **Exemple de sortie (DERNIER TOUR, isLastTurn = true)**
 {
- "storyContent": "Et c'est ainsi, Léa, qu'après avoir donné le cristal scintillant au robot gardien, celui-ci s'écarte en révélant la sortie ! Tu as réussi à t'échapper du vaisseau labyrinthe. Bravo pour ton ingéniosité ! Ton aventure spatiale se termine ici, victorieuse !",
+ "storyContent": "Et c'est ainsi, Léa, qu'après avoir activé le portail antique au centre de la 'Salle des Étoiles', celui-ci s'illumine d'une lumière aveuglante ! Tu as trouvé le chemin du retour ! Bravo pour ton courage et ta perspicacité ! Ton aventure spatiale se termine ici, dans un flash de lumière !",
  "nextChoices": [],
- "updatedGameState": "{\"playerName\":\"Léa\",\"inventory\":[],\"location\":\"Sortie du Vaisseau\",\"relationships\":{\"Gardien\":\"reconnaissant\"},\"emotions\":[\"soulagée\",\"fière\"],\"events\":[\"sortie trouvée\"]}"
+ "updatedGameState": "{\"playerName\":\"Léa\",\"location\":\"Portail de Retour\",\"inventory\":[],\"relationships\":{},\"emotions\":[\"soulagée\",\"excitée\"],\"events\":[\"portail activé\"]}"
 }
 
-**Important** : Concentre-toi sur la réaction à la **dernière action**, la gestion précise de l'inventaire dans \`updatedGameState\`, et la **conclusion si c'est le dernier tour** ({{isLastTurn}}).
+**Important** : Concentre-toi sur la réaction à la **dernière action**, la gestion précise de l'inventaire ET du **lieu** dans 'updatedGameState', et la **conclusion si c'est le dernier tour** ({{isLastTurn}}).
 
-Génère maintenant la suite (ou la fin) de l'histoire pour {{{playerName}}}, en respectant TOUTES les règles, le thème {{{theme}}}, l'état du jeu, et le compte des tours ({{{currentTurn}}}/{{{maxTurns}}}, la valeur de isLastTurn est {{isLastTurn}}).
+Génère maintenant la suite (ou la fin) de l'histoire pour {{{playerName}}}, en respectant TOUTES les règles, le thème {{{theme}}}, le lieu actuel ({{{gameState.location}}}), l'état du jeu, et le compte des tours ({{{currentTurn}}}/{{{maxTurns}}}, la valeur de isLastTurn est {{isLastTurn}}).
 `,
 });
 
@@ -267,6 +229,7 @@ async input => {
         // Provide a more complete default state if parsing fails
         currentGameStateObj = {
             playerName: input.playerName,
+            location: 'Lieu Inconnu', // Default location
             inventory: [],
             relationships: {},
             emotions: [],
@@ -293,20 +256,23 @@ async input => {
         if (!Array.isArray(currentGameStateObj.events)) {
             currentGameStateObj.events = []; // Initialize if missing
         }
-        currentGameStateObj.events.push(`Événement aléatoire: ${randomEvent}`);
-        console.log("Random event triggered:", randomEvent);
+        // Add location context to the event
+        currentGameStateObj.events.push(`Événement aléatoire (${currentGameStateObj.location || 'lieu inconnu'}): ${randomEvent}`);
+        console.log("Random event triggered:", randomEvent, "at location:", currentGameStateObj.location);
     }
-    // Update the gameState with the new event (if any) before sending to prompt
-    const validatedInputGameStateString = safeJsonStringify(currentGameStateObj);
     // --- End Random Event ---
 
 
     // Ensure essential keys exist after potentially resetting
     if (!currentGameStateObj.playerName) currentGameStateObj.playerName = input.playerName;
+     if (typeof currentGameStateObj.location !== 'string' || !currentGameStateObj.location.trim()) currentGameStateObj.location = 'Lieu Indéterminé'; // Ensure location exists
     if (!Array.isArray(currentGameStateObj.inventory)) currentGameStateObj.inventory = [];
     if (typeof currentGameStateObj.relationships !== 'object' || currentGameStateObj.relationships === null) currentGameStateObj.relationships = {};
     if (!Array.isArray(currentGameStateObj.emotions)) currentGameStateObj.emotions = [];
     if (!Array.isArray(currentGameStateObj.events)) currentGameStateObj.events = [];
+
+    // Update the gameState with the new event (if any) before sending to prompt
+    const validatedInputGameStateString = safeJsonStringify(currentGameStateObj);
 
 
   // Inject current date into the prompt context
@@ -356,6 +322,12 @@ async input => {
              console.warn("AI removed playerName from updatedGameState, re-adding.");
              updatedGameStateObj.playerName = input.playerName;
         }
+         // Ensure location is a string and not empty
+         if (typeof updatedGameStateObj.location !== 'string' || !updatedGameStateObj.location.trim()) {
+             console.warn("AI returned invalid/missing location in updatedGameState, attempting to recover.");
+             const originalGameState = safeJsonParse(validatedInputGameStateString); // Parse validated string
+             updatedGameStateObj.location = (typeof originalGameState.location === 'string' && originalGameState.location.trim()) ? originalGameState.location : 'Lieu Indéterminé';
+         }
          if (!Array.isArray(updatedGameStateObj.inventory)) {
              console.warn("AI removed or corrupted inventory in updatedGameState, resetting/fixing.");
              // Attempt to recover from input state or default
@@ -413,3 +385,5 @@ async input => {
 
   return output;
 });
+
+

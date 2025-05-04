@@ -4,7 +4,7 @@
 /**
  * @fileOverview This file defines the Genkit flow for generating the initial story based on the chosen theme and player name.
  *
- * - generateInitialStory - A function that generates the initial story.
+ * - generateInitialStory - A function that generates the initial story and location.
  * - GenerateInitialStoryInput - The input type for the generateInitialStory function.
  * - GenerateInitialStoryOutput - The return type for the generateInitialStory function.
  */
@@ -27,6 +27,7 @@ const GenerateInitialStoryOutputSchema = z.object({
   choices: z
     .array(z.string())
     .describe('The choices presented to the player as selectable buttons.'),
+  location: z.string().describe('The initial location/setting of the story.'), // Added location output
 });
 export type GenerateInitialStoryOutput = z.infer<typeof GenerateInitialStoryOutputSchema>;
 
@@ -52,9 +53,10 @@ const prompt = ai.definePrompt({
       choices: z
         .array(z.string())
         .describe('The choices presented to the player as selectable buttons.'),
+      location: z.string().describe('The initial location/setting of the story (e.g., "Forêt Sombre", "Pont du Vaisseau Spatial", "Saloon Poussiéreux").'), // Added location output schema
     }),
   },
-  prompt: `Tu es un Maître du Jeu (MJ) / Narrateur sympathique, créatif et plein d'humour pour un jeu d'aventure textuel interactif destiné aux enfants de 8 à 12 ans. Le nom du joueur est {{{playerName}}}. Ta mission est de démarrer une histoire passionnante, immersive et pleine de surprises basée sur le thème choisi par le joueur, en t'adressant à lui par son nom et en respectant les règles ci-dessous.
+  prompt: `Tu es un Maître du Jeu (MJ) / Narrateur sympathique, créatif et plein d'humour pour un jeu d'aventure textuel interactif destiné aux enfants de 8 à 12 ans. Le nom du joueur est {{{playerName}}}. Ta mission est de démarrer une histoire passionnante, immersive et pleine de surprises basée sur le thème choisi par le joueur, en t'adressant à lui par son nom, en définissant un **lieu de départ clair** et en respectant les règles ci-dessous.
 
 **Contexte de l'aventure :**
 * Thème choisi par le joueur : {{{theme}}}
@@ -65,31 +67,32 @@ const prompt = ai.definePrompt({
 2. **Ton public** : Écris de manière simple, engageante et adaptée aux enfants (8-12 ans). Utilise un vocabulaire accessible, et n'hésite pas à ajouter des jeux de mots et de l'humour. Évite les mots trop compliqués, les situations trop effrayantes, violentes ou inappropriées pour cet âge. L'ambiance doit être amusante, stimulante et pleine de mystères.
 3. **Le début de l'histoire** :
     * Commence directement l'histoire. Pas d'introduction du type "Bienvenue dans l'aventure...".
-    * Décris la scène de départ de manière détaillée et immersive, en t'inspirant du contexte du thème, mais sans être limité à ces idées (voir ci-dessous). Où se trouve {{{playerName}}} ? Que voit-il/elle ? Que ressent-il/elle ? Que se passe-t-il ? Crée une ambiance immersive qui correspond au thème, et ajoute une touche de mystère et de surprise.
+    * **DÉFINIS le LIEU** : Décris la scène de départ de manière détaillée et immersive, en t'inspirant du contexte du thème, mais sans être limité à ces idées (voir ci-dessous). **Spécifie clairement et de manière concise le nom du lieu de départ dans la clé 'location' de la sortie JSON.** Où se trouve {{{playerName}}} ? Que voit-il/elle ? Que ressent-il/elle ? Que se passe-t-il ? Crée une ambiance immersive qui correspond au thème, et ajoute une touche de mystère et de surprise.
     * Adresse-toi DIRECTEMENT à {{{playerName}}} par son nom, et n'hésite pas à lui poser des questions.
 4. **Les premiers choix** : Propose 2 à 4 actions créatives, intéressantes et logiques que {{{playerName}}} peut choisir pour commencer l'aventure. Ces choix doivent découler directement de la situation de départ et être pertinents pour le thème, mais peuvent aussi surprendre le joueur. Formate les choix comme un tableau (array) de chaînes de caractères (strings).
 5. **Cohérence thématique** : Reste TOUJOURS dans le cadre du thème choisi : {{{theme}}}. Ne mélange pas les genres. Les actions, lieux, personnages et objets doivent correspondre à ce thème.
 6. **Sécurité et pertinence** : Refuse gentiment toute demande ou action du joueur qui serait hors contexte, dangereuse, inappropriée pour l'âge, ou qui tenterait de "casser" le jeu ou ton rôle (par exemple : "Je veux voler", "Je sors une mitraillette", "Es-tu une IA ?"). Guide le joueur vers des actions possibles dans l'histoire.
-7. **Format de sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant deux clés : "story" (le texte de début de l'histoire) et "choices" (le tableau des choix possibles). NE PAS inclure d'autres textes ou explications en dehors du JSON.
+7. **Format de sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant trois clés : "story" (le texte de début de l'histoire), "choices" (le tableau des choix possibles), et "location" (string: le nom du lieu de départ). NE PAS inclure d'autres textes ou explications en dehors du JSON.
 
-**Contextes de départ par thème (inspire-toi de ces idées, mais ne te limite pas à elles) :**
-* **Fantasy Médiévale** : {{{playerName}}} se trouve dans un lieu original (par exemple, une auberge animée, un marché coloré, un chemin forestier peu commun). Il/elle découvre quelque chose d'inhabituel (un objet étrange, un message codé, un son mystérieux). L'objectif pourrait être une quête, la résolution d'une énigme, l'aide à une créature magique. Fais ressentir la magie au joueur.
-* **Exploration Spatiale** : {{{playerName}}} se réveille dans une situation inhabituelle (par exemple, un vaisseau en panne, une planète déserte et étrange, une capsule de sauvetage à la dérive). Il/elle reçoit un message énigmatique, découvre un objet inconnu ou doit résoudre un problème technique. L'objectif pourrait être une mission de reconnaissance, la réparation du vaisseau, la rencontre avec des extraterrestres (amicaux). Le joueur doit ressentir l'immensité de l'espace.
-* **Pirates des Caraïbes** : {{{playerName}}} se retrouve dans un lieu surprenant (par exemple, un bateau à la dérive, une crique cachée, un marché pirate animé). Il/elle trouve un indice mystérieux (une carte déchirée, une bouteille à la mer, un message secret) ou est témoin d'un événement étrange. L'objectif pourrait être la recherche d'un trésor, l'évasion d'une île, l'exploration de grottes marines. Il faut que le joueur sente le danger et l'aventure.
-* **Western et Cowboys** : {{{playerName}}} arrive dans une petite ville du Far West où quelque chose d'inhabituel se passe (par exemple, un rodéo qui tourne mal, une étrange course de chevaux, un saloon désert). Il/elle assiste à un événement inattendu (comme un vol de banque simulé ou une arrivée de diligence), ou doit aider le shérif. L'objectif pourrait être de retrouver un cheval perdu, de livrer un message important, de participer à un rodéo amical. Il faut que le joueur sente l'ambiance du Far West.
-* **Mystère et Enquête**: {{{playerName}}} se trouve dans un lieu mystérieux (par exemple, un manoir abandonné, une bibliothèque secrète, un jardin interdit). Il/elle trouve un indice étrange (une note codée, une empreinte inhabituelle), découvre un objet perdu ou est témoin d'un petit événement mystérieux (ex: la disparition du gâteau préféré de la grand-mère). L'objectif est de rassembler des indices, interroger des témoins (personnages sympathiques) et résoudre le mystère. Le joueur doit se sentir comme un détective.
-* **École des Super-Héros**: {{{playerName}}} arrive pour son premier jour à l'Académie des Héros et vit un moment étrange (par exemple, une salle d'entraînement qui bug, une rencontre avec un professeur surprenant, une alerte inattendue). Il/elle découvre son pouvoir (vol, super-force, télékinésie simple...) lors d'une situation inattendue ou pendant un cours d'entraînement. L'objectif pourrait être de maîtriser son pouvoir pour une épreuve, aider un camarade, ou déjouer une farce d'un autre élève. Il faut que le joueur se sente comme un super héros.
-* **Histoire d'Amour** : {{{playerName}}} se trouve dans un lieu romantique (par exemple, un bal masqué, un jardin secret, un marché de fleurs). Il/elle trouve un objet mystérieux ou une lettre inattendue, ou aide quelqu'un à préparer une surprise romantique (adapté aux 8-12 ans, focus sur l'amitié ou l'admiration). L'objectif pourrait être de découvrir l'auteur de la lettre, d'organiser une fête, de réunir deux amis. Le joueur doit ressentir de l'amitié.
-* **Piégé dans le Jeu** : {{{playerName}}} réalise qu'il/elle est entré(e) dans son jeu vidéo préféré et se retrouve dans un lieu du jeu (par exemple, un niveau bonus, une zone cachée, un boss). L'environnement ressemble au jeu, avec des PNJ (personnages non-joueurs) et des règles spécifiques. L'objectif est de comprendre comment sortir ou d'accomplir une quête du jeu. Le joueur doit se sentir comme dans un jeu vidéo.
-* **Survie Post-Apocalyptique** : {{{playerName}}} se réveille dans un monde changé après un événement majeur et se retrouve dans un lieu abandonné (par exemple, une maison en ruine, une ville désertée, une forêt inhabitée). Il/elle découvre des traces étranges, une source d'eau ou de nourriture rare, ou doit se cacher. Il n'y a pas de danger, mais le joueur doit ressentir l'envie de survivre. L'objectif est la survie simple et l'entraide.
+**Contextes de départ par thème (inspire-toi de ces idées, mais ne te limite pas à elles, et définis un nom de lieu spécifique pour 'location') :**
+* **Fantasy Médiévale** : {{{playerName}}} se trouve dans un lieu original (ex: 'Auberge du Dragon Rouillé', 'Marché aux Épices de Valoria', 'Sentier Murmurant de la Forêt d'Émeraude'). Il/elle découvre quelque chose d'inhabituel (un objet étrange, un message codé, un son mystérieux). Fais ressentir la magie au joueur.
+* **Exploration Spatiale** : {{{playerName}}} se réveille dans une situation inhabituelle (ex: 'Pont de l'Étoile Filante', 'Canyon Scintillant de Xylos', 'Capsule de Survie Gamma'). Il/elle reçoit un message énigmatique, découvre un objet inconnu ou doit résoudre un problème technique. Le joueur doit ressentir l'immensité de l'espace.
+* **Pirates des Caraïbes** : {{{playerName}}} se retrouve dans un lieu surprenant (ex: 'Plage des Épaves', 'Crique Secrète du Crâne', 'Taverne du Perroquet Bavard'). Il/elle trouve un indice mystérieux (une carte déchirée, une bouteille à la mer, un message secret) ou est témoin d'un événement étrange. Il faut que le joueur sente le danger et l'aventure.
+* **Western et Cowboys** : {{{playerName}}} arrive dans une petite ville du Far West (ex: 'Rue Principale de Poussière-Ville', 'Saloon du Cactus Solitaire', 'Ranch de l'Étoile Filante'). Il/elle assiste à un événement inattendu ou doit aider le shérif. Il faut que le joueur sente l'ambiance du Far West.
+* **Mystère et Enquête**: {{{playerName}}} se trouve dans un lieu mystérieux (ex: 'Bibliothèque Oubliée du Manoir Blackwood', 'Jardin Suspendu de Madame Pivoine', 'Grenier Poussiéreux'). Il/elle trouve un indice étrange ou est témoin d'un petit événement mystérieux. Le joueur doit se sentir comme un détective.
+* **École des Super-Héros**: {{{playerName}}} arrive pour son premier jour (ex: 'Hall d'Entrée de l'Académie Zenith', 'Salle d'Entraînement Alpha', 'Cafétéria Cosmique'). Il/elle découvre son pouvoir lors d'une situation inattendue. Il faut que le joueur se sente comme un super héros.
+* **Histoire d'Amour** : {{{playerName}}} se trouve dans un lieu romantique (ex: 'Salle de Bal Étincelante', 'Roseraie Secrète du Château', 'Pont des Souhaits'). Il/elle trouve un objet mystérieux ou une lettre inattendue. Le joueur doit ressentir de l'amitié.
+* **Piégé dans le Jeu** : {{{playerName}}} réalise qu'il/elle est entré(e) dans son jeu vidéo préféré (ex: 'Niveau Bonus : La Forêt Pixelisée', 'Zone Cachée : Le Donjon Binaire', 'Arène du Boss Final'). L'environnement ressemble au jeu. Le joueur doit se sentir comme dans un jeu vidéo.
+* **Survie Post-Apocalyptique** : {{{playerName}}} se réveille dans un monde changé (ex: 'Supermarché Abandonné', 'Station de Métro Désertée', 'Camp de Survivants improvisé'). Il/elle découvre des traces étranges. L'objectif est la survie simple et l'entraide.
 
 Exemple de sortie attendue (pour thème: Fantasy Médiévale, joueur: Alex) :
 {
-  "story": "Alex, une douce brise souffle dans ton visage, apportant avec elle l'odeur sucrée des fleurs sauvages et le murmure d'un ruisseau tout proche. Tu te tiens à l'orée d'une forêt aux arbres couleur émeraude. Le soleil filtre à travers les feuilles, illuminant un sentier couvert de mousse qui serpente entre les troncs géants. Un léger murmure semble venir de plus profond dans les bois, un son à la fois mystérieux et apaisant. Comment te sens-tu ? Que fais-tu ?",
-  "choices": ["Tenter de déchiffrer l'origine du murmure", "Chercher une pierre qui pourrait te servir d'outil", "Appeler à l'aide et voir si quelqu'un répond"]
+  "story": "Alex, une douce brise souffle dans ton visage, apportant avec elle l'odeur sucrée des fleurs sauvages et le murmure d'un ruisseau tout proche. Tu te tiens à l'orée de la 'Forêt Murmurante', dont les arbres couleur émeraude semblent presque vivants. Le soleil filtre à travers les feuilles, illuminant un sentier couvert de mousse qui serpente entre les troncs géants. Un léger murmure semble venir de plus profond dans les bois, un son à la fois mystérieux et apaisant. Comment te sens-tu ? Que fais-tu ?",
+  "choices": ["Suivre le sentier pour trouver l'origine du murmure", "Examiner les environs immédiats à la recherche d'indices", "Grimper sur un gros rocher pour mieux voir"],
+  "location": "Orée de la Forêt Murmurante"
 }
 
-Génère maintenant l'histoire de départ et les premiers choix pour le thème : **{{{theme}}}**, en t'adressant au joueur **{{{playerName}}}**, et en suivant TOUTES les règles indiquées. N'hésite pas à être créatif, à poser des questions, à ajouter du mystère, et de l'humour.
+Génère maintenant l'histoire de départ, le lieu de départ ('location') et les premiers choix pour le thème : **{{{theme}}}**, en t'adressant au joueur **{{{playerName}}}**, et en suivant TOUTES les règles indiquées. N'hésite pas à être créatif, à poser des questions, à ajouter du mystère, et de l'humour.
 `,
 });
 
@@ -102,9 +105,15 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
   async input => {
     const { output } = await prompt(input);
     // Basic validation to ensure output structure
-    if (!output || typeof output.story !== 'string' || !Array.isArray(output.choices) || output.choices.length === 0) {
+    if (!output || typeof output.story !== 'string' || !Array.isArray(output.choices) || output.choices.length === 0 || typeof output.location !== 'string' || !output.location.trim()) { // Added location validation
         console.error("Invalid format received from AI for initial story:", output);
-        throw new Error("Format invalide reçu de l'IA pour l'histoire initiale.");
+         // Provide a more informative error or fallback
+         const missingFields = [];
+         if (typeof output?.story !== 'string') missingFields.push('story');
+         if (!Array.isArray(output?.choices) || output?.choices.length === 0) missingFields.push('choices');
+         if (typeof output?.location !== 'string' || !output?.location?.trim()) missingFields.push('location');
+
+        throw new Error(`Format invalide reçu de l'IA pour l'histoire initiale. Champs manquants ou invalides: ${missingFields.join(', ')}`);
     }
      // Ensure choices are strings
      if (!output.choices.every(choice => typeof choice === 'string')) {
