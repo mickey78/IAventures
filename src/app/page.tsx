@@ -884,7 +884,7 @@ const renderStory = () => (
   const shouldCenterContent = ['menu', 'theme_selection', 'name_input', 'loading_game'].includes(gameState.currentView);
 
   const renderTurnCounter = () => (
-    <div className="absolute top-4 left-4 z-10 bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border border-border text-sm text-muted-foreground shadow-sm flex items-center gap-1.5">
+    <div className="bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border border-border text-sm text-muted-foreground shadow-sm flex items-center gap-1.5">
         <Repeat className="h-4 w-4" />
         Tour: <span className="font-semibold text-foreground">{gameState.currentTurn}</span> / {gameState.maxTurns}
     </div>
@@ -892,34 +892,36 @@ const renderStory = () => (
 
 
   return (
-    <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground relative"> {/* Added relative */}
-       {/* ThemeSwitcher stays top right */}
-       {/* <div className="absolute top-4 right-4 z-50">
-           <ThemeSwitcher />
-       </div> */}
-
-       {/* Turn Counter - visible only during active game */}
-       {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && renderTurnCounter()}
+    <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground"> {/* Removed relative */}
+       {/* ThemeSwitcher stays top right - handled in layout.tsx */}
 
        <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg flex flex-col flex-grow mt-10" style={{ height: 'calc(95vh - 40px)' }}> {/* Adjust height and margin */}
-        <CardHeader className="text-center flex-shrink-0 pt-6 pb-2"> {/* Adjust padding */}
-          <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
-            <BookOpenText className="h-8 w-8 text-primary" />
-            AdventureCraft
-          </CardTitle>
-          <CardDescription className="text-muted-foreground mt-1"> {/* Adjust margin */}
-             {gameState.currentView === 'game_active' && gameState.theme && gameState.playerName
-              ? `Aventure de ${gameState.playerName} : ${gameState.theme}`
-              : gameState.currentView === 'game_ended' && gameState.theme && gameState.playerName
-              ? `Aventure terminée de ${gameState.playerName} : ${gameState.theme}`
-              : gameState.currentView === 'theme_selection'
-              ? "Choisissez un thème pour votre nouvelle aventure ! (8-12 ans)"
-              : gameState.currentView === 'name_input'
-              ? "Prépare-toi pour l'aventure !"
-              : gameState.currentView === 'loading_game'
-              ? "Choisissez une partie à charger."
-              : "Bienvenue ! Commencez une nouvelle aventure ou chargez une partie."}
-          </CardDescription>
+        <CardHeader className="relative text-center flex-shrink-0 pt-6 pb-2 flex flex-row items-center justify-between"> {/* Flex row */}
+            <div className="flex-1 flex flex-col items-center"> {/* Centered title/desc */}
+                <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
+                    <BookOpenText className="h-8 w-8 text-primary" />
+                    AdventureCraft
+                </CardTitle>
+                 <CardDescription className="text-muted-foreground mt-1">
+                    {gameState.currentView === 'game_active' && gameState.theme && gameState.playerName
+                     ? `Aventure de ${gameState.playerName} : ${gameState.theme}`
+                     : gameState.currentView === 'game_ended' && gameState.theme && gameState.playerName
+                     ? `Aventure terminée de ${gameState.playerName} : ${gameState.theme}`
+                     : gameState.currentView === 'theme_selection'
+                     ? "Choisissez un thème pour votre nouvelle aventure ! (8-12 ans)"
+                     : gameState.currentView === 'name_input'
+                     ? "Prépare-toi pour l'aventure !"
+                     : gameState.currentView === 'loading_game'
+                     ? "Choisissez une partie à charger."
+                     : "Bienvenue ! Commencez une nouvelle aventure ou chargez une partie."}
+                 </CardDescription>
+             </div>
+             {/* Turn Counter - visible only during active game or ended game, aligned to the top right */}
+             {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && (
+                <div className="absolute top-4 right-4"> {/* Use absolute positioning within the relative header */}
+                    {renderTurnCounter()}
+                </div>
+             )}
         </CardHeader>
 
          <CardContent className={cn(
