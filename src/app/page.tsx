@@ -6,7 +6,7 @@ import Image from 'next/image'; // Import next/image
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea component
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'; // Removed CardFooter
 import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import type { GenerateInitialStoryOutput } from '@/ai/flows/generate-initial-story'; // Import specific type
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
@@ -14,7 +14,7 @@ import type { GenerateStoryContentInput, GenerateStoryContentOutput } from '@/ai
 import { generateImage } from '@/ai/flows/generate-image'; // Import the image generation flow
 import type { GenerateImageOutput } from '@/ai/flows/generate-image'; // Import the image generation output type
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History, MapPin, ImageIcon, ImageOff, Edit } from 'lucide-react'; // Added MapPin, ImageIcon, ImageOff, Edit
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History, MapPin, ImageIcon, ImageOff, Edit, Home } from 'lucide-react'; // Added MapPin, ImageIcon, ImageOff, Edit, Home
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -695,7 +695,7 @@ const renderStory = () => (
  const renderInventory = () => (
      <Popover open={isInventoryPopoverOpen} onOpenChange={setIsInventoryPopoverOpen}>
          <PopoverTrigger asChild>
-             <Button variant="secondary" className="shrink-0" disabled={gameState.isLoading || gameState.currentGameState.inventory.length === 0 || gameState.currentView === 'game_ended'}>
+             <Button variant="secondary" size="sm" className="shrink-0" disabled={gameState.isLoading || gameState.currentGameState.inventory.length === 0 || gameState.currentView === 'game_ended'}>
                  <Briefcase className="mr-2 h-4 w-4" />
                  Inventaire ({gameState.currentGameState.inventory.length})
              </Button>
@@ -973,7 +973,7 @@ const renderStory = () => (
     <div className="flex flex-col items-center space-y-4 w-full h-full justify-center"> {/* Added justify-center and h-full */}
         <h2 className="text-2xl font-semibold mb-4">Charger une Partie</h2>
         {savedGames.length > 0 ? (
-             <ScrollAreaPrimitive.Root className="w-full max-w-xl h-[300px] rounded-md border"> {/* Increased max-width */}
+             <ScrollAreaPrimitive.Root className="w-full max-w-2xl h-[300px] rounded-md border"> {/* Increased width */}
                 <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] p-4">
                     <ul className="space-y-3">
                         {savedGames.map((save) => (
@@ -1046,90 +1046,111 @@ const renderStory = () => (
 
 
   return (
-    <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground"> {/* Removed relative */}
-       {/* ThemeSwitcher stays top right - handled in layout.tsx */}
+     <TooltipProvider delayDuration={300}> {/* Wrap in TooltipProvider */}
+        <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground"> {/* Removed relative */}
+           {/* ThemeSwitcher stays top right - handled in layout.tsx */}
 
-       <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg flex flex-col flex-grow mt-10" style={{ height: 'calc(95vh - 40px)' }}> {/* Adjust height and margin */}
-        <CardHeader className="relative text-center flex-shrink-0 pt-4 pb-2 flex items-center justify-between border-b border-border"> {/* Adjusted padding & add border */}
-             {/* Left Aligned: Inventory Button (only visible in game) */}
-            <div className="absolute top-3 left-4"> {/* Position absolutely left */}
-                {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && renderInventory()}
-            </div>
-
-            {/* Centered: Title, Description, Location */}
-            <div className="flex-1 flex flex-col items-center mx-auto px-16"> {/* Added padding to avoid overlap */}
-                <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
-                    <BookOpenText className="h-8 w-8 text-primary" />
-                    IAventures
-                </CardTitle>
-                 <CardDescription className="text-muted-foreground mt-1">
-                    {gameState.currentView === 'game_active' && gameState.theme && gameState.playerName
-                     ? `Aventure de ${gameState.playerName} : ${gameState.theme}`
-                     : gameState.currentView === 'game_ended' && gameState.theme && gameState.playerName
-                     ? `Aventure terminée de ${gameState.playerName} : ${gameState.theme}`
-                     : gameState.currentView === 'theme_selection'
-                     ? "Choisissez un thème pour votre nouvelle aventure ! (8-12 ans)"
-                     : gameState.currentView === 'name_input'
-                     ? "Prépare-toi pour l'aventure !"
-                     : gameState.currentView === 'loading_game'
-                     ? "Choisissez une partie à charger."
-                     : "Bienvenue ! Commencez une nouvelle aventure ou chargez une partie."}
-                 </CardDescription>
-                 {/* Current Location Display */}
-                  {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && gameState.currentGameState.location && (
-                    <div className="mt-1 text-sm text-accent-foreground flex items-center gap-1">
-                         <MapPin className="h-4 w-4 text-accent" />
-                         Lieu: <span className="font-medium">{gameState.currentGameState.location}</span>
-                    </div>
-                  )}
-             </div>
-             {/* Right Aligned: Turn Counter */}
-             {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && (
-                <div className="absolute top-3 right-4"> {/* Position absolutely right */}
-                    {renderTurnCounter()}
+           <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg flex flex-col flex-grow mt-10" style={{ height: 'calc(95vh - 40px)' }}> {/* Adjust height and margin */}
+            <CardHeader className="relative text-center flex-shrink-0 pt-4 pb-2 flex items-center justify-between border-b border-border"> {/* Adjusted padding & add border */}
+                 {/* Left Aligned: Inventory Button (only visible in game) */}
+                <div className="absolute top-3 left-4"> {/* Position absolutely left */}
+                    {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && renderInventory()}
                 </div>
-             )}
-        </CardHeader>
 
-         <CardContent className={cn(
-            "flex-grow flex flex-col overflow-hidden p-4 md:p-6", // Added overflow-hidden
-             shouldCenterContent && "items-center justify-center" // Center content for specific views
-         )}>
-          {gameState.currentView === 'menu' && renderMainMenu()}
-          {gameState.currentView === 'theme_selection' && renderThemeSelection()}
-          {gameState.currentView === 'name_input' && renderNameInput()}
-          {gameState.currentView === 'loading_game' && renderLoadGame()}
-          {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && (
-            <>
-              {renderStory()}
-              {/* Only render choices/input if game is active */}
-              {gameState.currentView === 'game_active' && !gameState.isLoading && renderChoicesAndInput()}
-            </>
-          )}
-          {/* Error Display */}
-          {gameState.error && (
-            <div className="flex-shrink-0 mt-auto p-2 bg-destructive/10 rounded-md border border-destructive text-destructive text-sm flex items-center gap-2">
-                 <AlertCircle className="h-4 w-4 shrink-0" />
-                 <p className="flex-1">{gameState.error}</p>
-            </div>
-          )}
-        </CardContent>
+                {/* Centered: Title, Description, Location */}
+                <div className="flex-1 flex flex-col items-center mx-auto px-16"> {/* Added padding to avoid overlap */}
+                    <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
+                        <BookOpenText className="h-8 w-8 text-primary" />
+                        IAventures
+                    </CardTitle>
+                     <CardDescription className="text-muted-foreground mt-1">
+                        {gameState.currentView === 'game_active' && gameState.theme && gameState.playerName
+                         ? `Aventure de ${gameState.playerName} : ${gameState.theme}`
+                         : gameState.currentView === 'game_ended' && gameState.theme && gameState.playerName
+                         ? `Aventure terminée de ${gameState.playerName} : ${gameState.theme}`
+                         : gameState.currentView === 'theme_selection'
+                         ? "Choisissez un thème pour votre nouvelle aventure ! (8-12 ans)"
+                         : gameState.currentView === 'name_input'
+                         ? "Prépare-toi pour l'aventure !"
+                         : gameState.currentView === 'loading_game'
+                         ? "Choisissez une partie à charger."
+                         : "Bienvenue ! Commencez une nouvelle aventure ou chargez une partie."}
+                     </CardDescription>
+                     {/* Current Location Display */}
+                      {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && gameState.currentGameState.location && (
+                        <div className="mt-1 text-sm text-accent-foreground flex items-center gap-1">
+                             <MapPin className="h-4 w-4 text-accent" />
+                             Lieu: <span className="font-medium">{gameState.currentGameState.location}</span>
+                        </div>
+                      )}
+                 </div>
+                 {/* Right Aligned: Turn Counter and Action Buttons */}
+                 {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && (
+                    <div className="absolute top-3 right-4 flex flex-col items-end space-y-2"> {/* Container for right-aligned items */}
+                        {renderTurnCounter()}
+                        <div className="flex gap-2"> {/* Container for icon buttons */}
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="icon-sm"
+                                        className="h-8 w-8"
+                                        onClick={handleOpenSaveDialog}
+                                        disabled={gameState.isLoading || gameState.currentView === 'game_ended'}
+                                    >
+                                        <Save className="h-4 w-4" />
+                                        <span className="sr-only">Sauvegarder</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Sauvegarder</TooltipContent>
+                            </Tooltip>
+                            <Tooltip>
+                                <TooltipTrigger asChild>
+                                    <Button
+                                        variant="outline"
+                                        size="icon-sm"
+                                        className="h-8 w-8"
+                                        onClick={showMainMenu}
+                                    >
+                                        <Home className="h-4 w-4" />
+                                        <span className="sr-only">Menu Principal</span>
+                                    </Button>
+                                </TooltipTrigger>
+                                <TooltipContent side="bottom">Menu Principal</TooltipContent>
+                            </Tooltip>
+                        </div>
+                    </div>
+                 )}
+            </CardHeader>
 
-         {/* Footer appears only when game is active or ended */}
-         {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && gameState.story.length > 0 && (
-            <CardFooter className="flex-shrink-0 flex flex-col sm:flex-row justify-center items-center gap-4 pt-4 border-t border-border"> {/* Removed mt-auto */}
-                 <Button variant="outline" onClick={handleOpenSaveDialog} disabled={gameState.isLoading || gameState.currentView === 'game_ended'}> {/* Disable save button if game ended */}
-                    <Save className="mr-2 h-4 w-4" />
-                    Sauvegarder
-                 </Button>
-                 <Button variant="outline" onClick={showMainMenu}>
-                    Menu Principal / Quitter
-                </Button>
-            </CardFooter>
-         )}
-      </Card>
-      {renderSaveDialog()}
-    </div>
+             <CardContent className={cn(
+                "flex-grow flex flex-col overflow-hidden p-4 md:p-6", // Added overflow-hidden
+                 shouldCenterContent && "items-center justify-center" // Center content for specific views
+             )}>
+              {gameState.currentView === 'menu' && renderMainMenu()}
+              {gameState.currentView === 'theme_selection' && renderThemeSelection()}
+              {gameState.currentView === 'name_input' && renderNameInput()}
+              {gameState.currentView === 'loading_game' && renderLoadGame()}
+              {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && (
+                <>
+                  {renderStory()}
+                  {/* Only render choices/input if game is active */}
+                  {gameState.currentView === 'game_active' && !gameState.isLoading && renderChoicesAndInput()}
+                </>
+              )}
+              {/* Error Display */}
+              {gameState.error && (
+                <div className="flex-shrink-0 mt-auto p-2 bg-destructive/10 rounded-md border border-destructive text-destructive text-sm flex items-center gap-2">
+                     <AlertCircle className="h-4 w-4 shrink-0" />
+                     <p className="flex-1">{gameState.error}</p>
+                </div>
+              )}
+            </CardContent>
+
+             {/* Footer Removed */}
+          </Card>
+          {renderSaveDialog()}
+        </div>
+     </TooltipProvider>
   );
 }
-
