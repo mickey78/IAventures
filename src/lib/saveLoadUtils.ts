@@ -1,3 +1,4 @@
+
 'use client'; // Mark as client component because it uses localStorage
 
 import type { StorySegment } from '@/app/page'; // Adjust the import path as needed
@@ -6,7 +7,7 @@ import type { StorySegment } from '@/app/page'; // Adjust the import path as nee
 export interface GameStateToSave {
   theme: string;
   playerName: string; // Added player name
-  story: Omit<StorySegment, 'imageIsLoading' | 'imageError' | 'imageGenerationPrompt'>[]; // Exclude transient image states and prompt
+  story: Omit<StorySegment, 'imageIsLoading' | 'imageError' | 'imageGenerationPrompt' | 'storyImageUrl'>[]; // Explicitly exclude storyImageUrl from the saved type
   choices: string[];
   currentGameState: string; // Stored as JSON string (contains location, inventory, etc.)
   playerChoicesHistory: string[];
@@ -16,6 +17,12 @@ export interface GameStateToSave {
   currentTurn: number; // Added current turn
 }
 
+// Define the structure loaded from storage, which might temporarily include storyImageUrl before cleaning
+interface LoadedGameState extends Omit<GameStateToSave, 'story'> {
+    story: Omit<StorySegment, 'imageIsLoading' | 'imageError' | 'imageGenerationPrompt'>[]; // Story segments as loaded
+}
+
+
 const SAVE_GAME_KEY = 'adventureCraftSaves_v1'; // Use a versioned key
 const LOCAL_STORAGE_LIMIT_WARN_BYTES = 4.5 * 1024 * 1024; // ~4.5MB warning threshold
 
@@ -24,7 +31,7 @@ const LOCAL_STORAGE_LIMIT_WARN_BYTES = 4.5 * 1024 * 1024; // ~4.5MB warning thre
  * Handles potential JSON parsing errors and validates structure.
  * @returns An array of saved game states.
  */
-export function listSaveGames(): GameStateToSave[] {
+export function listSaveGames(): LoadedGameState[] {
   if (typeof window === 'undefined') {
     return []; // Cannot access localStorage on server
   }
@@ -33,7 +40,7 @@ export function listSaveGames(): GameStateToSave[] {
     if (!savedGamesJson) {
       return [];
     }
-    let savedGames = JSON.parse(savedGamesJson) as GameStateToSave[]; // Use let for potential modification
+    let savedGames = JSON.parse(savedGamesJson) as LoadedGameState[]; // Use let for potential modification
     // Basic validation - check if it's an array
     if (!Array.isArray(savedGames)) {
         console.error("Invalid save data found in localStorage. Expected an array. Clearing invalid data.");
@@ -41,7 +48,7 @@ export function listSaveGames(): GameStateToSave[] {
         return [];
     }
      // Further validation for essential fields and inner gameState structure
-     let validatedSaves = savedGames.reduce((acc: GameStateToSave[], save) => { // Use reduce to filter out invalid saves
+     let validatedSaves = savedGames.reduce((acc: LoadedGameState[], save) => { // Use reduce to filter out invalid saves
         try { // Outer try block for validating a single save object
             let isValid = true;
             let currentGameStateObj: any = {};
@@ -106,15 +113,15 @@ export function listSaveGames(): GameStateToSave[] {
                 console.warn(`Save game "${save.saveName || 'UNKNOWN'}" has invalid story format. Resetting story.`);
                 save.story = []; // Allow save but with empty story
              } else {
-                // Ensure storyImageUrl is string or null/undefined and remove transient/debug states
+                // Ensure storyImageUrl is EXCLUDED during validation/listing
                 save.story = save.story.map(seg => {
-                    if (seg.storyImageUrl !== undefined && seg.storyImageUrl !== null && typeof seg.storyImageUrl !== 'string') {
-                        console.warn(`Invalid storyImageUrl found in save "${save.saveName}". Setting to null.`);
-                        seg.storyImageUrl = null;
+                    const { storyImageUrl, imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg as any;
+                    // Validate the basic structure we keep
+                    if (typeof rest.id !== 'number' || typeof rest.text !== 'string' || (rest.speaker !== 'player' && rest.speaker !== 'narrator')) {
+                        console.warn(`Invalid story segment structure found in save "${save.saveName}". Returning minimal.`);
+                        return { id: rest.id || 0, text: rest.text || '?', speaker: rest.speaker || 'narrator' };
                     }
-                    // Remove transient/debug states if they somehow got saved
-                    const { imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg as any;
-                    return rest;
+                    return rest; // Return segment without image url/transient states
                 });
              }
 
@@ -163,12 +170,12 @@ export function listSaveGames(): GameStateToSave[] {
  * Saves the current game state to localStorage.
  * Finds an existing save with the same name or adds a new one.
  * Expects gameState.currentGameState to be a valid JSON string containing location.
- * Omits transient image states (imageIsLoading, imageError, imageGenerationPrompt) from story segments.
+ * **Crucially, omits the `storyImageUrl` from story segments before saving to prevent storage issues.**
  * @param saveName The name/identifier for the save slot.
  * @param gameState The game state to save (including playerName, stringified currentGameState with location, and turn info).
  * @returns True if save was successful, false otherwise.
  */
-export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'timestamp' | 'saveName'>): boolean {
+export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'timestamp' | 'saveName'> & { story: StorySegment[] }): boolean { // Expect full StorySegment[] temporarily
    if (typeof window === 'undefined') {
     console.error('Cannot save game on the server.');
     return false;
@@ -235,31 +242,32 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
 
 
   try {
-    const saves = listSaveGames(); // Gets validated saves
+    const saves = listSaveGames(); // Gets validated saves (without images)
     const now = Date.now();
 
-    // Prepare story state for saving (remove transient/debug flags)
+    // Prepare story state for saving: **Remove storyImageUrl** and transient/debug flags
     const storyToSave = gameState.story.map(seg => {
-        // Basic validation of segment structure
-        if (typeof seg.id !== 'number' || typeof seg.text !== 'string' || (seg.speaker !== 'player' && seg.speaker !== 'narrator')) {
-            console.warn("Invalid story segment structure found during save preparation:", seg);
+        const { storyImageUrl, // Explicitly destructure to remove
+                imageIsLoading,
+                imageError,
+                imageGenerationPrompt,
+                ...rest // Keep the rest of the segment data
+              } = seg;
+
+        // Basic validation of the remaining segment structure
+        if (typeof rest.id !== 'number' || typeof rest.text !== 'string' || (rest.speaker !== 'player' && rest.speaker !== 'narrator')) {
+            console.warn("Invalid story segment structure found during save preparation:", rest);
             // Decide how to handle - skip segment? return minimal? Here, we return a minimal valid version.
-            return { id: seg.id || 0, text: seg.text || '?', speaker: seg.speaker || 'narrator' };
+            return { id: rest.id || 0, text: rest.text || '?', speaker: rest.speaker || 'narrator' };
         }
-        const { imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg;
-         // Ensure storyImageUrl is string or null/undefined before saving
-         if (rest.storyImageUrl !== undefined && rest.storyImageUrl !== null && typeof rest.storyImageUrl !== 'string') {
-            console.warn(`Correcting invalid storyImageUrl type in segment ${rest.id} during save.`);
-            rest.storyImageUrl = null;
-        }
-        return rest;
+        return rest; // Return the segment without the image URL and transient states
     });
 
 
     const newState: GameStateToSave = {
         theme: gameState.theme,
         playerName: gameState.playerName,
-        story: storyToSave, // Use the cleaned story array
+        story: storyToSave, // Use the story array WITHOUT image URLs
         choices: gameState.choices.filter(c => typeof c === 'string'), // Ensure choices are strings
         currentGameState: validatedGameStateString, // Use the validated string
         playerChoicesHistory: gameState.playerChoicesHistory.filter(h => typeof h === 'string'), // Ensure history items are strings
@@ -270,19 +278,22 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
     }
 
     const existingIndex = saves.findIndex(s => s.saveName === saveName);
-    let updatedSaves: GameStateToSave[];
+    let updatedSaves: GameStateToSave[]; // Use the correct type here
 
     if (existingIndex > -1) {
-        updatedSaves = [...saves];
-        updatedSaves[existingIndex] = newState;
+        // Ensure we are comparing compatible types
+        const savesToUpdate = listSaveGames(); // Re-fetch full list
+        savesToUpdate[existingIndex] = newState;
+        updatedSaves = savesToUpdate;
     } else {
-        updatedSaves = [newState, ...saves]; // Add new save to the beginning (already sorted by timestamp effectively)
+         // Add new state to the list (already sorted by timestamp effectively)
+        updatedSaves = [newState, ...listSaveGames()];
     }
 
     // Check potential size before saving
     const saveDataString = JSON.stringify(updatedSaves);
     const saveDataSize = new Blob([saveDataString]).size;
-    console.log(`Estimated size of save data: ${(saveDataSize / 1024 / 1024).toFixed(2)} MB`);
+    console.log(`Estimated size of save data (images excluded): ${(saveDataSize / 1024 / 1024).toFixed(2)} MB`);
     if (saveDataSize > LOCAL_STORAGE_LIMIT_WARN_BYTES) {
         console.warn(`LocalStorage save data size is approaching limits (${(saveDataSize / 1024 / 1024).toFixed(2)} MB). Oldest saves might be pruned or saving could fail.`);
         // Implement pruning logic here if desired (e.g., keep only the 10 most recent saves)
@@ -296,8 +307,8 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
   } catch (error: any) {
     console.error('Error saving game to localStorage:', error);
     if (error.name === 'QuotaExceededError') {
-         console.error("LocalStorage quota exceeded! Cannot save game. The save data might be too large, possibly due to many generated images.");
-         alert("Erreur de Sauvegarde : L'espace de stockage est plein ! Impossible de sauvegarder la partie. Cela peut être dû à un grand nombre d'images générées dans l'histoire.");
+         console.error("LocalStorage quota exceeded! Cannot save game. This usually happens if the save data is too large.");
+         alert("Erreur de Sauvegarde : L'espace de stockage est plein ! Impossible de sauvegarder la partie. Les images ne sont pas sauvegardées pour économiser de l'espace.");
     } else {
          alert(`Erreur de Sauvegarde : Impossible de sauvegarder la partie. Détails : ${error.message}`);
     }
@@ -307,17 +318,17 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
 
 /**
  * Loads a specific game state from localStorage by save name.
- * Adds default transient image states (imageIsLoading: false, imageError: false) to story segments.
+ * Adds default transient image states (imageIsLoading: false, imageError: false, storyImageUrl: null) to story segments.
  * @param saveName The name of the save slot to load.
  * @returns The loaded game state (with currentGameState as a string containing location and turn info) or null if not found or error occurs.
  */
-export function loadGame(saveName: string): GameStateToSave | null {
+export function loadGame(saveName: string): (LoadedGameState & { story: StorySegment[] }) | null {
   if (typeof window === 'undefined') {
     return null;
   }
   try {
     // listSaveGames already validates structure, JSON validity, and turn numbers
-    const saves = listSaveGames();
+    const saves = listSaveGames(); // This returns saves without image URLs
     const save = saves.find(s => s.saveName === saveName);
     if (!save) {
         console.warn(`Save game "${saveName}" not found.`);
@@ -333,9 +344,10 @@ export function loadGame(saveName: string): GameStateToSave | null {
          console.warn(`Could not parse location from saved game "${saveName}".`);
      }
 
-     // Rehydrate story segments with default transient states
-     const storyWithTransientState = save.story.map(seg => ({
+     // Rehydrate story segments with default transient states and null image URL
+     const storyWithTransientState: StorySegment[] = save.story.map(seg => ({
         ...seg,
+        storyImageUrl: null, // Images are not saved, so start with null
         imageIsLoading: false,
         imageError: false,
         imageGenerationPrompt: undefined, // Ensure prompt is not loaded
@@ -343,7 +355,8 @@ export function loadGame(saveName: string): GameStateToSave | null {
 
 
     console.log(`Game "${saveName}" loaded for player "${save.playerName}" at turn ${save.currentTurn}/${save.maxTurns} in location "${locationInfo}".`);
-    return { ...save, story: storyWithTransientState }; // Return the object with enriched story state
+    // Cast the result to the expected type including the rehydrated story
+    return { ...save, story: storyWithTransientState } as (LoadedGameState & { story: StorySegment[] });
   } catch (error) {
     console.error(`Error loading game "${saveName}" from localStorage:`, error);
     return null;
@@ -383,3 +396,4 @@ export function deleteSaveGame(saveName: string): boolean {
     return false;
   }
 }
+

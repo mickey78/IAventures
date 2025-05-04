@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -128,7 +129,7 @@ export default function IAventuresGame() {
     maxTurns: 15, // Default max turns
     currentTurn: 1, // Default current turn
   });
-  const [savedGames, setSavedGames] = useState<GameStateToSave[]>([]);
+  const [savedGames, setSavedGames] = useState<Omit<GameStateToSave, 'story'>[]>([]); // Adjust type for listing
   const [saveNameInput, setSaveNameInput] = useState('');
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [playerNameInput, setPlayerNameInput] = useState('');
@@ -507,12 +508,13 @@ export default function IAventuresGame() {
         return;
     }
 
-    // Prepare the state to be saved, ensuring currentGameState is stringified
-    // This structure matches what saveGame expects (omit timestamp/saveName)
-    const stateToSave: Omit<GameStateToSave, 'timestamp' | 'saveName'> = {
+    // Prepare the state to be saved.
+    // Crucially, pass the full gameState.story array here.
+    // The saveGame utility will handle removing the image URLs before saving.
+    const stateToSave = {
         theme: gameState.theme,
         playerName: gameState.playerName,
-        story: gameState.story.map(s => ({...s, imageIsLoading: undefined, imageError: undefined, imageGenerationPrompt: undefined })), // Clean transient/debug states
+        story: gameState.story, // Pass the full story array (with images if loaded)
         choices: gameState.choices,
         currentGameState: JSON.stringify(gameState.currentGameState), // Stringify the parsed state (including location)
         playerChoicesHistory: gameState.playerChoicesHistory,
@@ -520,6 +522,8 @@ export default function IAventuresGame() {
         currentTurn: gameState.currentTurn, // Save currentTurn
     };
 
+    // The saveGame utility now expects the full StorySegment[] in the input,
+    // but its return type GameStateToSave correctly omits the problematic fields.
     if (saveGame(saveNameInput.trim(), stateToSave)) {
         toast({ title: "Partie Sauvegardée", description: `La partie "${saveNameInput.trim()}" a été sauvegardée.` });
         setSavedGames(listSaveGames());
@@ -532,7 +536,7 @@ export default function IAventuresGame() {
   };
 
   const handleLoadGame = (saveName: string) => {
-    const loadedState = loadGame(saveName);
+    const loadedState = loadGame(saveName); // loadGame returns state with story images set to null
     if (loadedState) {
         const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName); // Parse the loaded string (including location)
         // Determine view based on loaded turns: if current > max, it's ended
@@ -542,7 +546,7 @@ export default function IAventuresGame() {
             ...prev,
             theme: loadedState.theme,
             playerName: loadedState.playerName,
-            story: loadedState.story, // Story is already rehydrated by loadGame
+            story: loadedState.story, // Story already includes null images and transient states from loadGame
             choices: loadedState.choices,
             currentGameState: parsedLoadedGameState, // Store the parsed state (including location)
             playerChoicesHistory: loadedState.playerChoicesHistory,
@@ -1009,7 +1013,7 @@ const renderStory = () => (
             <DialogHeader>
                 <DialogTitle>Sauvegarder la partie</DialogTitle>
                 <DialogDescription>
-                    Entrez un nom pour votre sauvegarde. Si le nom existe déjà, il sera écrasé.
+                    Entrez un nom pour votre sauvegarde. Si le nom existe déjà, il sera écrasé. Les images générées ne sont pas sauvegardées.
                 </DialogDescription>
             </DialogHeader>
             <div className="py-4">
@@ -1128,3 +1132,4 @@ const renderStory = () => (
     </div>
   );
 }
+
