@@ -13,13 +13,15 @@ export interface GameStateToSave {
   playerChoicesHistory: string[];
   timestamp: number;
   saveName: string;
+  maxTurns: number; // Added max turns
+  currentTurn: number; // Added current turn
 }
 
 const SAVE_GAME_KEY = 'adventureCraftSaves_v1'; // Use a versioned key
 
 /**
  * Retrieves all saved games from localStorage.
- * Handles potential JSON parsing errors.
+ * Handles potential JSON parsing errors and validates structure.
  * @returns An array of saved game states.
  */
 export function listSaveGames(): GameStateToSave[] {
@@ -38,7 +40,7 @@ export function listSaveGames(): GameStateToSave[] {
         localStorage.removeItem(SAVE_GAME_KEY); // Clear invalid data
         return [];
     }
-     // Further validation for playerName and ensure currentGameState is string
+     // Further validation for essential fields
      savedGames.forEach(save => {
         if (typeof save.playerName !== 'string') {
              console.warn(`Save game "${save.saveName}" missing player name. Defaulting to 'Joueur'.`);
@@ -54,14 +56,28 @@ export function listSaveGames(): GameStateToSave[] {
                 save.currentGameState = '{}';
             }
         }
-        // Validate JSON within currentGameState string
-        try {
-            const parsedState = JSON.parse(save.currentGameState);
-            if (typeof parsedState !== 'object' || parsedState === null) throw new Error("Not an object");
-             if (!Array.isArray(parsedState.inventory)) parsedState.inventory = []; // Ensure inventory array exists
-        } catch (e) {
-            console.warn(`Save game "${save.saveName}" has invalid JSON in currentGameState. Resetting gameState to basic structure.`);
-            save.currentGameState = JSON.stringify({ playerName: save.playerName, inventory: [] });
+         // Validate JSON within currentGameState string
+         try {
+             const parsedState = JSON.parse(save.currentGameState);
+             if (typeof parsedState !== 'object' || parsedState === null) throw new Error("Not an object");
+              if (!Array.isArray(parsedState.inventory)) parsedState.inventory = []; // Ensure inventory array exists
+         } catch (e) {
+             console.warn(`Save game "${save.saveName}" has invalid JSON in currentGameState. Resetting gameState to basic structure.`);
+             save.currentGameState = JSON.stringify({ playerName: save.playerName, inventory: [] });
+         }
+        // Validate turn numbers (assign defaults if missing)
+        if (typeof save.maxTurns !== 'number' || save.maxTurns <= 0) {
+            console.warn(`Save game "${save.saveName}" missing or invalid maxTurns. Defaulting to 15.`);
+            save.maxTurns = 15;
+        }
+        if (typeof save.currentTurn !== 'number' || save.currentTurn <= 0) {
+            console.warn(`Save game "${save.saveName}" missing or invalid currentTurn. Defaulting to 1.`);
+            save.currentTurn = 1;
+        }
+        // Ensure current turn doesn't exceed max turns (could happen with manual edits)
+        if (save.currentTurn > save.maxTurns + 1) { // Allow one over for "ended" state
+             console.warn(`Save game "${save.saveName}" has currentTurn exceeding maxTurns. Clamping.`);
+             save.currentTurn = save.maxTurns + 1;
         }
      });
 
@@ -80,7 +96,7 @@ export function listSaveGames(): GameStateToSave[] {
  * Finds an existing save with the same name or adds a new one.
  * Expects gameState.currentGameState to be a valid JSON string.
  * @param saveName The name/identifier for the save slot.
- * @param gameState The game state to save (including playerName and stringified currentGameState).
+ * @param gameState The game state to save (including playerName, stringified currentGameState, and turn info).
  * @returns True if save was successful, false otherwise.
  */
 export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'timestamp' | 'saveName'>): boolean {
@@ -107,13 +123,18 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
         console.error('Error saving: Invalid JSON structure in currentGameState string.', e, gameState.currentGameState);
         return false;
     }
+    // Validate turns before saving
+    if (typeof gameState.maxTurns !== 'number' || gameState.maxTurns <= 0 || typeof gameState.currentTurn !== 'number' || gameState.currentTurn <= 0) {
+        console.error('Error saving: Invalid turn data provided.');
+        return false;
+    }
 
 
   try {
     const saves = listSaveGames(); // Gets validated saves
     const now = Date.now();
     const newState: GameStateToSave = {
-        ...gameState, // gameState already has stringified currentGameState
+        ...gameState, // Includes stringified currentGameState and turn info
         saveName: saveName,
         timestamp: now,
     }
@@ -129,7 +150,7 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
     saves.sort((a, b) => b.timestamp - a.timestamp);
 
     localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(saves));
-    console.log(`Game saved as "${saveName}" for player "${gameState.playerName}"`);
+    console.log(`Game saved as "${saveName}" for player "${gameState.playerName}" at turn ${gameState.currentTurn}/${gameState.maxTurns}`);
     return true;
   } catch (error) {
     console.error('Error saving game to localStorage:', error);
@@ -140,14 +161,14 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
 /**
  * Loads a specific game state from localStorage by save name.
  * @param saveName The name of the save slot to load.
- * @returns The loaded game state (with currentGameState as a string) or null if not found or error occurs.
+ * @returns The loaded game state (with currentGameState as a string and turn info) or null if not found or error occurs.
  */
 export function loadGame(saveName: string): GameStateToSave | null {
   if (typeof window === 'undefined') {
     return null;
   }
   try {
-    // listSaveGames already validates structure and basic JSON validity
+    // listSaveGames already validates structure, JSON validity, and turn numbers
     const saves = listSaveGames();
     const save = saves.find(s => s.saveName === saveName);
     if (!save) {
@@ -156,8 +177,8 @@ export function loadGame(saveName: string): GameStateToSave | null {
     }
 
     // The save object returned by listSaveGames should be valid
-    console.log(`Game "${saveName}" loaded for player "${save.playerName}".`);
-    return save; // Return the object with currentGameState as a string
+    console.log(`Game "${saveName}" loaded for player "${save.playerName}" at turn ${save.currentTurn}/${save.maxTurns}.`);
+    return save; // Return the object with currentGameState as a string and turn info
   } catch (error) {
     console.error(`Error loading game "${saveName}" from localStorage:`, error);
     return null;
@@ -195,3 +216,5 @@ export function deleteSaveGame(saveName: string): boolean {
     return false;
   }
 }
+```</content>
+  </change
