@@ -10,16 +10,17 @@ import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
 import type { GenerateStoryContentInput } from '@/ai/flows/generate-story-content';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User } from 'lucide-react'; // Added User icon
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile } from 'lucide-react'; // Added User, Bot, Smile icons
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label'; // Import Label
+import { Label } from '@/components/ui/label';
+import { cn } from '@/lib/utils'; // Import cn utility
 
 export interface StorySegment {
   id: number;
   text: string;
-  isPlayerChoice?: boolean;
+  speaker: 'player' | 'narrator'; // Identify the speaker
 }
 
 interface GameState {
@@ -27,11 +28,11 @@ interface GameState {
   choices: string[];
   currentGameState: string;
   theme: string | null;
-  playerName: string | null; // Added player name
+  playerName: string | null;
   isLoading: boolean;
   error: string | null;
   playerChoicesHistory: string[];
-  currentView: 'menu' | 'theme_selection' | 'name_input' | 'loading_game' | 'game_active'; // Added 'name_input' view
+  currentView: 'menu' | 'theme_selection' | 'name_input' | 'loading_game' | 'game_active';
 }
 
 interface Theme {
@@ -57,23 +58,22 @@ export default function AdventureCraftGame() {
     choices: [],
     currentGameState: '{}',
     theme: null,
-    playerName: null, // Initialize player name as null
+    playerName: null,
     isLoading: false,
     error: null,
     playerChoicesHistory: [],
-    currentView: 'menu', // Start at the main menu
+    currentView: 'menu',
   });
   const [savedGames, setSavedGames] = useState<GameStateToSave[]>([]);
   const [saveNameInput, setSaveNameInput] = useState('');
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
-  const [playerNameInput, setPlayerNameInput] = useState(''); // State for player name input
+  const [playerNameInput, setPlayerNameInput] = useState('');
 
   const { toast } = useToast();
   const viewportRef = useRef<HTMLDivElement>(null);
 
   // --- Load saved games on initial mount ---
   useEffect(() => {
-    // Check localStorage only on the client-side after hydration
     setSavedGames(listSaveGames());
   }, []);
 
@@ -100,18 +100,17 @@ export default function AdventureCraftGame() {
         choices: [],
         currentGameState: '{}',
         theme: null,
-        playerName: null, // Reset player name
+        playerName: null,
         isLoading: false,
         error: null,
         playerChoicesHistory: [],
         currentView: 'menu'
     }));
-     // Refresh saved games list when returning to menu
      setSavedGames(listSaveGames());
   }
 
   const showThemeSelection = () => {
-    setGameState(prev => ({ ...prev, currentView: 'theme_selection', theme: null, playerName: null })); // Reset theme and name
+    setGameState(prev => ({ ...prev, currentView: 'theme_selection', theme: null, playerName: null }));
   };
 
   const showNameInput = () => {
@@ -123,7 +122,7 @@ export default function AdventureCraftGame() {
   }
 
   const showLoadGameView = () => {
-    setSavedGames(listSaveGames()); // Refresh list before showing
+    setSavedGames(listSaveGames());
     setGameState(prev => ({ ...prev, currentView: 'loading_game' }));
   };
 
@@ -137,21 +136,23 @@ export default function AdventureCraftGame() {
       toast({ title: 'Nom Invalide', description: 'Veuillez entrer votre nom.', variant: 'destructive' });
       return;
     }
-    // Trim the name before setting it
     const trimmedName = playerNameInput.trim();
+    // Set player name first using the functional update form
     setGameState(prev => ({ ...prev, playerName: trimmedName }));
-    // Call startNewGame AFTER the state update completes
-    startNewGame(trimmedName);
+    // Use useEffect to start the game AFTER the state has been updated
+    startNewGame(trimmedName); // Pass the name explicitly
   }
 
-  const startNewGame = async (nameToUse?: string) => {
-    const currentPlayerName = nameToUse || gameState.playerName; // Use provided name or state name
-    // Now checks for both theme and player name before starting
-    if (!gameState.theme || !currentPlayerName) {
-      console.error('Theme or Player Name missing, cannot start game.');
-      // This case should ideally not be reached due to prior checks, but added as a safeguard
-       toast({ title: 'Erreur', description: 'Une erreur interne est survenue. Veuillez réessayer.', variant: 'destructive' });
-       showThemeSelection(); // Go back if something went wrong
+
+   // useEffect to trigger game start when player name is set after name input
+   // We check if the view is 'name_input' to ensure this only runs after name submission
+   // This approach might be overly complex. Let's simplify `handleNameSubmit`.
+
+  const startNewGame = async (nameToUse: string) => { // Expects name as argument
+    if (!gameState.theme) { // Only theme needs checking now, name is passed in
+      console.error('Theme missing, cannot start game.');
+       toast({ title: 'Erreur', description: 'Veuillez sélectionner un thème.', variant: 'destructive' });
+       showThemeSelection();
       return;
     }
 
@@ -161,22 +162,21 @@ export default function AdventureCraftGame() {
         error: null,
         story: [],
         choices: [],
-        currentGameState: JSON.stringify({ playerName: currentPlayerName }), // Include player name in initial state
+        currentGameState: JSON.stringify({ playerName: nameToUse }), // Use argument here
         playerChoicesHistory: [],
-        currentView: 'game_active', // Switch view to active game
-        playerName: currentPlayerName, // Ensure player name is set correctly in the state object being updated
+        currentView: 'game_active', // Switch view
+        playerName: nameToUse, // Ensure name is set correctly in state
     }));
 
     try {
       const initialStoryData = await generateInitialStory({
           theme: gameState.theme,
-          playerName: currentPlayerName // Use the validated player name
+          playerName: nameToUse // Use argument here
       });
       setGameState((prev) => ({
         ...prev,
-        story: [{ id: Date.now(), text: initialStoryData.story }],
+        story: [{ id: Date.now(), text: initialStoryData.story, speaker: 'narrator' }], // Initial story is from narrator
         choices: initialStoryData.choices,
-        // gameState already includes playerName
         isLoading: false,
       }));
     } catch (err) {
@@ -186,9 +186,9 @@ export default function AdventureCraftGame() {
         ...prev,
         isLoading: false,
         error: `Impossible de générer l'histoire initiale: ${errorMsg}`,
-        theme: null, // Allow re-selection
-        playerName: null, // Reset name
-        currentView: 'theme_selection', // Go back to theme selection on error
+        theme: null,
+        playerName: null, // Reset name state
+        currentView: 'theme_selection', // Go back
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de générer l'histoire initiale: ${errorMsg}`, variant: 'destructive' });
     }
@@ -202,35 +202,39 @@ export default function AdventureCraftGame() {
         return;
     }
 
-    const playerChoiceSegment = { id: Date.now(), text: `> ${choice}`, isPlayerChoice: true };
+    // Player's choice segment
+    const playerChoiceSegment: StorySegment = { id: Date.now(), text: choice, speaker: 'player' };
     const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, choice];
-
-    const input: GenerateStoryContentInput = {
-      theme: gameState.theme,
-      playerName: gameState.playerName, // Pass player name
-      playerChoices: nextPlayerChoicesHistory,
-      gameState: gameState.currentGameState || '{}',
-    };
-
-    const previousChoices = [...gameState.choices];
+    const previousStory = [...gameState.story]; // Keep previous story for potential revert
 
     // Update state immediately to show player choice
     setGameState((prev) => ({
       ...prev,
       isLoading: true, // Start loading for AI response
       error: null,
-      story: [...prev.story, playerChoiceSegment], // Add player choice to story
+      story: [...prev.story, playerChoiceSegment], // Add player choice bubble
       choices: [], // Clear choices while loading
       playerChoicesHistory: nextPlayerChoicesHistory,
     }));
-    scrollToBottom(); // Scroll down after showing player choice
+    // Scroll down after showing player choice (useEffect handles this)
+
+    // Prepare input for AI
+    const input: GenerateStoryContentInput = {
+      theme: gameState.theme,
+      playerName: gameState.playerName,
+      playerChoices: nextPlayerChoicesHistory, // Send updated history
+      gameState: gameState.currentGameState || '{}',
+    };
 
     try {
       const nextStoryData = await generateStoryContent(input);
+      // Narrator's response segment
+      const narratorResponseSegment: StorySegment = { id: Date.now() + 1, text: nextStoryData.storyContent, speaker: 'narrator' };
+
       // Update state with AI response
       setGameState((prev) => ({
         ...prev,
-        story: [...prev.story, { id: Date.now() + 1, text: nextStoryData.storyContent }], // Add AI response
+        story: [...prev.story, narratorResponseSegment], // Add narrator response bubble
         choices: nextStoryData.nextChoices,
         currentGameState: nextStoryData.updatedGameState,
         isLoading: false, // Stop loading
@@ -244,8 +248,8 @@ export default function AdventureCraftGame() {
         ...prev,
         isLoading: false,
         error: `Impossible de continuer l'histoire: ${errorMsg}`,
-        story: prev.story.slice(0, -1), // Remove the optimistically added player choice
-        choices: previousChoices, // Restore previous choices
+        story: previousStory, // Revert to story before player choice was added
+        choices: gameState.choices, // Restore choices (or should fetch previous?) - let's keep current (which are empty) or restore prev
         playerChoicesHistory: prev.playerChoicesHistory.slice(0, -1), // Revert history
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de continuer l'histoire: ${errorMsg}`, variant: 'destructive' });
@@ -254,8 +258,7 @@ export default function AdventureCraftGame() {
 
   // --- Save/Load Handlers ---
   const handleOpenSaveDialog = () => {
-    // Suggest a save name based on theme, player name and date
-    const dateStr = new Date().toLocaleDateString('fr-CA'); // YYYY-MM-DD
+    const dateStr = new Date().toLocaleDateString('fr-CA');
     const suggestedName = gameState.theme && gameState.playerName
         ? `${gameState.playerName} - ${gameState.theme} ${dateStr}`
         : `Sauvegarde ${dateStr}`;
@@ -268,14 +271,14 @@ export default function AdventureCraftGame() {
         toast({ title: "Nom Invalide", description: "Veuillez entrer un nom pour la sauvegarde.", variant: "destructive" });
         return;
     }
-    if (!gameState.theme || !gameState.playerName) { // Also check for player name
+    if (!gameState.theme || !gameState.playerName) {
         toast({ title: "Erreur", description: "Impossible de sauvegarder sans thème ou nom de joueur actif.", variant: "destructive" });
         return;
     }
 
     const stateToSave: Omit<GameStateToSave, 'timestamp' | 'saveName'> = {
         theme: gameState.theme,
-        playerName: gameState.playerName, // Save player name
+        playerName: gameState.playerName,
         story: gameState.story,
         choices: gameState.choices,
         currentGameState: gameState.currentGameState,
@@ -284,8 +287,8 @@ export default function AdventureCraftGame() {
 
     if (saveGame(saveNameInput.trim(), stateToSave)) {
         toast({ title: "Partie Sauvegardée", description: `La partie "${saveNameInput.trim()}" a été sauvegardée.` });
-        setSavedGames(listSaveGames()); // Update save list state
-        setIsSaveDialogOpen(false); // Close dialog
+        setSavedGames(listSaveGames());
+        setIsSaveDialogOpen(false);
     } else {
         toast({ title: "Erreur de Sauvegarde", description: "Impossible de sauvegarder la partie.", variant: "destructive" });
     }
@@ -297,47 +300,65 @@ export default function AdventureCraftGame() {
         setGameState(prev => ({
             ...prev,
             theme: loadedState.theme,
-            playerName: loadedState.playerName, // Load player name
+            playerName: loadedState.playerName,
             story: loadedState.story,
             choices: loadedState.choices,
             currentGameState: loadedState.currentGameState,
             playerChoicesHistory: loadedState.playerChoicesHistory,
             isLoading: false,
             error: null,
-            currentView: 'game_active' // Set view to active game
+            currentView: 'game_active'
         }));
         toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
     } else {
         toast({ title: "Erreur de Chargement", description: `Impossible de charger la partie "${saveName}".`, variant: "destructive" });
-        setSavedGames(listSaveGames()); // Refresh list in case the save was invalid/deleted
+        setSavedGames(listSaveGames());
     }
   };
 
   const handleDeleteGame = (saveName: string) => {
      if (deleteSaveGame(saveName)) {
          toast({ title: "Sauvegarde Supprimée", description: `La sauvegarde "${saveName}" a été supprimée.` });
-         setSavedGames(listSaveGames()); // Refresh the list
+         setSavedGames(listSaveGames());
      } else {
          toast({ title: "Erreur", description: `Impossible de supprimer la sauvegarde "${saveName}".`, variant: "destructive" });
      }
   };
 
-  // --- Rendering Functions ---
- const renderStory = () => (
-    <ScrollAreaPrimitive.Root className="relative overflow-hidden h-[400px] w-full rounded-md border mb-4">
+ // --- Rendering Functions ---
+const renderStory = () => (
+    <ScrollAreaPrimitive.Root className="relative overflow-hidden flex-1 w-full rounded-md border mb-4 bg-card"> {/* Use flex-1 to take available space */}
         <ScrollAreaPrimitive.Viewport
             ref={viewportRef}
-            className="h-full w-full rounded-[inherit] p-4 bg-card text-card-foreground"
+            className="h-full w-full rounded-[inherit] p-4 space-y-4" // Add space between bubbles
         >
             {gameState.story.map((segment) => (
-            <p key={segment.id} className={`mb-2 whitespace-pre-wrap ${segment.isPlayerChoice ? 'italic text-muted-foreground' : ''}`}>
-                {segment.text}
-            </p>
+            <div
+                key={segment.id}
+                className={cn(
+                    "flex flex-col max-w-[85%] sm:max-w-[75%] p-3 rounded-lg shadow",
+                    segment.speaker === 'player'
+                        ? 'ml-auto bg-primary text-primary-foreground rounded-br-none' // Player bubble on the right, different color
+                        : 'mr-auto bg-muted text-muted-foreground rounded-bl-none' // Narrator bubble on the left, different color
+                )}
+            >
+                <div className="flex items-center gap-2 mb-1">
+                    {segment.speaker === 'player' ? (
+                        <Smile className="h-4 w-4" /> // Player icon
+                    ) : (
+                        <Bot className="h-4 w-4" /> // Narrator icon
+                    )}
+                    <span className="text-xs font-medium">
+                        {segment.speaker === 'player' ? gameState.playerName : 'Narrateur'}
+                    </span>
+                </div>
+                 <p className="whitespace-pre-wrap text-sm">{segment.text}</p> {/* Ensure text wraps */}
+            </div>
             ))}
-            {/* Loading indicator only shown when fetching next part of story */}
-            {gameState.isLoading && gameState.story.length > 0 && !gameState.choices.length && (
-                <div className="flex items-center space-x-2 text-muted-foreground mt-4">
-                    <Loader className="h-4 w-4 animate-spin" />
+            {/* Loading indicator */}
+            {gameState.isLoading && (
+                <div className="flex items-center justify-center space-x-2 text-muted-foreground mt-4">
+                    <Loader className="h-5 w-5 animate-spin" />
                     <span>Génération de la suite...</span>
                 </div>
             )}
@@ -349,14 +370,14 @@ export default function AdventureCraftGame() {
 
 
   const renderChoices = () => (
-    <div className="flex flex-wrap gap-2 mt-4 justify-center">
+    <div className="flex flex-wrap gap-2 mt-auto justify-center pb-4"> {/* Use mt-auto to push to bottom, pb-4 for spacing */}
       {gameState.choices.map((choice, index) => (
         <Button
           key={index}
           onClick={() => handleChoice(choice)}
           disabled={gameState.isLoading}
-          variant="secondary"
-          className="flex-grow sm:flex-grow-0 bg-primary hover:bg-primary/90 text-primary-foreground" // Keep buttons blue
+          variant="secondary" // Keep variant for styling consistency if desired
+          className="flex-grow sm:flex-grow-0 bg-primary hover:bg-primary/90 text-primary-foreground" // Explicitly set background/text colors
           aria-label={`Faire le choix : ${choice}`}
         >
           {choice}
@@ -375,14 +396,15 @@ export default function AdventureCraftGame() {
                   return (
                       <Card
                           key={theme.value}
-                          className={`cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary ${
+                          className={cn(
+                              "cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary",
                               isSelected ? 'border-primary ring-2 ring-primary bg-primary/10' : 'border-border hover:bg-accent/50'
-                          }`}
+                          )}
                           onClick={() => handleThemeSelect(theme.value)}
                           role="button"
                           aria-pressed={isSelected}
-                          tabIndex={0} // Make it focusable
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleThemeSelect(theme.value); }} // Keyboard interaction
+                          tabIndex={0}
+                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleThemeSelect(theme.value); }}
                       >
                           <CardHeader className="items-center text-center pb-2">
                               <Icon className="h-10 w-10 mb-2 text-primary" />
@@ -396,7 +418,7 @@ export default function AdventureCraftGame() {
               })}
           </div>
           <Button
-              onClick={showNameInput} // Go to name input instead of starting game directly
+              onClick={showNameInput}
               disabled={!gameState.theme}
               size="lg"
               className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md mt-6"
@@ -410,7 +432,7 @@ export default function AdventureCraftGame() {
   );
 
   const renderNameInput = () => (
-      <div className="flex flex-col items-center space-y-6 w-full max-w-sm"> {/* Apply centering and max-width */}
+      <div className="flex flex-col items-center space-y-6 w-full max-w-sm">
           <Label htmlFor="playerName" className="text-xl font-semibold text-center">Comment t'appelles-tu, aventurier(ère) ?</Label>
           <Input
                 id="playerName"
@@ -418,14 +440,14 @@ export default function AdventureCraftGame() {
                 value={playerNameInput}
                 onChange={(e) => setPlayerNameInput(e.target.value)}
                 placeholder="Entre ton nom ici"
-                className="text-center" // Center text inside input
-                maxLength={50} // Optional: limit name length
+                className="text-center"
+                maxLength={50}
             />
           <Button
               onClick={handleNameSubmit}
               disabled={!playerNameInput.trim() || gameState.isLoading}
               size="lg"
-              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md mt-6" // Button is already centered by flex-col items-center
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md mt-6"
           >
               {gameState.isLoading ? (
                   <>
@@ -439,7 +461,7 @@ export default function AdventureCraftGame() {
                   </>
               )}
           </Button>
-          <Button variant="outline" onClick={showThemeSelection} className="mt-2"> {/* Button is already centered */}
+          <Button variant="outline" onClick={showThemeSelection} className="mt-2">
               Retour au choix du thème
           </Button>
       </div>
@@ -470,7 +492,6 @@ export default function AdventureCraftGame() {
                                 <div className="flex-1 overflow-hidden">
                                     <p className="font-medium truncate">{save.saveName}</p>
                                     <p className="text-xs text-muted-foreground">
-                                         {/* Display player name if available in save */}
                                         {save.playerName ? `${save.playerName} - ` : ''}
                                         {save.theme} - {new Date(save.timestamp).toLocaleString('fr-FR')}
                                     </p>
@@ -525,14 +546,17 @@ export default function AdventureCraftGame() {
   );
 
   return (
+    // Adjust main container for full height and flex column layout
     <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground">
-      <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg">
-        <CardHeader className="text-center">
+       {/* Make Card take full available height and use flex */}
+       <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg flex flex-col flex-grow" style={{ height: '95vh' }}>
+        <CardHeader className="text-center flex-shrink-0"> {/* Prevent header from growing */}
           <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
             <BookOpenText className="h-8 w-8 text-primary" />
             AdventureCraft
           </CardTitle>
           <CardDescription className="text-muted-foreground">
+             {/* Dynamic description based on view */}
              {gameState.currentView === 'game_active' && gameState.theme && gameState.playerName
               ? `Aventure de ${gameState.playerName} : ${gameState.theme}`
               : gameState.currentView === 'theme_selection'
@@ -545,24 +569,26 @@ export default function AdventureCraftGame() {
           </CardDescription>
         </CardHeader>
 
-        <CardContent>
+        {/* Make CardContent grow and use flex */}
+        <CardContent className="flex-grow flex flex-col overflow-hidden p-4 md:p-6">
           {gameState.currentView === 'menu' && renderMainMenu()}
           {gameState.currentView === 'theme_selection' && renderThemeSelection()}
           {gameState.currentView === 'name_input' && renderNameInput()}
           {gameState.currentView === 'loading_game' && renderLoadGame()}
           {gameState.currentView === 'game_active' && (
             <>
-              {renderStory()}
-              {!gameState.isLoading && gameState.choices.length > 0 && renderChoices()}
+              {renderStory()} {/* Story area will now grow */}
+              {!gameState.isLoading && gameState.choices.length > 0 && renderChoices()} {/* Choices stick to bottom */}
             </>
           )}
           {gameState.error && (
-             <p className="text-destructive mt-4 text-center font-medium p-2 bg-destructive/10 rounded-md">{gameState.error}</p>
+             <p className="text-destructive mt-auto text-center font-medium p-2 bg-destructive/10 rounded-md">{gameState.error}</p> // mt-auto to push error down
           )}
         </CardContent>
 
+         {/* Footer remains at the bottom of the card */}
          {gameState.currentView === 'game_active' && gameState.story.length > 0 && (
-            <CardFooter className="flex flex-col sm:flex-row justify-center items-center gap-4 mt-4 pt-4 border-t border-border">
+            <CardFooter className="flex-shrink-0 flex flex-col sm:flex-row justify-center items-center gap-4 mt-auto pt-4 border-t border-border">
                  <Button variant="outline" onClick={handleOpenSaveDialog} disabled={gameState.isLoading}>
                     <Save className="mr-2 h-4 w-4" />
                     Sauvegarder
@@ -577,4 +603,3 @@ export default function AdventureCraftGame() {
     </div>
   );
 }
-
