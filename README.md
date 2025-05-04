@@ -17,7 +17,9 @@ Dans AdventureCraft, vous êtes le héros de votre propre histoire. Le jeu vous 
 
 ## Installation et Lancement
 
-Suivez ces étapes pour lancer AdventureCraft sur votre machine locale :
+Vous avez deux options pour lancer AdventureCraft : en utilisant Node.js directement ou via Docker.
+
+### Option 1 : Utilisation de Node.js (Recommandé pour le développement)
 
 1.  **Cloner le dépôt** (si vous ne l'avez pas déjà fait) :
     ```bash
@@ -35,7 +37,7 @@ Suivez ces étapes pour lancer AdventureCraft sur votre machine locale :
     ```
 
 3.  **Configurer les variables d'environnement** :
-    *   Renommez le fichier `.env.example` en `.env` (ou créez un nouveau fichier `.env`).
+    *   Renommez le fichier `.env.example` en `.env` (ou créez un nouveau fichier `.env`). Si vous n'avez pas de `.env.example`, créez un fichier `.env`.
     *   Ajoutez votre clé d'API Google Generative AI (Gemini). Vous pouvez en obtenir une gratuitement sur [Google AI Studio](https://aistudio.google.com/app/apikey).
         ```plaintext
         # .env
@@ -50,9 +52,42 @@ Suivez ces étapes pour lancer AdventureCraft sur votre machine locale :
     # ou
     yarn dev
     ```
-    Cette commande lance le serveur de développement Next.js (habituellement sur `http://localhost:9002`) et le serveur Genkit pour gérer les interactions avec l'IA.
+    Cette commande lance le serveur de développement Next.js (habituellement sur `http://localhost:9002`).
 
 5.  **Ouvrir le jeu** :
     Ouvrez votre navigateur web et allez à l'adresse indiquée dans le terminal (par défaut `http://localhost:9002`).
+
+### Option 2 : Utilisation de Docker (Recommandé pour un déploiement facile)
+
+1.  **Prérequis** : Assurez-vous d'avoir Docker installé sur votre machine.
+
+2.  **Configurer les variables d'environnement** :
+    *   Créez un fichier `.env` à la racine du projet (comme décrit dans l'Option 1, étape 3) et ajoutez votre clé `GOOGLE_GENAI_API_KEY`.
+
+3.  **Construire l'image Docker** :
+    Ouvrez un terminal dans le répertoire du projet et exécutez :
+    ```bash
+    docker build -t adventurecraft .
+    ```
+
+4.  **Lancer le conteneur Docker** :
+    Exécutez la commande suivante pour démarrer l'application. Le conteneur lira la clé API depuis votre fichier `.env` local.
+    ```bash
+    docker run -p 9002:9002 --env-file .env --name adventurecraft-app -d adventurecraft
+    ```
+    *   `-p 9002:9002` : Mappe le port 9002 de votre machine au port 9002 du conteneur.
+    *   `--env-file .env` : Charge les variables d'environnement depuis votre fichier `.env`.
+    *   `--name adventurecraft-app` : Donne un nom au conteneur pour une gestion facile.
+    *   `-d` : Lance le conteneur en arrière-plan (detached mode).
+    *   `adventurecraft` : Le nom de l'image que vous avez construite.
+
+5.  **Ouvrir le jeu** :
+    Ouvrez votre navigateur web et allez à l'adresse `http://localhost:9002`.
+
+6.  **Arrêter et supprimer le conteneur (quand vous avez terminé)** :
+    ```bash
+    docker stop adventurecraft-app
+    docker rm adventurecraft-app
+    ```
 
 Amusez-vous bien dans vos aventures !

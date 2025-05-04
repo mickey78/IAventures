@@ -1,0 +1,30 @@
+# Fichiers et dossiers liés à Git
+.git
+.gitignore
+
+# Dépendances Node.js (installées dans le Dockerfile)
+node_modules
+
+# Fichiers de build Next.js (générés dans le Dockerfile)
+.next
+
+# Variables d'environnement locales (le fichier .env est lu au runtime via --env-file)
+.env
+.env.*
+!.env.example
+
+# Fichiers de configuration IDE/éditeur
+.vscode
+*.code-workspace
+
+# Fichiers système
+.DS_Store
+Thumbs.db
+
+# Fichiers de log npm
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Autres fichiers temporaires ou de cache
+.turbo
