@@ -1,5 +1,5 @@
-'use server';
 // src/ai/flows/generate-story-content.ts
+'use server';
 
 /**
  * @fileOverview Génère le contenu de l'histoire en fonction du thème choisi, des choix du joueur, de l'inventaire, du nom du joueur, du lieu et du numéro de tour. Il peut également suggérer un prompt d'image pour les moments visuels importants, en visant la cohérence.
@@ -39,7 +39,7 @@ const GenerateStoryContentOutputSchema = z.object({
   storyContent: z.string().describe("Le contenu de l'histoire généré, décrivant le résultat de la dernière action du joueur et la situation actuelle, en s'adressant au joueur par son nom. Si c'est le dernier tour, ce devrait être le segment de conclusion."),
   nextChoices: z.array(z.string()).describe("2-3 choix clairs et simples pour la prochaine action du joueur, pertinents par rapport à la situation actuelle, au thème et à l'inventaire. Devrait être un tableau vide si c'est le dernier tour."),
   updatedGameState: z.string().describe("L'état du jeu mis à jour sous forme de chaîne JSON, reflétant les changements basés sur la dernière action et la progression de l'histoire (y compris l'inventaire et potentiellement le lieu). Doit être un JSON valide."),
-  generatedImagePrompt: z.string().optional().describe("Un prompt concis et descriptif pour la génération d'images UNIQUEMENT si une scène visuellement distincte se produit. DOIT viser la cohérence avec les images précédentes (si `lastStorySegment.imageGenerationPrompt` existe). Inclure le thème, le lieu actuel, le nom du joueur et spécifier \"Style : Cartoon\". Laisser vide sinon."),
+  generatedImagePrompt: z.string().optional().describe("Un prompt concis et descriptif pour la génération d'images UNIQUEMENT si une scène visuellement distincte se produit. DOIT viser la cohérence avec les images précédentes (si `previousImagePrompt` existe), notamment l'apparence du personnage et le style. Inclure le thème, le lieu actuel, le nom du joueur et spécifier \"Style : Cartoon\". Laisser vide sinon."),
 });
 export type GenerateStoryContentOutput = z.infer<typeof GenerateStoryContentOutputSchema>;
 
@@ -51,7 +51,7 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
     console.warn("JSON gameState d'entrée invalide, utilisation des valeurs par défaut :", input.gameState, e);
     // Assurer une structure ParsedGameState par défaut appropriée
     initialGameState = {
-        playerName: input.playerName,
+        playerName: input.playerName || 'Joueur Inconnu',
         location: 'Lieu Inconnu',
         inventory: [],
         relationships: {},
@@ -61,7 +61,7 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
   }
 
   // Assurer que les clés essentielles existent après l'analyse/la valeur par défaut
-  if (!initialGameState.playerName) initialGameState.playerName = input.playerName;
+  if (!initialGameState.playerName) initialGameState.playerName = input.playerName || 'Joueur Inconnu';
   if (typeof initialGameState.location !== 'string' || !initialGameState.location.trim()) initialGameState.location = 'Lieu Indéterminé';
   if (!Array.isArray(initialGameState.inventory)) initialGameState.inventory = [];
   if (typeof initialGameState.relationships !== 'object' || initialGameState.relationships === null) initialGameState.relationships = {};
@@ -88,7 +88,7 @@ const prompt = ai.definePrompt({
       theme: z.string().describe("Le thème de l'histoire."),
       playerName: z.string().describe('Le nom du joueur.'),
       lastStorySegmentText: z.string().describe("Le texte du tout dernier segment de l'histoire (joueur ou narrateur) pour un contexte immédiat."),
-      previousImagePrompt: z.string().nullable().optional().describe("Le prompt utilisé pour l'image générée précédemment, le cas échéant, pour la cohérence."),
+      previousImagePrompt: z.string().nullable().optional().describe("Le prompt utilisé pour l'image générée précédemment, le cas échéant, pour la cohérence visuelle (apparence du personnage, style)."),
       playerChoicesHistory: z.array(z.string()).describe("Historique des choix du joueur. Le TOUT DERNIER élément est le choix le plus récent auquel réagir."),
       gameState: z.string().describe('État actuel du jeu (chaîne JSON). Exemple: {"playerName":"Héros", "location":"Clairière Forestière", "inventory":["Épée","Potion"], "relationships":{"PNJ1":"ami"}, "emotions":["heureux"], "events":["épée trouvée"]}'),
       current_date: z.string().describe('Date actuelle, injectée pour des éléments potentiels de l\'histoire.'),
@@ -109,7 +109,7 @@ const prompt = ai.definePrompt({
 *   État actuel du jeu (chaîne JSON - analyse-le pour l'utiliser) : {{{gameState}}}
     *   Contient: 'playerName', 'location', 'inventory', 'relationships', 'emotions', 'events'.
 *   Dernier segment de l'histoire : "{{{lastStorySegmentText}}}"
-*   Prompt de l'image précédente (si applicable) : {{{previousImagePrompt}}}
+*   Prompt de l'image précédente (pour la cohérence, si applicable) : {{{previousImagePrompt}}}
 *   Historique des actions du joueur (le **dernier élément** est l'action à laquelle tu dois réagir) :
     {{#if playerChoicesHistory}}
     {{#each playerChoicesHistory}}
@@ -132,20 +132,20 @@ const prompt = ai.definePrompt({
     *   **Quand générer ?** Uniquement si la scène actuelle est **visuellement distincte** de la précédente OU si un **événement visuel clé** se produit (nouveau lieu important, PNJ significatif apparaît, action avec impact visuel fort, découverte majeure). Ne génère PAS pour des actions simples (marcher, parler sans événement notable, utiliser un objet commun).
     *   **Comment générer ?** Crée un prompt CONCIS et DESCRIPTIF.
         *   **CONTENU**: Mentionne le **thème ({{{theme}}})**, le **lieu actuel ({{{gameState.location}}})**, le **nom du joueur ({{{playerName}}})**, **l'action principale** venant de se produire, et tout **élément visuel clé** (PNJ important, objet important, phénomène). Inclus l'**ambiance/émotion** si pertinente ({{{gameState.emotions}}}).
-        *   **CONSISTANCE (TRÈS IMPORTANT)**:
-            *   **SI un {{{previousImagePrompt}}} existe**, tu dois IMPÉRATIVEMENT essayer de **maintenir la cohérence visuelle**.
-            *   **Apparence de {{{playerName}}}**: Décris {{{playerName}}} de manière **similaire** à la description du prompt précédent (ex: si c'était "un chevalier souriant", continue avec "le chevalier souriant {{{playerName}}}..."). Ne change pas radicalement son apparence ou ses vêtements sans raison narrative.
-            *   **Éléments récurrents**: Si le prompt précédent mentionnait un compagnon ou un objet clé, et qu'il est toujours pertinent, mentionne-le à nouveau.
-            *   **Style**: Mentionne explicitement **"Style: Cartoon."** pour assurer l'uniformité.
-            *   **Réutilise des Mots-Clés**: Réutilise des mots-clés descriptifs du prompt précédent si la scène est similaire ou une continuation directe (ex: "forêt enchantée sombre", "cockpit scintillant").
+        *   **CONSISTANCE VISUELLE (TRÈS IMPORTANT)**:
+            *   **SI {{{previousImagePrompt}}} existe**, tu dois IMPÉRATIVEMENT essayer de **maintenir la cohérence visuelle** avec l'image précédente. Consulte {{{previousImagePrompt}}} pour t'aider.
+            *   **Apparence de {{{playerName}}}**: Décris {{{playerName}}} de manière **similaire** à sa description dans {{{previousImagePrompt}}} si possible (ex: si c'était "un chevalier souriant avec une armure bleue", continue avec "le chevalier souriant {{{playerName}}} dans son armure bleue..."). Ne change pas radicalement son apparence (couleur de cheveux, vêtements principaux) sans raison narrative forte.
+            *   **Éléments récurrents**: Si le prompt précédent mentionnait un compagnon, un objet clé tenu par le joueur, ou un détail important du décor, et qu'il est toujours pertinent, mentionne-le à nouveau pour renforcer la continuité.
+            *   **Style Artistique**: Mentionne explicitement **"Style: Cartoon."** à la fin du prompt pour assurer l'uniformité visuelle entre les images.
+            *   **Mots-Clés Descriptifs**: Réutilise des mots-clés descriptifs importants de {{{previousImagePrompt}}} si la scène est une continuation directe ou très similaire (ex: "forêt enchantée sombre et brumeuse", "cockpit high-tech scintillant"). Adapte si le lieu ou l'ambiance change significativement.
         *   **FORMAT**: Remplis la clé 'generatedImagePrompt' avec ce prompt. **Laisse vide si non pertinent.**
     *   **Exemples (avec consistance obligatoire)**:
-        *   (Tour N) Prompt Précédent: "Le chevalier souriant {{{playerName}}} découvrant une épée lumineuse dans une grotte sombre (lieu: Grotte aux Échos). Thème: Fantasy Médiévale. Style: Cartoon. Ambiance mystérieuse."
-        *   (Tour N+1, si action = prendre épée) Nouveau Prompt: "Le chevalier souriant {{{playerName}}} brandissant fièrement l'épée lumineuse, qui éclaire vivement la Grotte aux Échos (lieu: Grotte aux Échos). Thème: Fantasy Médiévale. Style: Cartoon." (Conserve 'chevalier souriant', 'épée lumineuse', 'Grotte aux Échos', thème, style).
-        *   (Tour N+2, si action = sortir de la grotte) Nouveau Prompt: "Le chevalier souriant {{{playerName}}}, portant l'épée lumineuse à sa ceinture, sortant de la Grotte aux Échos pour arriver dans une clairière ensoleillée (lieu: Clairière Ensoleillée). Thème: Fantasy Médiévale. Style: Cartoon." (Conserve 'chevalier souriant', mentionne l'épée, nouveau lieu, thème, style).
-        *   (Tour M) Prompt Précédent: "L'astronaute prudent {{{playerName}}} flottant devant une nébuleuse violette (lieu: Ceinture d'Astéroïdes Delta). Thème: Exploration Spatiale. Style: Cartoon. Air émerveillé."
+        *   (Tour N) Prompt Précédent: "Le chevalier souriant {{{playerName}}} avec une armure bleue découvrant une épée lumineuse dans une grotte sombre (lieu: Grotte aux Échos). Thème: Fantasy Médiévale. Style: Cartoon. Ambiance mystérieuse."
+        *   (Tour N+1, si action = prendre épée) Nouveau Prompt: "Le chevalier souriant {{{playerName}}} dans son armure bleue brandissant fièrement l'épée lumineuse, qui éclaire vivement la Grotte aux Échos (lieu: Grotte aux Échos). Thème: Fantasy Médiévale. Style: Cartoon." (Conserve 'chevalier souriant', 'armure bleue', 'épée lumineuse', 'Grotte aux Échos', thème, style).
+        *   (Tour N+2, si action = sortir de la grotte) Nouveau Prompt: "Le chevalier souriant {{{playerName}}} en armure bleue, portant l'épée lumineuse à sa ceinture, sortant de la Grotte aux Échos pour arriver dans une clairière ensoleillée et fleurie (lieu: Clairière Ensoleillée). Thème: Fantasy Médiévale. Style: Cartoon." (Conserve 'chevalier souriant', 'armure bleue', mentionne l'épée, nouveau lieu, thème, style).
+        *   (Tour M) Prompt Précédent: "L'astronaute prudent {{{playerName}}} avec un casque rouge flottant devant une nébuleuse violette (lieu: Ceinture d'Astéroïdes Delta). Thème: Exploration Spatiale. Style: Cartoon. Air émerveillé."
         *   (Tour M+1, si action = examiner vaisseau) Nouveau Prompt: "" (Pas d'image car action peu visuelle).
-        *   (Tour M+2, si action = entrer dans épave) Nouveau Prompt: "L'astronaute prudent {{{playerName}}}, air tendu, entrant dans une épave de vaisseau alien sombre et silencieuse (lieu: Épave Alien). Thème: Exploration Spatiale. Style: Cartoon." (Conserve 'astronaute prudent', thème, style, nouveau lieu).
+        *   (Tour M+2, si action = entrer dans épave) Nouveau Prompt: "L'astronaute prudent {{{playerName}}} avec son casque rouge, air tendu, entrant dans une épave de vaisseau alien sombre et silencieuse, éclairée par sa lampe torche (lieu: Épave Alien). Thème: Exploration Spatiale. Style: Cartoon." (Conserve 'astronaute prudent', 'casque rouge', thème, style, nouveau lieu, ajoute détail lampe torche).
 8.  **Gestion du Dernier Tour (quand isLastTurn est vrai)** :
     *   Ne propose **AUCUN** choix ('nextChoices' doit être []).
     *   Décris une **conclusion** basée sur le dernier choix et l'état final (incluant le lieu final depuis 'updatedGameState').
@@ -159,7 +159,7 @@ const prompt = ai.definePrompt({
 14. **Gestion des relations et émotions**: Utilise 'relationships' et 'emotions' du gameState pour l'ambiance.
 15. **Mort d'un PNJ**: Adapte l'histoire et l'ambiance si un PNJ meurt.
 
-**Important** : Concentre-toi sur la réaction à la **dernière action**, la gestion précise de l'inventaire ET du **lieu** dans 'updatedGameState', la décision de fournir ou non un 'generatedImagePrompt' (en visant la **consistance** et incluant theme/lieu/nom/style si fourni), et la **conclusion si c'est le dernier tour** ({{isLastTurn}}).
+**Important** : Concentre-toi sur la réaction à la **dernière action**, la gestion précise de l'inventaire ET du **lieu** dans 'updatedGameState', la décision de fournir ou non un 'generatedImagePrompt' (en visant la **consistance** visuelle avec {{{previousImagePrompt}}} et incluant theme/lieu/nom/style si fourni), et la **conclusion si c'est le dernier tour** ({{isLastTurn}}).
 
 Génère maintenant la suite (ou la fin) de l'histoire pour {{{playerName}}}.
 `,
@@ -195,7 +195,7 @@ async input => {
         console.error("JSON gameState d'entrée invalide, réinitialisation aux valeurs par défaut :", input.gameState, e);
         // Fournir un état par défaut plus complet si l'analyse échoue
         currentGameStateObj = {
-            playerName: input.playerName,
+            playerName: input.playerName || 'Joueur Inconnu',
             location: 'Lieu Inconnu', // Lieu par défaut
             inventory: [],
             relationships: {},
@@ -229,7 +229,7 @@ async input => {
 
 
     // Assurer que les clés essentielles existent après une éventuelle réinitialisation
-    if (!currentGameStateObj.playerName) currentGameStateObj.playerName = input.playerName;
+    if (!currentGameStateObj.playerName) currentGameStateObj.playerName = input.playerName || 'Joueur Inconnu';
      if (typeof currentGameStateObj.location !== 'string' || !currentGameStateObj.location.trim()) currentGameStateObj.location = 'Lieu Indéterminé'; // Assurer que le lieu existe
     if (!Array.isArray(currentGameStateObj.inventory)) currentGameStateObj.inventory = [];
     if (typeof currentGameStateObj.relationships !== 'object' || currentGameStateObj.relationships === null) currentGameStateObj.relationships = {};
@@ -289,19 +289,19 @@ async input => {
     let updatedGameStateObj: ParsedGameState; // Utiliser le type ParsedGameState
     try {
         // Utiliser l'utilitaire parseGameState pour une analyse et une validation robustes
-        updatedGameStateObj = parseGameState(output.updatedGameState, input.playerName);
+        updatedGameStateObj = parseGameState(output.updatedGameState, input.playerName || 'Joueur Inconnu');
 
         // Vérification supplémentaire : Assurer la synchronisation du nom du joueur s'il a changé (peu probable mais possible)
-        if (updatedGameStateObj.playerName !== input.playerName) {
+        if (updatedGameStateObj.playerName !== (input.playerName || 'Joueur Inconnu')) {
             console.warn("L'IA a changé playerName dans updatedGameState. Retour à l'original.");
-            updatedGameStateObj.playerName = input.playerName;
+            updatedGameStateObj.playerName = input.playerName || 'Joueur Inconnu';
         }
 
     } catch (e) { // Intercepter les erreurs potentielles de parseGameState bien qu'il doive les gérer en interne
         console.error("Erreur lors du traitement de updatedGameState de l'IA :", output.updatedGameState, e);
         console.warn("Tentative de retour de l'état de jeu valide précédent en raison d'une erreur de l'IA.");
         // Réinitialiser à l'état d'entrée validé comme solution de secours
-        updatedGameStateObj = parseGameState(validatedInputGameStateString, input.playerName); // Analyser à nouveau la chaîne d'entrée validée
+        updatedGameStateObj = parseGameState(validatedInputGameStateString, input.playerName || 'Joueur Inconnu'); // Analyser à nouveau la chaîne d'entrée validée
         // Ajouter un message indiquant que l'état pourrait être obsolète
         output.storyContent += "\n(Attention : L'état du jeu pourrait ne pas être à jour suite à une petite erreur technique.)";
          // Fournir des choix de secours sûrs, en considérant si c'était censé être le dernier tour
@@ -323,3 +323,4 @@ async input => {
 
   return output;
 });
+
