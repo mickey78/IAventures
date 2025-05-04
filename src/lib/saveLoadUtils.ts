@@ -6,6 +6,7 @@ import type { StorySegment } from '@/app/page'; // Adjust the import path as nee
 // Define the structure of the data to be saved
 export interface GameStateToSave {
   theme: string;
+  playerName: string; // Added player name
   story: StorySegment[];
   choices: string[];
   currentGameState: string;
@@ -37,6 +38,15 @@ export function listSaveGames(): GameStateToSave[] {
         localStorage.removeItem(SAVE_GAME_KEY); // Clear invalid data
         return [];
     }
+     // Further validation for playerName (optional but good practice)
+     savedGames.forEach(save => {
+        if (typeof save.playerName !== 'string') {
+            // Handle saves from older versions? Or log warning.
+             console.warn(`Save game "${save.saveName}" missing player name. Defaulting to 'Joueur'.`);
+            save.playerName = 'Joueur'; // Assign a default if needed
+        }
+     });
+
     // Sort by timestamp descending (most recent first)
     return savedGames.sort((a, b) => b.timestamp - a.timestamp);
   } catch (error) {
@@ -51,13 +61,17 @@ export function listSaveGames(): GameStateToSave[] {
  * Saves the current game state to localStorage.
  * Finds an existing save with the same name or adds a new one.
  * @param saveName The name/identifier for the save slot.
- * @param gameState The game state to save.
+ * @param gameState The game state to save (including playerName).
  * @returns True if save was successful, false otherwise.
  */
 export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'timestamp' | 'saveName'>): boolean {
    if (typeof window === 'undefined') {
     console.error('Cannot save game on the server.');
     return false;
+  }
+  if (!gameState.playerName) {
+      console.error('Cannot save game without a player name.');
+      return false; // Ensure player name exists before saving
   }
   try {
     const saves = listSaveGames();
@@ -82,7 +96,7 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
     saves.sort((a, b) => b.timestamp - a.timestamp);
 
     localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(saves));
-    console.log(`Game saved as "${saveName}"`);
+    console.log(`Game saved as "${saveName}" for player "${gameState.playerName}"`);
     return true;
   } catch (error) {
     console.error('Error saving game to localStorage:', error);
@@ -100,20 +114,20 @@ export function loadGame(saveName: string): GameStateToSave | null {
     return null;
   }
   try {
-    const saves = listSaveGames();
+    const saves = listSaveGames(); // listSaveGames now handles basic validation and default player name
     const save = saves.find(s => s.saveName === saveName);
     if (!save) {
         console.warn(`Save game "${saveName}" not found.`);
         return null;
     }
-     // Basic validation of the loaded save object
-     if (typeof save !== 'object' || save === null || !save.theme || !Array.isArray(save.story)) {
+     // More specific validation for the loaded save object
+     if (typeof save !== 'object' || save === null || !save.theme || !Array.isArray(save.story) || typeof save.playerName !== 'string') {
         console.error(`Invalid data structure for save game "${saveName}".`);
         // Optionally delete the corrupted save
         // deleteSaveGame(saveName);
         return null;
     }
-    console.log(`Game "${saveName}" loaded.`);
+    console.log(`Game "${saveName}" loaded for player "${save.playerName}".`);
     return save;
   } catch (error) {
     console.error(`Error loading game "${saveName}" from localStorage:`, error);

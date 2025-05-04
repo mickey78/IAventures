@@ -1,7 +1,7 @@
 'use server';
 
 /**
- * @fileOverview Generates story content based on the chosen theme and player choices.
+ * @fileOverview Generates story content based on the chosen theme, player choices, and player name.
  *
  * - generateStoryContent - A function that generates story content.
  * - GenerateStoryContentInput - The input type for the generateStoryContent function.
@@ -17,13 +17,14 @@ const GenerateStoryContentInputSchema = z.object({
     .describe(
       'The theme of the story (e.g., Medieval Fantasy, Space Exploration, Pirates of the Caribbean, Western and Cowboys, Love Story, Trapped in the Game, Post-Apocalyptic Survival)'
     ),
+  playerName: z.string().describe('The name of the player.'),
   playerChoices: z.array(z.string()).optional().describe('The history of player choices made so far. The last element is the most recent choice.'),
   gameState: z.string().optional().describe('A JSON string representing the current game state (e.g., inventory, location, character status). Start with an empty state if undefined.'),
 });
 export type GenerateStoryContentInput = z.infer<typeof GenerateStoryContentInputSchema>;
 
 const GenerateStoryContentOutputSchema = z.object({
-  storyContent: z.string().describe('The generated story content, describing the result of the player\'s last action and the current situation.'),
+  storyContent: z.string().describe('The generated story content, describing the result of the player\'s last action and the current situation, addressing the player by name.'),
   nextChoices: z.array(z.string()).describe('2-3 clear and simple choices for the player\'s next action.'),
   updatedGameState: z.string().describe('The updated game state as a JSON string, reflecting changes based on the last action and story progression.'),
 });
@@ -45,6 +46,7 @@ const prompt = ai.definePrompt({
   input: {
     schema: z.object({
       theme: z.string().describe('The theme of the story.'),
+      playerName: z.string().describe('The name of the player.'),
       playerChoices: z.array(z.string()).describe('History of player choices. The last element is the most recent choice.'), // Keep the optional here for flexibility if needed upstream
       gameState: z.string().describe('Current game state (JSON string).'),
     }),
@@ -52,10 +54,11 @@ const prompt = ai.definePrompt({
   output: {
     schema: GenerateStoryContentOutputSchema,
   },
-  prompt: `Tu es un Maître du Jeu (MJ) / Narrateur amical et imaginatif pour un jeu d'aventure textuel interactif destiné aux enfants de 8 à 12 ans. Ta mission est de continuer l'histoire de manière amusante et logique, en te basant sur le **dernier choix du joueur** et l'état actuel du jeu.
+  prompt: `Tu es un Maître du Jeu (MJ) / Narrateur amical et imaginatif pour un jeu d'aventure textuel interactif destiné aux enfants de 8 à 12 ans. Le nom du joueur est {{{playerName}}}. Ta mission est de continuer l'histoire de manière amusante et logique, en te basant sur le **dernier choix du joueur** et l'état actuel du jeu, et en t'adressant au joueur par son nom.
 
   **Contexte de l'Aventure :**
   *   Thème : {{{theme}}}
+  *   Nom du joueur : {{{playerName}}}
   *   État actuel du jeu (variables, objets, lieu, etc.) : {{{gameState}}}
   *   Historique des choix du joueur (le **dernier élément** de cette liste est le choix auquel tu dois réagir) :
       {{#if playerChoices}}
@@ -68,25 +71,25 @@ const prompt = ai.definePrompt({
 
   **Instructions pour ta réponse :**
 
-  1.  **Réagis au dernier choix** : Décris ce qui se passe suite au **dernier choix** du joueur (celui à la fin de la liste ci-dessus). Rends cela vivant et intéressant !
-  2.  **Décris la nouvelle situation** : Explique clairement où se trouve le joueur maintenant et ce qu'il perçoit. Adapte la description à l'âge (8-12 ans) : simple, visuel, et pas trop effrayant.
-  3.  **Propose de nouveaux choix** : Donne 2 ou 3 options claires et simples pour la prochaine action du joueur. Les choix doivent être logiques par rapport à la situation actuelle et faire avancer l'histoire.
-  4.  **Mets à jour l'état du jeu** : Réfléchis à comment le dernier choix et la nouvelle situation affectent l'état du jeu (Ex: le joueur a trouvé un objet, changé de lieu, rencontré un personnage). Décris ces changements dans la variable 'updatedGameState'. Si rien ne change, renvoie l'état du jeu actuel. L'état du jeu DOIT être une chaîne JSON valide.
+  1.  **Réagis au dernier choix** : Décris ce qui se passe suite au **dernier choix** de {{{playerName}}} (celui à la fin de la liste ci-dessus). Rends cela vivant et intéressant ! Adresse-toi toujours à {{{playerName}}}.
+  2.  **Décris la nouvelle situation** : Explique clairement où se trouve {{{playerName}}} maintenant et ce qu'il perçoit. Adapte la description à l'âge (8-12 ans) : simple, visuel, et pas trop effrayant.
+  3.  **Propose de nouveaux choix** : Donne 2 ou 3 options claires et simples pour la prochaine action de {{{playerName}}}. Les choix doivent être logiques par rapport à la situation actuelle et faire avancer l'histoire.
+  4.  **Mets à jour l'état du jeu** : Réfléchis à comment le dernier choix et la nouvelle situation affectent l'état du jeu (Ex: {{{playerName}}} a trouvé un objet, changé de lieu, rencontré un personnage). Décris ces changements dans la variable 'updatedGameState'. Si rien ne change, renvoie l'état du jeu actuel. L'état du jeu DOIT être une chaîne JSON valide.
   5.  **Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON contenant les clés suivantes :
-      *   storyContent: (string) Le nouveau paragraphe de l'histoire.
+      *   storyContent: (string) Le nouveau paragraphe de l'histoire (adressé à {{{playerName}}}).
       *   nextChoices: (array de strings) Les nouvelles options pour le joueur.
       *   updatedGameState: (string JSON valide) L'état du jeu mis à jour.
 
-  **Exemple de sortie attendue :**
+  **Exemple de sortie attendue (pour le joueur "Alex") :**
   {
-    "storyContent": "Tu suis le sentier lumineux et arrives devant une cascade scintillante ! L'eau tombe dans un bassin d'où s'échappe une douce lumière bleue. Un petit pont de bois semble mener de l'autre côté.",
+    "storyContent": "Alex, tu suis le sentier lumineux et arrives devant une cascade scintillante ! L'eau tombe dans un bassin d'où s'échappe une douce lumière bleue. Un petit pont de bois semble mener de l'autre côté.",
     "nextChoices": ["Traverser le pont", "Tremper ta main dans l'eau lumineuse", "Regarder derrière la cascade"],
-    "updatedGameState": "{\\"location\\": \\"Cascade Scintillante\\", \\"inventory\\": []}"
+    "updatedGameState": "{\\"location\\": \\"Cascade Scintillante\\", \\"inventory\\": [], \\"playerName\\": \\"Alex\\"}" // Exemple d'ajout du nom au state
   }
 
-  **Important** : Reste cohérent avec le thème et l'historique. Assure-toi que l'histoire progresse. La date actuelle est {{current_date}} si jamais tu en as besoin pour un élément de l'histoire.
+  **Important** : Reste cohérent avec le thème et l'historique. Assure-toi que l'histoire progresse. La date actuelle est {{current_date}} si jamais tu en as besoin pour un élément de l'histoire. N'oublie jamais de t'adresser au joueur par son nom : {{{playerName}}}.
 
-  Génère la suite de l'histoire maintenant en réagissant au **dernier choix** de la liste.
+  Génère la suite de l'histoire maintenant en réagissant au **dernier choix** de la liste pour {{{playerName}}}.
   `,
 });
 
@@ -104,6 +107,9 @@ async input => {
    if (!input.theme) {
        throw new Error("Theme is required to generate story content.");
    }
+   if (!input.playerName) {
+        throw new Error("Player name is required to generate story content.");
+    }
    // Ensure playerChoices is an array, even if empty, for the prompt
    const safePlayerChoices = input.playerChoices || [];
 
@@ -122,7 +128,12 @@ async input => {
     }
     // Validate if updatedGameState is valid JSON
     try {
-        JSON.parse(output.updatedGameState);
+        // Optional: Ensure playerName is preserved or added if missing in AI output
+        const parsedState = JSON.parse(output.updatedGameState);
+        if (!parsedState.playerName) {
+            parsedState.playerName = input.playerName; // Add player name if missing
+            output.updatedGameState = JSON.stringify(parsedState); // Update the stringified state
+        }
     } catch (e) {
         console.error("AI returned invalid JSON for updatedGameState:", output.updatedGameState);
         // Attempt to recover or return a default state? For now, throw error.

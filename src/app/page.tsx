@@ -10,12 +10,13 @@ import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
 import type { GenerateStoryContentInput } from '@/ai/flows/generate-story-content';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle } from 'lucide-react';
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User } from 'lucide-react'; // Added User icon
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
-import { Input } from '@/components/ui/input'; // Import Input
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog'; // Import Dialog components
+import { Input } from '@/components/ui/input';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label'; // Import Label
 
-export interface StorySegment { // Export for saveLoadUtils
+export interface StorySegment {
   id: number;
   text: string;
   isPlayerChoice?: boolean;
@@ -26,10 +27,11 @@ interface GameState {
   choices: string[];
   currentGameState: string;
   theme: string | null;
+  playerName: string | null; // Added player name
   isLoading: boolean;
   error: string | null;
   playerChoicesHistory: string[];
-  currentView: 'menu' | 'theme_selection' | 'loading_game' | 'game_active'; // Added view state
+  currentView: 'menu' | 'theme_selection' | 'name_input' | 'loading_game' | 'game_active'; // Added 'name_input' view
 }
 
 interface Theme {
@@ -55,6 +57,7 @@ export default function AdventureCraftGame() {
     choices: [],
     currentGameState: '{}',
     theme: null,
+    playerName: null, // Initialize player name as null
     isLoading: false,
     error: null,
     playerChoicesHistory: [],
@@ -63,6 +66,7 @@ export default function AdventureCraftGame() {
   const [savedGames, setSavedGames] = useState<GameStateToSave[]>([]);
   const [saveNameInput, setSaveNameInput] = useState('');
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+  const [playerNameInput, setPlayerNameInput] = useState(''); // State for player name input
 
   const { toast } = useToast();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -96,6 +100,7 @@ export default function AdventureCraftGame() {
         choices: [],
         currentGameState: '{}',
         theme: null,
+        playerName: null, // Reset player name
         isLoading: false,
         error: null,
         playerChoicesHistory: [],
@@ -106,8 +111,16 @@ export default function AdventureCraftGame() {
   }
 
   const showThemeSelection = () => {
-    setGameState(prev => ({ ...prev, currentView: 'theme_selection', theme: null })); // Reset theme when going to selection
+    setGameState(prev => ({ ...prev, currentView: 'theme_selection', theme: null, playerName: null })); // Reset theme and name
   };
+
+  const showNameInput = () => {
+     if (!gameState.theme) {
+      toast({ title: 'Erreur', description: 'Veuillez choisir un thème avant de continuer.', variant: 'destructive' });
+      return;
+    }
+    setGameState(prev => ({ ...prev, currentView: 'name_input' }));
+  }
 
   const showLoadGameView = () => {
     setSavedGames(listSaveGames()); // Refresh list before showing
@@ -119,9 +132,22 @@ export default function AdventureCraftGame() {
     setGameState((prev) => ({ ...prev, theme: themeValue }));
   };
 
+  const handleNameSubmit = () => {
+     if (!playerNameInput.trim()) {
+      toast({ title: 'Nom Invalide', description: 'Veuillez entrer votre nom.', variant: 'destructive' });
+      return;
+    }
+    setGameState(prev => ({ ...prev, playerName: playerNameInput.trim() }));
+    startNewGame(); // Proceed to start the game
+  }
+
   const startNewGame = async () => {
-    if (!gameState.theme) {
-      toast({ title: 'Erreur', description: 'Veuillez choisir un thème avant de commencer.', variant: 'destructive' });
+    // Now checks for both theme and player name before starting
+    if (!gameState.theme || !gameState.playerName) {
+      console.error('Theme or Player Name missing, cannot start game.');
+      // This case should ideally not be reached due to prior checks, but added as a safeguard
+       toast({ title: 'Erreur', description: 'Une erreur interne est survenue. Veuillez réessayer.', variant: 'destructive' });
+       showThemeSelection(); // Go back if something went wrong
       return;
     }
 
@@ -131,18 +157,21 @@ export default function AdventureCraftGame() {
         error: null,
         story: [],
         choices: [],
-        currentGameState: '{}',
+        currentGameState: JSON.stringify({ playerName: prev.playerName }), // Include player name in initial state
         playerChoicesHistory: [],
         currentView: 'game_active' // Switch view to active game
     }));
 
     try {
-      const initialStoryData = await generateInitialStory({ theme: gameState.theme });
+      const initialStoryData = await generateInitialStory({
+          theme: gameState.theme,
+          playerName: gameState.playerName
+      });
       setGameState((prev) => ({
         ...prev,
         story: [{ id: Date.now(), text: initialStoryData.story }],
         choices: initialStoryData.choices,
-        currentGameState: '{}', // Explicitly reset
+        // gameState already includes playerName
         isLoading: false,
       }));
     } catch (err) {
@@ -153,6 +182,7 @@ export default function AdventureCraftGame() {
         isLoading: false,
         error: `Impossible de générer l'histoire initiale: ${errorMsg}`,
         theme: null, // Allow re-selection
+        playerName: null, // Reset name
         currentView: 'theme_selection', // Go back to theme selection on error
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de générer l'histoire initiale: ${errorMsg}`, variant: 'destructive' });
@@ -160,11 +190,19 @@ export default function AdventureCraftGame() {
   };
 
  const handleChoice = async (choice: string) => {
+    if (!gameState.playerName || !gameState.theme) {
+        console.error('Player name or theme missing during choice handling.');
+        toast({ title: 'Erreur', description: 'Erreur de jeu. Veuillez réessayer.', variant: 'destructive' });
+        showMainMenu();
+        return;
+    }
+
     const playerChoiceSegment = { id: Date.now(), text: `> ${choice}`, isPlayerChoice: true };
     const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, choice];
 
     const input: GenerateStoryContentInput = {
-      theme: gameState.theme!,
+      theme: gameState.theme,
+      playerName: gameState.playerName, // Pass player name
       playerChoices: nextPlayerChoicesHistory,
       gameState: gameState.currentGameState || '{}',
     };
@@ -211,9 +249,11 @@ export default function AdventureCraftGame() {
 
   // --- Save/Load Handlers ---
   const handleOpenSaveDialog = () => {
-    // Suggest a save name based on theme and date
+    // Suggest a save name based on theme, player name and date
     const dateStr = new Date().toLocaleDateString('fr-CA'); // YYYY-MM-DD
-    const suggestedName = gameState.theme ? `${gameState.theme} ${dateStr}` : `Sauvegarde ${dateStr}`;
+    const suggestedName = gameState.theme && gameState.playerName
+        ? `${gameState.playerName} - ${gameState.theme} ${dateStr}`
+        : `Sauvegarde ${dateStr}`;
     setSaveNameInput(suggestedName);
     setIsSaveDialogOpen(true);
   };
@@ -223,13 +263,14 @@ export default function AdventureCraftGame() {
         toast({ title: "Nom Invalide", description: "Veuillez entrer un nom pour la sauvegarde.", variant: "destructive" });
         return;
     }
-    if (!gameState.theme) {
-        toast({ title: "Erreur", description: "Impossible de sauvegarder sans thème actif.", variant: "destructive" });
+    if (!gameState.theme || !gameState.playerName) { // Also check for player name
+        toast({ title: "Erreur", description: "Impossible de sauvegarder sans thème ou nom de joueur actif.", variant: "destructive" });
         return;
     }
 
     const stateToSave: Omit<GameStateToSave, 'timestamp' | 'saveName'> = {
         theme: gameState.theme,
+        playerName: gameState.playerName, // Save player name
         story: gameState.story,
         choices: gameState.choices,
         currentGameState: gameState.currentGameState,
@@ -251,6 +292,7 @@ export default function AdventureCraftGame() {
         setGameState(prev => ({
             ...prev,
             theme: loadedState.theme,
+            playerName: loadedState.playerName, // Load player name
             story: loadedState.story,
             choices: loadedState.choices,
             currentGameState: loadedState.currentGameState,
@@ -349,8 +391,34 @@ export default function AdventureCraftGame() {
               })}
           </div>
           <Button
-              onClick={startNewGame} // Changed from startGame to startNewGame
-              disabled={!gameState.theme || gameState.isLoading}
+              onClick={showNameInput} // Go to name input instead of starting game directly
+              disabled={!gameState.theme}
+              size="lg"
+              className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md mt-6"
+          >
+              Suivant
+          </Button>
+            <Button variant="outline" onClick={showMainMenu} className="mt-2">
+                Retour au Menu Principal
+            </Button>
+      </div>
+  );
+
+  const renderNameInput = () => (
+      <div className="flex flex-col items-center space-y-6 w-full max-w-sm">
+          <Label htmlFor="playerName" className="text-xl font-semibold text-center">Comment t'appelles-tu, aventurier(ère) ?</Label>
+          <Input
+                id="playerName"
+                type="text"
+                value={playerNameInput}
+                onChange={(e) => setPlayerNameInput(e.target.value)}
+                placeholder="Entre ton nom ici"
+                className="text-center"
+                maxLength={50} // Optional: limit name length
+            />
+          <Button
+              onClick={handleNameSubmit}
+              disabled={!playerNameInput.trim() || gameState.isLoading}
               size="lg"
               className="bg-primary hover:bg-primary/90 text-primary-foreground rounded-md shadow-md mt-6"
           >
@@ -366,9 +434,9 @@ export default function AdventureCraftGame() {
                   </>
               )}
           </Button>
-            <Button variant="outline" onClick={showMainMenu} className="mt-2">
-                Retour au Menu Principal
-            </Button>
+          <Button variant="outline" onClick={showThemeSelection} className="mt-2">
+              Retour au choix du thème
+          </Button>
       </div>
   );
 
@@ -397,6 +465,8 @@ export default function AdventureCraftGame() {
                                 <div className="flex-1 overflow-hidden">
                                     <p className="font-medium truncate">{save.saveName}</p>
                                     <p className="text-xs text-muted-foreground">
+                                         {/* Display player name if available in save */}
+                                        {save.playerName ? `${save.playerName} - ` : ''}
                                         {save.theme} - {new Date(save.timestamp).toLocaleString('fr-FR')}
                                     </p>
                                 </div>
@@ -458,10 +528,12 @@ export default function AdventureCraftGame() {
             AdventureCraft
           </CardTitle>
           <CardDescription className="text-muted-foreground">
-             {gameState.currentView === 'game_active' && gameState.theme
-              ? `Aventure en cours : ${gameState.theme}`
+             {gameState.currentView === 'game_active' && gameState.theme && gameState.playerName
+              ? `Aventure de ${gameState.playerName} : ${gameState.theme}`
               : gameState.currentView === 'theme_selection'
               ? "Choisissez un thème pour votre nouvelle aventure ! (8-12 ans)"
+              : gameState.currentView === 'name_input'
+              ? "Prépare-toi pour l'aventure !"
               : gameState.currentView === 'loading_game'
               ? "Choisissez une partie à charger."
               : "Bienvenue ! Commencez une nouvelle aventure ou chargez une partie."}
@@ -471,6 +543,7 @@ export default function AdventureCraftGame() {
         <CardContent>
           {gameState.currentView === 'menu' && renderMainMenu()}
           {gameState.currentView === 'theme_selection' && renderThemeSelection()}
+          {gameState.currentView === 'name_input' && renderNameInput()}
           {gameState.currentView === 'loading_game' && renderLoadGame()}
           {gameState.currentView === 'game_active' && (
             <>
