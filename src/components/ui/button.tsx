@@ -9,14 +9,14 @@ const buttonVariants = cva(
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90", // Default is primary
-        primary: "bg-primary text-primary-foreground hover:bg-primary/90", // Explicit primary
+        default: "bg-primary text-primary-foreground hover:bg-primary/80", // Default is primary, hover changed to 80%
+        primary: "bg-primary text-primary-foreground hover:bg-primary/80", // Explicit primary, hover changed to 80%
         destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90",
+          "bg-destructive text-destructive-foreground hover:bg-destructive/80", // Hover changed to 80%
         outline:
           "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
         secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/90", // Changed hover from 80 to 90
+          "bg-secondary text-secondary-foreground hover:bg-secondary/80", // Hover changed to 80%
         ghost: "hover:bg-accent hover:text-accent-foreground",
         link: "text-primary underline-offset-4 hover:underline",
       },
@@ -55,4 +55,3 @@ const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
 Button.displayName = "Button"
 
 export { Button, buttonVariants }
-
