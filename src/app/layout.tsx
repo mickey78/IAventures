@@ -2,6 +2,8 @@ import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"; // Import Toaster
+import { ThemeProvider } from '@/components/theme-provider'; // Import ThemeProvider
+import { ThemeSwitcher } from '@/components/theme-switcher'; // Import ThemeSwitcher
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -24,10 +26,20 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark"> {/* Add dark class here */}
+    <html lang="en" className="dark" suppressHydrationWarning> {/* Add suppressHydrationWarning */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
-        {children}
-        <Toaster /> {/* Add Toaster here */}
+        <ThemeProvider
+          attribute="data-theme-primary"
+          defaultTheme="red"
+          themes={['red', 'blue', 'green', 'purple', 'orange']}
+        >
+           {/* ThemeSwitcher can be placed anywhere, perhaps top right? */}
+           <div className="absolute top-4 right-4 z-50">
+              <ThemeSwitcher />
+           </div>
+          {children}
+          <Toaster /> {/* Add Toaster here */}
+        </ThemeProvider>
       </body>
     </html>
   );

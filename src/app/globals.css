@@ -45,15 +45,13 @@ body {
   }
 
   .dark {
-    /* Dark & Sinister Theme */
+    /* Dark & Sinister Theme - Base */
     --background: 240 10% 5%; /* Very Dark Blue/Gray */
     --foreground: 210 40% 95%; /* Very Light Cool Gray */
     --card: 240 8% 10%; /* Slightly Lighter Dark Blue/Gray */
     --card-foreground: 210 40% 95%; /* Very Light Cool Gray */
     --popover: 240 10% 5%; /* Very Dark Blue/Gray */
     --popover-foreground: 210 40% 95%; /* Very Light Cool Gray */
-    --primary: 0 65% 45%; /* Deep Blood Red */
-    --primary-foreground: 0 0% 100%; /* White */
     --secondary: 240 5% 25%; /* Dark Gray-Blue */
     --secondary-foreground: 210 40% 95%; /* Very Light Cool Gray */
     --muted: 240 5% 15%; /* Darker Gray-Blue */
@@ -64,12 +62,20 @@ body {
     --destructive-foreground: 0 0% 98%; /* White */
     --border: 240 5% 20%; /* Subtle Dark Border */
     --input: 240 5% 18%; /* Dark Input Background */
+
+    /* Default Primary (Red) */
+    --primary: 0 65% 45%; /* Deep Blood Red */
+    --primary-foreground: 0 0% 100%; /* White */
     --ring: 0 65% 55%; /* Primary Red Ring */
+
+    /* Chart colors based on default primary */
     --chart-1: 0 65% 45%; /* Red */
     --chart-2: 120 40% 30%; /* Green */
     --chart-3: 240 5% 50%; /* Gray-Blue */
     --chart-4: 40 50% 40%; /* Muted Yellow/Brown */
     --chart-5: 270 40% 40%; /* Muted Purple */
+
+    /* Sidebar colors based on default primary */
     --sidebar-background: 240 10% 5%; /* Match background */
     --sidebar-foreground: 210 40% 95%; /* Match foreground */
     --sidebar-primary: 0 65% 45%; /* Match primary */
@@ -78,6 +84,57 @@ body {
     --sidebar-accent-foreground: 120 10% 90%; /* Match accent foreground */
     --sidebar-border: 240 5% 20%; /* Match border */
     --sidebar-ring: 0 65% 55%; /* Match ring */
+  }
+
+  /* Primary Color Theme Overrides within .dark */
+  .dark[data-theme-primary="red"] {
+    --primary: 0 65% 45%; /* Deep Blood Red */
+    --primary-foreground: 0 0% 100%;
+    --ring: 0 65% 55%;
+    --chart-1: 0 65% 45%;
+    --sidebar-primary: 0 65% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 0 65% 55%;
+  }
+
+  .dark[data-theme-primary="blue"] {
+    --primary: 210 70% 50%; /* Darker Blue */
+    --primary-foreground: 0 0% 100%;
+    --ring: 210 70% 60%;
+    --chart-1: 210 70% 50%;
+    --sidebar-primary: 210 70% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 210 70% 60%;
+  }
+
+  .dark[data-theme-primary="green"] {
+    --primary: 140 60% 35%; /* Dark Forest Green */
+    --primary-foreground: 0 0% 100%;
+    --ring: 140 60% 45%;
+    --chart-1: 140 60% 35%;
+    --sidebar-primary: 140 60% 35%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 140 60% 45%;
+  }
+
+  .dark[data-theme-primary="purple"] {
+    --primary: 270 50% 50%; /* Deep Purple */
+    --primary-foreground: 0 0% 100%;
+    --ring: 270 50% 60%;
+    --chart-1: 270 50% 50%;
+    --sidebar-primary: 270 50% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 270 50% 60%;
+  }
+
+  .dark[data-theme-primary="orange"] {
+    --primary: 30 70% 45%; /* Burnt Orange */
+    --primary-foreground: 0 0% 100%;
+    --ring: 30 70% 55%;
+    --chart-1: 30 70% 45%;
+    --sidebar-primary: 30 70% 45%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 30 70% 55%;
   }
 }
 
