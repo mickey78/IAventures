@@ -16,7 +16,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'AdventureCraft', // Updated title
+  title: 'IAventures', // Updated title
   description: 'An interactive text adventure game powered by AI.', // Updated description
 };
 

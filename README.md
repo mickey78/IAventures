@@ -1,10 +1,10 @@
-# AdventureCraft
+# IAventures
 
-AdventureCraft est un jeu d'aventure textuel interactif propulsé par une intelligence artificielle (IA). Plongez dans des mondes fantastiques, explorez l'espace, devenez un pirate ou résolvez des mystères !
+IAventures est un jeu d'aventure textuel interactif propulsé par une intelligence artificielle (IA). Plongez dans des mondes fantastiques, explorez l'espace, devenez un pirate ou résolvez des mystères !
 
 ## Description
 
-Dans AdventureCraft, vous êtes le héros de votre propre histoire. Le jeu vous permet de :
+Dans IAventures, vous êtes le héros de votre propre histoire. Le jeu vous permet de :
 
 *   **Choisir un Thème** : Sélectionnez parmi plusieurs univers passionnants comme la Fantasy Médiévale, l'Exploration Spatiale, les Pirates, le Western, et bien d'autres.
 *   **Nommer votre Personnage** : Donnez vie à votre aventurier en lui choisissant un nom. Le narrateur IA s'adressera directement à vous par ce nom.
@@ -17,7 +17,7 @@ Dans AdventureCraft, vous êtes le héros de votre propre histoire. Le jeu vous 
 
 ## Installation et Lancement
 
-Vous avez deux options pour lancer AdventureCraft : en utilisant Node.js directement ou via Docker.
+Vous avez deux options pour lancer IAventures : en utilisant Node.js directement ou via Docker.
 
 ### Option 1 : Utilisation de Node.js (Recommandé pour le développement)
 
@@ -67,27 +67,29 @@ Vous avez deux options pour lancer AdventureCraft : en utilisant Node.js directe
 3.  **Construire l'image Docker** :
     Ouvrez un terminal dans le répertoire du projet et exécutez :
     ```bash
-    docker build -t adventurecraft .
+    docker build -t iaventures .
     ```
 
 4.  **Lancer le conteneur Docker** :
     Exécutez la commande suivante pour démarrer l'application. Le conteneur lira la clé API depuis votre fichier `.env` local.
     ```bash
-    docker run -p 9002:9002 --env-file .env --name adventurecraft-app -d adventurecraft
+    docker run -p 9002:9002 --env-file .env --name iaventures-app -d iaventures
     ```
     *   `-p 9002:9002` : Mappe le port 9002 de votre machine au port 9002 du conteneur.
     *   `--env-file .env` : Charge les variables d'environnement depuis votre fichier `.env`.
-    *   `--name adventurecraft-app` : Donne un nom au conteneur pour une gestion facile.
+    *   `--name iaventures-app` : Donne un nom au conteneur pour une gestion facile.
     *   `-d` : Lance le conteneur en arrière-plan (detached mode).
-    *   `adventurecraft` : Le nom de l'image que vous avez construite.
+    *   `iaventures` : Le nom de l'image que vous avez construite.
 
 5.  **Ouvrir le jeu** :
     Ouvrez votre navigateur web et allez à l'adresse `http://localhost:9002`.
 
 6.  **Arrêter et supprimer le conteneur (quand vous avez terminé)** :
     ```bash
-    docker stop adventurecraft-app
-    docker rm adventurecraft-app
+    docker stop iaventures-app
+    docker rm iaventures-app
     ```
 
 Amusez-vous bien dans vos aventures !
+
+```

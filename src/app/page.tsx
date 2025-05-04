@@ -104,7 +104,7 @@ const parseGameState = (stateString: string | undefined | null, playerNameFallba
 };
 
 
-export default function AdventureCraftGame() {
+export default function IAventuresGame() {
   const [gameState, setGameState] = useState<GameState>({
     story: [],
     choices: [],
@@ -292,10 +292,10 @@ export default function AdventureCraftGame() {
     const previousChoices = [...gameState.choices]; // Store previous choices for potential revert
     const previousGameState = gameState.currentGameState; // Store previous parsed state
     const lastSegmentBeforeAction = previousStory[previousStory.length - 1]; // Get last segment for AI context
-    const nextTurn = gameState.currentTurn + 1; // Calculate next turn
+    const nextTurn = gameState.currentTurn + 1; // Increment turn optimistically
 
 
-    // Optimistic update: show player action, clear choices, start loading
+    // Optimistic update: show player action, clear choices, start loading, increment turn
     setGameState((prev) => ({
       ...prev,
       isLoading: true,
@@ -309,16 +309,16 @@ export default function AdventureCraftGame() {
     setIsInventoryPopoverOpen(false); // Close inventory popover after action
     // Scroll handled by useEffect
 
-    const isLastTurn = nextTurn > gameState.maxTurns;
+    const isLastTurn = nextTurn > gameState.maxTurns; // Check if the *new* turn is the last
 
     // Prepare input for AI
     const input: GenerateStoryContentInput = {
       theme: gameState.theme,
       playerName: gameState.playerName,
-      lastStorySegment: lastSegmentBeforeAction,
-      playerChoicesHistory: nextPlayerChoicesHistory,
-      gameState: JSON.stringify(previousGameState),
-      currentTurn: nextTurn, // Send the *next* turn number
+      lastStorySegment: lastSegmentBeforeAction, // Send the segment BEFORE the player's action
+      playerChoicesHistory: nextPlayerChoicesHistory, // Send history including the new action
+      gameState: JSON.stringify(previousGameState), // Send state BEFORE the action
+      currentTurn: nextTurn, // Send the *new* turn number
       maxTurns: gameState.maxTurns,
       isLastTurn: isLastTurn, // Tell AI if it's the last turn
     };
@@ -331,11 +331,12 @@ export default function AdventureCraftGame() {
 
       setGameState((prev) => ({
         ...prev,
-        story: [...prev.story, narratorResponseSegment], // Add the narrator's response
+        story: [...prev.story, narratorResponseSegment], // Add the narrator's response AFTER player's action
         choices: nextStoryData.nextChoices, // Use AI's choices (might be empty if ending)
         currentGameState: updatedParsedGameState, // Store the new parsed state
         isLoading: false,
-        currentView: isLastTurn ? 'game_ended' : 'game_active', // Update view based on turn
+        // currentTurn is already updated optimistically
+        currentView: isLastTurn ? 'game_ended' : 'game_active', // Update view based on turn check
       }));
 
       if (isLastTurn) {
@@ -355,7 +356,7 @@ export default function AdventureCraftGame() {
         choices: previousChoices, // Revert choices
         currentGameState: previousGameState, // Revert game state
         playerChoicesHistory: prev.playerChoicesHistory.slice(0, -1), // Revert history
-        currentTurn: prev.currentTurn - 1, // Revert turn count
+        currentTurn: prev.currentTurn - 1, // Revert turn count (back to previous turn)
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de continuer l'histoire: ${errorMsg}`, variant: 'destructive' });
     }
@@ -407,8 +408,9 @@ export default function AdventureCraftGame() {
         toast({ title: "Nom Invalide", description: "Veuillez entrer un nom pour la sauvegarde.", variant: "destructive" });
         return;
     }
-    if (!gameState.theme || !gameState.playerName || gameState.currentView !== 'game_active') { // Check view
-        toast({ title: "Erreur", description: "Impossible de sauvegarder : partie non active ou informations manquantes.", variant: "destructive" });
+    // Allow saving even if game ended (might want to save the final state)
+    if (!gameState.theme || !gameState.playerName || !['game_active', 'game_ended'].includes(gameState.currentView)) {
+        toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes.", variant: "destructive" });
         return;
     }
 
@@ -437,7 +439,7 @@ export default function AdventureCraftGame() {
     const loadedState = loadGame(saveName);
     if (loadedState) {
         const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName); // Parse the loaded string
-        // Check if loaded game was already ended
+        // Determine view based on loaded turns: if current > max, it's ended
         const loadedView = loadedState.currentTurn > loadedState.maxTurns ? 'game_ended' : 'game_active';
 
         setGameState(prev => ({
@@ -529,7 +531,7 @@ const renderStory = () => (
             </div>
             ))}
             {/* Loading indicator */}
-            {gameState.isLoading && gameState.choices.length === 0 && gameState.currentView !== 'game_ended' && (
+            {gameState.isLoading && gameState.currentView !== 'game_ended' && (
                 <div className="flex items-center justify-start space-x-2 text-muted-foreground mt-4 ml-4">
                     <Bot className="h-4 w-4 mr-2" />
                     <Loader className="h-5 w-5 animate-spin" />
@@ -890,7 +892,7 @@ const renderStory = () => (
   const renderTurnCounter = () => (
     <div className="bg-background/80 backdrop-blur-sm px-3 py-1 rounded-full border border-border text-sm text-muted-foreground shadow-sm flex items-center gap-1.5">
         <Repeat className="h-4 w-4" />
-        Tour: <span className="font-semibold text-foreground">{gameState.currentTurn}</span> / {gameState.maxTurns}
+        Tour: <span className="font-semibold text-foreground">{gameState.currentTurn > gameState.maxTurns ? gameState.maxTurns : gameState.currentTurn}</span> / {gameState.maxTurns}
     </div>
   );
 
@@ -904,7 +906,7 @@ const renderStory = () => (
             <div className="flex-1 flex flex-col items-center"> {/* Centered title/desc */}
                 <CardTitle className="text-3xl font-bold flex items-center justify-center gap-2">
                     <BookOpenText className="h-8 w-8 text-primary" />
-                    AdventureCraft
+                    IAventures
                 </CardTitle>
                  <CardDescription className="text-muted-foreground mt-1">
                     {gameState.currentView === 'game_active' && gameState.theme && gameState.playerName
@@ -939,7 +941,8 @@ const renderStory = () => (
           {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && (
             <>
               {renderStory()}
-              {!gameState.isLoading && renderChoicesAndInput()}
+              {/* Only render choices/input if game is active */}
+              {gameState.currentView === 'game_active' && !gameState.isLoading && renderChoicesAndInput()}
             </>
           )}
           {/* Error Display */}
@@ -951,8 +954,8 @@ const renderStory = () => (
           )}
         </CardContent>
 
-         {/* Footer appears only when game is active (not ended) */}
-         {gameState.currentView === 'game_active' && gameState.story.length > 0 && (
+         {/* Footer appears only when game is active or ended */}
+         {(gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') && gameState.story.length > 0 && (
             <CardFooter className="flex-shrink-0 flex flex-col sm:flex-row justify-center items-center gap-4 mt-auto pt-4 border-t border-border">
                  <Button variant="outline" onClick={handleOpenSaveDialog} disabled={gameState.isLoading}>
                     <Save className="mr-2 h-4 w-4" />
