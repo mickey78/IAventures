@@ -10,7 +10,7 @@ import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
 import type { GenerateStoryContentInput } from '@/ai/flows/generate-story-content';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile } from 'lucide-react'; // Added User, Bot, Smile icons
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send } from 'lucide-react'; // Added User, Bot, Smile, Send icons
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -68,6 +68,7 @@ export default function AdventureCraftGame() {
   const [saveNameInput, setSaveNameInput] = useState('');
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [playerNameInput, setPlayerNameInput] = useState('');
+  const [customChoiceInput, setCustomChoiceInput] = useState(''); // State for custom input
 
   const { toast } = useToast();
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -195,6 +196,10 @@ export default function AdventureCraftGame() {
   };
 
  const handleChoice = async (choice: string) => {
+    if (!choice.trim()) {
+        toast({ title: "Action Vide", description: "Veuillez décrire votre action.", variant: "destructive" });
+        return;
+    }
     if (!gameState.playerName || !gameState.theme) {
         console.error('Player name or theme missing during choice handling.');
         toast({ title: 'Erreur', description: 'Erreur de jeu. Veuillez réessayer.', variant: 'destructive' });
@@ -203,8 +208,8 @@ export default function AdventureCraftGame() {
     }
 
     // Player's choice segment
-    const playerChoiceSegment: StorySegment = { id: Date.now(), text: choice, speaker: 'player' };
-    const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, choice];
+    const playerChoiceSegment: StorySegment = { id: Date.now(), text: choice.trim(), speaker: 'player' };
+    const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, choice.trim()];
     const previousStory = [...gameState.story]; // Keep previous story for potential revert
 
     // Update state immediately to show player choice and start loading for AI response
@@ -216,6 +221,7 @@ export default function AdventureCraftGame() {
       choices: [], // Clear choices while loading
       playerChoicesHistory: nextPlayerChoicesHistory,
     }));
+    setCustomChoiceInput(''); // Clear the custom input field
     // Scroll down is handled by useEffect based on story change
 
     // Prepare input for AI
@@ -257,6 +263,11 @@ export default function AdventureCraftGame() {
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de continuer l'histoire: ${errorMsg}`, variant: 'destructive' });
     }
+  };
+
+  const handleCustomChoiceSubmit = (event: React.FormEvent<HTMLFormElement>) => {
+      event.preventDefault(); // Prevent default form submission
+      handleChoice(customChoiceInput);
   };
 
 
@@ -361,7 +372,8 @@ const renderStory = () => (
             ))}
             {/* Loading indicator */}
             {gameState.isLoading && gameState.choices.length === 0 && ( // Show loading only when waiting for AI response (choices are empty)
-                <div className="flex items-center justify-center space-x-2 text-muted-foreground mt-4">
+                <div className="flex items-center justify-start space-x-2 text-muted-foreground mt-4 ml-4"> {/* Align left like narrator bubble */}
+                    <Bot className="h-4 w-4 mr-2" /> {/* Narrator icon */}
                     <Loader className="h-5 w-5 animate-spin" />
                     <span>Génération de la suite...</span>
                 </div>
@@ -373,20 +385,40 @@ const renderStory = () => (
  );
 
 
-  const renderChoices = () => (
-    <div className="flex flex-wrap gap-2 mt-auto justify-center pb-4"> {/* Use mt-auto to push to bottom, pb-4 for spacing */}
-      {gameState.choices.map((choice, index) => (
-        <Button
-          key={index}
-          onClick={() => handleChoice(choice)}
-          disabled={gameState.isLoading}
-          variant="secondary" // Keep variant for styling consistency if desired
-          className="flex-grow sm:flex-grow-0 bg-primary hover:bg-primary/90 text-primary-foreground" // Explicitly set background/text colors
-          aria-label={`Faire le choix : ${choice}`}
-        >
-          {choice}
-        </Button>
-      ))}
+  const renderChoicesAndInput = () => (
+    <div className="mt-auto pb-4 flex flex-col gap-4"> {/* Push to bottom, add spacing */}
+      {/* Predefined Choices */}
+      <div className="flex flex-wrap gap-2 justify-center">
+        {gameState.choices.map((choice, index) => (
+          <Button
+            key={index}
+            onClick={() => handleChoice(choice)}
+            disabled={gameState.isLoading}
+            variant="secondary" // Keep variant for styling consistency if desired
+            className="flex-grow sm:flex-grow-0 bg-primary hover:bg-primary/90 text-primary-foreground" // Explicitly set background/text colors
+            aria-label={`Faire le choix : ${choice}`}
+          >
+            {choice}
+          </Button>
+        ))}
+      </div>
+
+      {/* Custom Choice Input */}
+      <form onSubmit={handleCustomChoiceSubmit} className="flex gap-2 w-full max-w-lg mx-auto">
+          <Input
+            type="text"
+            value={customChoiceInput}
+            onChange={(e) => setCustomChoiceInput(e.target.value)}
+            placeholder="Que faites-vous ?"
+            className="flex-grow"
+            disabled={gameState.isLoading}
+            aria-label="Entrez votre propre action"
+          />
+          <Button type="submit" disabled={gameState.isLoading || !customChoiceInput.trim()} size="icon" className="bg-primary hover:bg-primary/90 text-primary-foreground">
+            <Send className="h-4 w-4" />
+            <span className="sr-only">Envoyer</span>
+          </Button>
+      </form>
     </div>
   );
 
@@ -582,7 +614,7 @@ const renderStory = () => (
           {gameState.currentView === 'game_active' && (
             <>
               {renderStory()} {/* Story area will now grow */}
-              {!gameState.isLoading && gameState.choices.length > 0 && renderChoices()} {/* Choices stick to bottom */}
+              {!gameState.isLoading && renderChoicesAndInput()} {/* Choices and input stick to bottom */}
             </>
           )}
           {gameState.error && (
