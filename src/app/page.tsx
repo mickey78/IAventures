@@ -3,14 +3,14 @@
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
-import { ScrollBar } from "@/components/ui/scroll-area";
+import { ScrollBar, ScrollArea } from "@/components/ui/scroll-area"; // Import ScrollArea component
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
 import type { GenerateStoryContentInput, GenerateStoryContentOutput } from '@/ai/flows/generate-story-content';
 import { useToast } from '@/hooks/use-toast';
-import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History } from 'lucide-react'; // Added Repeat, History icons
+import { BookOpenText, Loader, Wand2, ScrollText, Rocket, Anchor, Sun, Heart, Gamepad2, ShieldAlert, Save, Trash2, FolderOpen, PlusCircle, User, Bot, Smile, Send, Search, Sparkles, Briefcase, AlertCircle, Eye, MoveUpRight, Repeat, History } from 'lucide-react';
 import { saveGame, loadGame, listSaveGames, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import { Input } from '@/components/ui/input';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter, DialogClose } from '@/components/ui/dialog';
@@ -706,48 +706,52 @@ const renderStory = () => (
   );
 
   const renderThemeSelection = () => (
-      <div className="flex flex-col items-center space-y-6 w-full">
-          <p className="text-xl font-semibold text-center">Choisissez votre univers d'aventure :</p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-5xl">
-              {themes.map((theme) => {
-                  const Icon = theme.icon;
-                  const isSelected = gameState.theme === theme.value;
-                  return (
-                      <Card
-                          key={theme.value}
-                          className={cn(
-                              "cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary",
-                              isSelected ? 'border-primary ring-2 ring-primary bg-primary/10' : 'border-border hover:bg-accent/50'
-                          )}
-                          onClick={() => handleThemeSelect(theme.value)}
-                          role="button"
-                          aria-pressed={isSelected}
-                          tabIndex={0}
-                          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleThemeSelect(theme.value); }}
-                      >
-                          <CardHeader className="items-center text-center pb-2">
-                              <Icon className="h-10 w-10 mb-2 text-primary" />
-                              <CardTitle className="text-lg">{theme.label}</CardTitle>
-                          </CardHeader>
-                          <CardContent className="text-center text-sm text-muted-foreground pt-0 pb-4 min-h-[60px]">
-                              {theme.prompt}
-                          </CardContent>
-                      </Card>
-                  );
-              })}
-          </div>
-          <Button
-              onClick={showNameInput}
-              disabled={!gameState.theme}
-              size="lg"
-              variant="primary"
-              className="rounded-md shadow-md mt-6"
-          >
-              Suivant
-          </Button>
-            <Button variant="outline" onClick={showMainMenu} className="mt-2">
-                Retour au Menu Principal
-            </Button>
+      <div className="flex flex-col items-center space-y-6 w-full h-full">
+          <p className="text-xl font-semibold text-center shrink-0">Choisissez votre univers d'aventure :</p>
+          <ScrollArea className="flex-grow w-full max-w-5xl pr-4"> {/* Wrap grid in ScrollArea */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {themes.map((theme) => {
+                      const Icon = theme.icon;
+                      const isSelected = gameState.theme === theme.value;
+                      return (
+                          <Card
+                              key={theme.value}
+                              className={cn(
+                                  "cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary",
+                                  isSelected ? 'border-primary ring-2 ring-primary bg-primary/10' : 'border-border hover:bg-accent/50'
+                              )}
+                              onClick={() => handleThemeSelect(theme.value)}
+                              role="button"
+                              aria-pressed={isSelected}
+                              tabIndex={0}
+                              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') handleThemeSelect(theme.value); }}
+                          >
+                              <CardHeader className="items-center text-center pb-2">
+                                  <Icon className="h-10 w-10 mb-2 text-primary" />
+                                  <CardTitle className="text-lg">{theme.label}</CardTitle>
+                              </CardHeader>
+                              <CardContent className="text-center text-sm text-muted-foreground pt-0 pb-4 min-h-[60px]">
+                                  {theme.prompt}
+                              </CardContent>
+                          </Card>
+                      );
+                  })}
+              </div>
+          </ScrollArea>
+           <div className="flex flex-col sm:flex-row gap-2 mt-6 shrink-0"> {/* Footer buttons */}
+                <Button
+                    onClick={showNameInput}
+                    disabled={!gameState.theme}
+                    size="lg"
+                    variant="primary"
+                    className="rounded-md shadow-md"
+                >
+                    Suivant
+                </Button>
+                <Button variant="outline" onClick={showMainMenu}>
+                    Retour au Menu Principal
+                </Button>
+            </div>
       </div>
   );
 
