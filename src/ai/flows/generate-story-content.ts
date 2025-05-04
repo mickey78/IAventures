@@ -131,15 +131,21 @@ const prompt = ai.definePrompt({
 7.  **GÉNÉRATION D'IMAGE PROMPT (Consistance & Pertinence)** :
     *   **Quand générer ?** Uniquement si la scène actuelle est **visuellement distincte** de la précédente OU si un **événement visuel clé** se produit (nouveau lieu important, PNJ significatif apparaît, action avec impact visuel fort, découverte majeure). Ne génère PAS pour des actions simples (marcher, parler sans événement notable, utiliser un objet commun).
     *   **Comment générer ?** Crée un prompt CONCIS et DESCRIPTIF.
-        *   **CONTENU**: Mentionne le **thème ({{{theme}}})**, le **lieu actuel ({{{gameState.location}}})**, le **nom du joueur ({{{playerName}}})**, **l'action principale** venant de se produire, et tout **élément visuel clé** (PNJ, objet important, phénomène). Inclus l'**ambiance/émotion** si pertinente ({{{gameState.emotions}}}).
-        *   **CONSISTANCE**: Si un {{{previousImagePrompt}}} existe, essaie de **maintenir le style visuel et l'apparence de {{{playerName}}}** décrits précédemment. Réutilise des mots-clés du prompt précédent si pertinent pour la consistance. Mentionne explicitement "Style: Cartoon."
+        *   **CONTENU**: Mentionne le **thème ({{{theme}}})**, le **lieu actuel ({{{gameState.location}}})**, le **nom du joueur ({{{playerName}}})**, **l'action principale** venant de se produire, et tout **élément visuel clé** (PNJ important, objet important, phénomène). Inclus l'**ambiance/émotion** si pertinente ({{{gameState.emotions}}}).
+        *   **CONSISTANCE (TRÈS IMPORTANT)**:
+            *   **SI un {{{previousImagePrompt}}} existe**, tu dois IMPÉRATIVEMENT essayer de **maintenir la cohérence visuelle**.
+            *   **Apparence de {{{playerName}}}**: Décris {{{playerName}}} de manière **similaire** à la description du prompt précédent (ex: si c'était "un chevalier souriant", continue avec "le chevalier souriant {{{playerName}}}..."). Ne change pas radicalement son apparence ou ses vêtements sans raison narrative.
+            *   **Éléments récurrents**: Si le prompt précédent mentionnait un compagnon ou un objet clé, et qu'il est toujours pertinent, mentionne-le à nouveau.
+            *   **Style**: Mentionne explicitement **"Style: Cartoon."** pour assurer l'uniformité.
+            *   **Réutilise des Mots-Clés**: Réutilise des mots-clés descriptifs du prompt précédent si la scène est similaire ou une continuation directe (ex: "forêt enchantée sombre", "cockpit scintillant").
         *   **FORMAT**: Remplis la clé 'generatedImagePrompt' avec ce prompt. **Laisse vide si non pertinent.**
-    *   **Exemples (avec consistance implicite)**:
-        *   (Tour N) Prompt: "L'astronaute {{{playerName}}} flottant devant une nébuleuse violette (lieu: Ceinture d'Astéroïdes Delta). Thème: Exploration Spatiale. Style: Cartoon. Air émerveillé."
-        *   (Tour N+1, si action = examiner vaisseau) Prompt: "" (Pas d'image)
-        *   (Tour N+2, si action = entrer dans épave) Prompt: "L'astronaute {{{playerName}}}, air prudent, entrant dans une épave de vaisseau sombre et silencieuse (lieu: Épave Inconnue). Thème: Exploration Spatiale. Style: Cartoon." (Conserve astronaute, thème, style).
-        *   (Tour M) Prompt: "Le chevalier {{{playerName}}} découvrant une épée lumineuse dans une grotte (lieu: Grotte aux Échos). Thème: Fantasy Médiévale. Style: Cartoon. Ambiance mystérieuse."
-        *   (Tour M+1, si action = prendre épée) Prompt: "Le chevalier {{{playerName}}} brandissant fièrement l'épée lumineuse, qui éclaire la Grotte aux Échos (lieu: Grotte aux Échos). Thème: Fantasy Médiévale. Style: Cartoon." (Conserve chevalier, épée, lieu, thème, style).
+    *   **Exemples (avec consistance obligatoire)**:
+        *   (Tour N) Prompt Précédent: "Le chevalier souriant {{{playerName}}} découvrant une épée lumineuse dans une grotte sombre (lieu: Grotte aux Échos). Thème: Fantasy Médiévale. Style: Cartoon. Ambiance mystérieuse."
+        *   (Tour N+1, si action = prendre épée) Nouveau Prompt: "Le chevalier souriant {{{playerName}}} brandissant fièrement l'épée lumineuse, qui éclaire vivement la Grotte aux Échos (lieu: Grotte aux Échos). Thème: Fantasy Médiévale. Style: Cartoon." (Conserve 'chevalier souriant', 'épée lumineuse', 'Grotte aux Échos', thème, style).
+        *   (Tour N+2, si action = sortir de la grotte) Nouveau Prompt: "Le chevalier souriant {{{playerName}}}, portant l'épée lumineuse à sa ceinture, sortant de la Grotte aux Échos pour arriver dans une clairière ensoleillée (lieu: Clairière Ensoleillée). Thème: Fantasy Médiévale. Style: Cartoon." (Conserve 'chevalier souriant', mentionne l'épée, nouveau lieu, thème, style).
+        *   (Tour M) Prompt Précédent: "L'astronaute prudent {{{playerName}}} flottant devant une nébuleuse violette (lieu: Ceinture d'Astéroïdes Delta). Thème: Exploration Spatiale. Style: Cartoon. Air émerveillé."
+        *   (Tour M+1, si action = examiner vaisseau) Nouveau Prompt: "" (Pas d'image car action peu visuelle).
+        *   (Tour M+2, si action = entrer dans épave) Nouveau Prompt: "L'astronaute prudent {{{playerName}}}, air tendu, entrant dans une épave de vaisseau alien sombre et silencieuse (lieu: Épave Alien). Thème: Exploration Spatiale. Style: Cartoon." (Conserve 'astronaute prudent', thème, style, nouveau lieu).
 8.  **Gestion du Dernier Tour (quand isLastTurn est vrai)** :
     *   Ne propose **AUCUN** choix ('nextChoices' doit être []).
     *   Décris une **conclusion** basée sur le dernier choix et l'état final (incluant le lieu final depuis 'updatedGameState').
@@ -317,3 +323,4 @@ async input => {
 
   return output;
 });
+
