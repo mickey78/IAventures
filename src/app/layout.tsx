@@ -1,9 +1,10 @@
+
 import type { Metadata } from 'next';
 import { Geist, Geist_Mono } from 'next/font/google';
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"; // Import Toaster
 import { ThemeProvider } from '@/components/theme-provider'; // Import ThemeProvider
-import { ThemeSwitcher } from '@/components/theme-switcher'; // Import ThemeSwitcher
+// Removed ThemeSwitcher import
 
 const geistSans = Geist({
   variable: '--font-geist-sans',
@@ -29,14 +30,11 @@ export default function RootLayout({
     <html lang="en" className="dark" suppressHydrationWarning> {/* Add suppressHydrationWarning */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <ThemeProvider
-          attribute="data-theme-primary"
-          defaultTheme="red"
-          themes={['red', 'blue', 'green', 'purple', 'orange']}
+          attribute="data-theme-primary" // Use data-theme-primary for ShadCN theme integration
+          defaultTheme="red" // Default primary color theme
+          themes={['red', 'blue', 'green', 'purple', 'orange']} // Available primary color themes
         >
-           {/* ThemeSwitcher can be placed anywhere, perhaps top right? */}
-           <div className="absolute top-4 right-4 z-50">
-              <ThemeSwitcher />
-           </div>
+           {/* ThemeSwitcher removed from here, managed within GameHeader/settings */}
           {children}
           <Toaster /> {/* Add Toaster here */}
         </ThemeProvider>
