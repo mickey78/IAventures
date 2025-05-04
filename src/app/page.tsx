@@ -340,7 +340,7 @@ const renderStory = () => (
             <div
                 key={segment.id}
                 className={cn(
-                    "flex flex-col max-w-[85%] sm:max-w-[75%] p-3 rounded-lg shadow",
+                    "flex flex-col max-w-[85%] sm:max-w-[75%] p-3 rounded-lg shadow", // Increased max-width
                     segment.speaker === 'player'
                         ? 'ml-auto bg-primary text-primary-foreground rounded-br-none' // Player bubble on the right, different color
                         : 'mr-auto bg-muted text-muted-foreground rounded-bl-none' // Narrator bubble on the left, different color
