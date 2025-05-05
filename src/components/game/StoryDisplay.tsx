@@ -18,6 +18,7 @@ interface StoryDisplayProps {
     generatingSegmentId: number | null; // ID of the segment currently generating an image
     onManualImageGeneration: (segmentId: number, segmentText: string) => void; // Callback for manual generation
     onRetryImageGeneration: (segmentId: number) => void; // Callback for retrying generation
+    onImageClick: (imageUrl: string | null | undefined, text: string) => void; // Callback for image click
 }
 
 // Function to parse segment text and highlight inventory additions
@@ -49,7 +50,8 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
     isLoading,
     generatingSegmentId,
     onManualImageGeneration,
-    onRetryImageGeneration // Destructure retry function
+    onRetryImageGeneration, // Destructure retry function
+    onImageClick // Destructure image click handler
  }) => {
 
     const isGeneratingImage = (segmentId: number) => generatingSegmentId === segmentId;
@@ -125,7 +127,10 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
                              </div>
                         )}
                         {segment.speaker === 'narrator' && segment.storyImageUrl && !segment.imageIsLoading && !segment.imageError && (
-                            <div className="mt-2 relative aspect-video rounded-md overflow-hidden border border-border">
+                            <div
+                                className="mt-2 relative aspect-video rounded-md overflow-hidden border border-border cursor-pointer"
+                                onClick={() => onImageClick(segment.storyImageUrl, segment.text)} // Add onClick handler
+                            >
                                 <Image
                                     src={segment.storyImageUrl}
                                     alt={`Image générée: ${segment.text.substring(0, 50)}...`}
@@ -164,3 +169,4 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
 
  export default StoryDisplay;
 
+    

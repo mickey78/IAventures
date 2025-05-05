@@ -24,6 +24,7 @@ import ActionInput from '@/components/game/ActionInput';
 import SaveDialog from '@/components/game/SaveDialog';
 import GameEndedDisplay from '@/components/game/GameEndedDisplay';
 import DebugInitialPrompt from '@/components/game/DebugInitialPrompt'; // Import Debug Component
+import ImageModal from '@/components/game/ImageModal'; // Import the new ImageModal component
 import { AlertCircle, Loader } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -58,6 +59,8 @@ export default function IAventuresGame() {
   const [isInventoryPopoverOpen, setIsInventoryPopoverOpen] = useState(false);
   const [isAbilitiesPopoverOpen, setIsAbilitiesPopoverOpen] = useState(false);
   const [isCustomInputVisible, setIsCustomInputVisible] = useState(false);
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false); // State for image modal
+  const [modalContent, setModalContent] = useState<{ imageUrl: string | null | undefined; text: string }>({ imageUrl: null, text: '' }); // State for modal content
 
 
   const { toast } = useToast();
@@ -297,6 +300,21 @@ export default function IAventuresGame() {
 
   // --- Save/Load Handlers are now called directly from the useSaveLoad hook ---
 
+   // --- Image Modal Handlers ---
+   const handleImageClick = useCallback((imageUrl: string | null | undefined, text: string) => {
+    if (imageUrl) {
+      setModalContent({ imageUrl, text });
+      setIsImageModalOpen(true);
+    } else {
+        toast({ title: "Image non disponible", description: "Il n'y a pas d'image à afficher pour ce segment.", variant: "default" });
+    }
+  }, [toast]);
+
+  const handleCloseImageModal = useCallback(() => {
+    setIsImageModalOpen(false);
+    // Optional: Delay resetting content slightly for smoother animation
+    setTimeout(() => setModalContent({ imageUrl: null, text: '' }), 300);
+  }, []);
 
   // --- Render Logic ---
   const renderCurrentView = () => {
@@ -359,6 +377,7 @@ export default function IAventuresGame() {
                 generatingSegmentId={gameState.generatingSegmentId}
                 onManualImageGeneration={handleManualImageGeneration}
                 onRetryImageGeneration={retryImageGeneration} // Pass retry function
+                onImageClick={handleImageClick} // Pass image click handler
             />
             {!gameState.isLoading && (
               <ActionInput
@@ -394,6 +413,7 @@ export default function IAventuresGame() {
                 generatingSegmentId={gameState.generatingSegmentId}
                 onManualImageGeneration={handleManualImageGeneration}
                 onRetryImageGeneration={retryImageGeneration} // Pass retry function
+                onImageClick={handleImageClick} // Pass image click handler
             />
             <GameEndedDisplay
                 maxTurns={gameState.maxTurns}
@@ -461,8 +481,17 @@ export default function IAventuresGame() {
         saveName={saveNameInput}
         onSaveNameChange={setSaveNameInput}
         onSave={handleSaveGame} // Use handler from save/load hook
-        isGameActive={gameState.currentView === 'game_active'}
+        isGameActive={gameState.currentView === 'game_active' || gameState.currentView === 'game_ended'} // Allow saving on ended screen too
       />
+
+        <ImageModal
+          isOpen={isImageModalOpen}
+          onClose={handleCloseImageModal}
+          imageUrl={modalContent.imageUrl}
+          text={modalContent.text}
+        />
     </div>
   );
 }
+
+    
