@@ -49,6 +49,7 @@ export interface SubTheme {
     value: string; // Unique value for the sub-theme (can be same as label)
     label: string; // Display name for the sub-theme
     prompt: string; // Specific starting scenario prompt for the AI
+    icon: LucideIcon; // Icon for the sub-theme card
 }
 
 // Represents a theme option for the game

@@ -48,6 +48,7 @@ const SubThemeSelection: React.FC<SubThemeSelectionProps> = ({
             <ScrollArea className="flex-grow w-full max-w-5xl pr-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                     {mainTheme.subThemes.map((subTheme) => {
+                        const Icon = subTheme.icon; // Get the icon component
                         const isSelected = selectedSubTheme === subTheme.value;
                         return (
                             <Card
@@ -63,7 +64,7 @@ const SubThemeSelection: React.FC<SubThemeSelectionProps> = ({
                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSubThemeSelect(subTheme.value); }}
                             >
                                 <CardHeader className="items-center text-center pb-2">
-                                    {/* Optional: Could add sub-theme specific icons later */}
+                                    <Icon className="h-8 w-8 mb-2 text-primary" /> {/* Display the icon */}
                                     <CardTitle className="text-lg">{subTheme.label}</CardTitle>
                                 </CardHeader>
                                 <CardContent className="text-center text-sm text-muted-foreground pt-0 pb-4 flex-grow"> {/* Added flex-grow */}
