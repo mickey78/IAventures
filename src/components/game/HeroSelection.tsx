@@ -19,7 +19,8 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({ heroes, selectedHero, onH
         <div className="flex flex-col items-center space-y-6 w-full h-full">
             <p className="text-xl font-semibold text-center shrink-0">Choisissez votre classe de héros :</p>
             <ScrollArea className="flex-grow w-full max-w-5xl pr-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* Changed grid columns to always be 2 */}
+                <div className="grid grid-cols-2 gap-4">
                     {heroes.map((hero) => {
                         const Icon = hero.icon;
                         const isSelected = selectedHero === hero.value;
@@ -67,3 +68,4 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({ heroes, selectedHero, onH
 };
 
 export default HeroSelection;
+
