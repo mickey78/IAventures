@@ -1,12 +1,11 @@
 
-import { Swords, Wand2, Crosshair, Hand, Shield, Hammer, Zap, Footprints, ChevronsRight, Bomb, EyeOff } from 'lucide-react'; // Replaced Trap with Bomb, added EyeOff
+import { Swords, Wand2, Crosshair, Hand, Shield, Hammer, Zap, Footprints, ChevronsRight, Bomb, EyeOff } from 'lucide-react';
 import type { HeroOption, HeroAbility } from '@/types/game'; // Import shared type
 
 // Define abilities with icons
 const guerrierAbilities: HeroAbility[] = [
     { label: 'Force Extrême', icon: Hammer },
-    { label: 'Maîtrise Épée', icon: Swords },
-    { label: 'Maîtrise Bouclier', icon: Shield },
+    { label: 'Maîtrise Épée/Bouclier', icon: Shield }, // Combine sword/shield mastery
 ];
 
 const magicienAbilities: HeroAbility[] = [
@@ -15,15 +14,13 @@ const magicienAbilities: HeroAbility[] = [
 ];
 
 const archerAbilities: HeroAbility[] = [
-    { label: 'Tir Précis', icon: Crosshair },
-    { label: 'Rapidité', icon: ChevronsRight },
-    { label: 'Agilité', icon: Footprints },
+    { label: 'Attaques à Distance', icon: Crosshair },
+    { label: 'Rapidité et Agilité', icon: Footprints }, // Use Footprints for agility/speed
 ];
 
 const voleurAbilities: HeroAbility[] = [
-    { label: 'Furtivité', icon: Footprints },
-    { label: 'Création de Pièges', icon: Bomb }, // Use Bomb icon instead of Trap
-    { label: 'Discrétion', icon: EyeOff }, // Use EyeOff for Discrétion
+    { label: 'Discrétion et Furtivité', icon: EyeOff }, // Use EyeOff for stealth
+    { label: 'Création de Pièges', icon: Bomb },
 ];
 
 
@@ -31,29 +28,33 @@ export const heroOptions: HeroOption[] = [
   {
     value: 'Guerrier',
     label: 'Guerrier',
-    description: 'Fort et courageux, expert au combat rapproché (Force Extrême, Épée, Bouclier).',
-    icon: Swords,
-    abilities: guerrierAbilities
+    // Updated description
+    description: 'Fort et courageux, excelle au combat rapproché avec force et défense.',
+    icon: Swords, // Keep main icon as Swords
+    abilities: guerrierAbilities // Updated abilities
   },
   {
     value: 'Magicien',
     label: 'Magicien',
-    description: 'Maîtrise les arcanes et lance des sorts puissants (Sorts, Contrôle Élémentaire).',
+    // Updated description for clarity
+    description: 'Maîtrise les arcanes et lance des sorts élémentaires puissants.',
     icon: Wand2,
-    abilities: magicienAbilities
+    abilities: magicienAbilities // Abilities remain the same
   },
   {
     value: 'Archer',
     label: 'Archer',
-    description: 'Agile et précis, excelle dans le combat à distance (Tir Précis, Rapidité, Agilité).',
+     // Updated description
+    description: 'Précis à distance, rapide et agile pour se déplacer.',
     icon: Crosshair, // Use Crosshair icon instead of Bow
-    abilities: archerAbilities
+    abilities: archerAbilities // Updated abilities
   },
   {
     value: 'Voleur',
     label: 'Voleur',
-    description: 'Furtif et astucieux, expert en discrétion et en création de pièges (Furtivité, Pièges, Discrétion).',
-    icon: Hand, // Using Hand as a placeholder, consider a better icon if available
-    abilities: voleurAbilities
+     // Updated description
+    description: 'Maître de la discrétion, utilise la furtivité et des pièges astucieux.',
+    icon: Hand, // Keep Hand icon for Thief
+    abilities: voleurAbilities // Updated abilities
   },
 ];
