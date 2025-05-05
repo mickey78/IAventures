@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -132,12 +133,12 @@ const prompt = ai.definePrompt({
 **Règles strictes pour ta réponse (MJ) :**
 
 1.  **Réagis à la DERNIÈRE ACTION** : Ta réponse DOIT commencer par décrire le résultat direct et logique de la **dernière action** de {{{playerName}}} (le dernier élément de {{{playerChoicesHistory}}}). Adresse-toi toujours à {{{playerName}}} par son nom.
-    *   **Gestion Inventaire** : Si le choix implique un objet (trouver, utiliser, inspecter, lancer, jeter), gère l'inventaire dans 'updatedGameState'. Ajoute si trouvé, retire si utilisé/lancé/jeté. Annonce les trouvailles/utilisations dans 'storyContent'. Ex: "Tu utilises la clé... et elle se casse dans la serrure ! La clé a été retirée de ton inventaire." ou "Bravo, tu as trouvé une Potion de Saut ! Ajoutée à ton inventaire !".
-2.  **Cohérence des Personnages**: Maintiens la personnalité des PNJ. Leurs réactions doivent dépendre des 'relationships' du gameState (ami, ennemi, neutre). Un ennemi sera hostile, un ami serviable. Mets à jour 'relationships' si une action change la relation.
-3.  **Cohérence des Lieux**: Souviens-toi des lieux. Si une action **change le lieu**, **mets à jour la clé 'location'** dans 'updatedGameState'. Décris le nouveau lieu dans 'storyContent'.
+    *   **Gestion Inventaire** : Si le choix implique un objet (trouver, utiliser, inspecter, lancer, jeter), gère l'inventaire dans updatedGameState. Ajoute si trouvé, retire si utilisé/lancé/jeté. Annonce les trouvailles/utilisations dans storyContent. Ex: "Tu utilises la clé... et elle se casse dans la serrure ! La clé a été retirée de ton inventaire." ou "Bravo, tu as trouvé une Potion de Saut ! Ajoutée à ton inventaire !".
+2.  **Cohérence des Personnages**: Maintiens la personnalité des PNJ. Leurs réactions doivent dépendre des relationships du gameState (ami, ennemi, neutre). Un ennemi sera hostile, un ami serviable. Mets à jour 'relationships' si une action change la relation.
+3.  **Cohérence des Lieux**: Souviens-toi des lieux. Si une action **change le lieu**, **mets à jour la clé 'location'** dans updatedGameState. Décris le nouveau lieu dans storyContent.
 4.  **Chronologie &amp; Causalité**: Respecte l'ordre des événements ('events' du gameState). Les actions ont des conséquences.
 5.  **Décris la nouvelle situation** : Après le résultat de l'action, explique la situation actuelle : où est {{{playerName}}} (confirme le lieu en utilisant 'location' du gameState parsé) ? Que perçoit-il/elle ? Qu'est-ce qui a changé ? Que se passe-t-il maintenant ? Tiens compte des 'emotions' pour l'ambiance (ex: si {{{playerName}}} est 'effrayé', décris une ambiance plus tendue).
-6.  **Gestion Actions Hors-Contexte/Impossibles** : Refuse GENTIMENT ou réinterprète les actions illogiques/hors thème/impossibles. Explique pourquoi ("Hmm, {{{playerName}}}, essayer de {action impossible} ne semble pas fonctionner ici dans {{{gameState.location}}}'.") et propose immédiatement de nouvelles actions VALIDES via 'nextChoices' (sauf si c'est le dernier tour).
+6.  **Gestion Actions Hors-Contexte/Impossibles** : Refuse GENTIMENT ou réinterprète les actions illogiques/hors thème/impossibles. Explique pourquoi ("Hmm, {{{playerName}}}, essayer de {action impossible} ne semble pas fonctionner ici dans {{{gameState.location}}}'.") et propose immédiatement de nouvelles actions VALIDES via nextChoices (sauf si c'est le dernier tour).
 7.  **GESTION DES COMBATS SIMPLES (8-12 ans)**:
     *   **Déclenchement**: Si le joueur rencontre un PNJ marqué comme "ennemi" dans 'relationships', ou si la situation devient hostile.
     *   **PAS de violence explicite**: Ne décris PAS de sang, de blessures graves ou de mort de manière graphique. Utilise des métaphores, suggère l'action. L'objectif est de résoudre la situation, pas de vaincre brutalement.
@@ -148,7 +149,7 @@ const prompt = ai.definePrompt({
     *   **Résolution par l'IA**: Évalue le choix du joueur face à la situation. Un peu de chance peut intervenir. **Tiens compte des habiletés ({{{heroDescription}}}) pour influencer le résultat.** Un Guerrier aura plus de succès en chargeant qu'un Magicien.
         *   **Succès**: Décris comment l'action du joueur réussit à désamorcer, éviter ou surmonter l'obstacle/ennemi. Ex: "Ta distraction fonctionne ! Le garde regarde ailleurs, te laissant passer.", "La Potion te rend invisible, tu te faufiles sans bruit.", "Le dragon, amusé par ta proposition, te laisse passer."
         *   **Échec partiel/Rebondissement**: L'action ne réussit pas complètement, créant une nouvelle situation. Ex: "Tu te caches, mais le garde t'a presque vu ! Il s'approche...", "Ton bouclier bloque l'attaque, mais il est fissuré.", "Le pirate rit de ton offre, mais semble intrigué."
-    *   **Mise à jour État**: Mets à jour 'updatedGameState' (ex: `relationships` peut changer si l'ennemi est apaisé, `emotions` peuvent changer, objet utilisé retiré de `inventory`, `location` si fuite réussie). Ajoute un événement pertinent à `events` (ex: "a évité le combat avec le garde").
+    *   **Mise à jour État**: Mets à jour 'updatedGameState' (ex: relationships peut changer si l'ennemi est apaisé, emotions peuvent changer, objet utilisé retiré de inventory, location si fuite réussie). Ajoute un événement pertinent à events (ex: "a évité le combat avec le garde").
     *   **Prochains Choix**: Après la résolution, propose de nouveaux choix normaux pour continuer l'aventure (ou d'autres choix de combat si la situation persiste).
 8.  **GÉNÉRATION D'IMAGE PROMPT (Consistance & Pertinence)** :
     *   **Quand générer ?** Uniquement si la scène actuelle est **visuellement distincte** de la précédente OU si un **événement visuel clé** se produit (nouveau lieu important, PNJ significatif apparaît, action avec impact visuel fort, découverte majeure, début/fin d'un combat suggéré). Ne génère PAS pour des actions simples (marcher, parler sans événement notable, utiliser un objet commun).
@@ -351,3 +352,6 @@ async input => {
 });
 
 
+
+
+    
