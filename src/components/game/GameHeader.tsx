@@ -110,7 +110,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
     return (
         <CardHeader className="relative text-center flex-shrink-0 pt-4 pb-2 flex items-center justify-between border-b border-border">
             {/* Left Aligned: Inventory & Abilities Buttons (only visible in game) */}
-            <div className="absolute top-3 left-4 flex items-center gap-2">
+            <div className="absolute top-3 left-4 flex flex-col items-start space-y-1"> {/* Changed to flex-col and space-y-1 */}
                 {showGameControls && (
                     <>
                         <InventoryPopover
