@@ -2,7 +2,7 @@
 import {
     ScrollText, Rocket, Anchor, Sun, Search, Sparkles, Heart, Gamepad2, ShieldAlert, Castle, Drama,
     Map, Gem, Moon, Bed, Truck, Shield, Trophy, Swords, Egg, Flame, Trees, Globe, MilkyWay, Ghost,
-    Building2, Signal, Target, Crosshair, Waves, Fish, Clock, Hourglass, TreasureChest, // Replaced Alien with Signal
+    Building2, Signal, Target, Crosshair, Waves, Fish, Clock, Hourglass, Box, // Replaced TreasureChest with Box
     ShipWheel, Skull, CloudFog, Ship, PersonStanding, Package, EyeOff, Bomb, Building, Star, Badge,
     Mountain, Footprints, TrainTrack, Mail, Pickaxe, Home, Landmark, Diamond, Key, FileLock, Tent, // Replaced Cow with Mountain
     Puzzle, Dog, FlaskConical, AlertTriangle, GraduationCap, Bug, Zap, AlertCircle, History, // Removed Mask
@@ -37,7 +37,7 @@ export const themes: Theme[] = [
   {
     value: 'Pirates des Caraïbes', label: 'Pirates des Caraïbes', description: 'Naviguez sur les mers, cherchez des trésors enfouis et affrontez d\'autres pirates.', icon: Anchor,
     subThemes: [
-      { value: 'Île au Trésor', label: 'La Carte du Capitaine', prompt: 'Vous trouvez une vieille carte au trésor dans une bouteille échouée sur une plage. Elle semble mener à un trésor légendaire caché sur une île volcanique dangereuse.', icon: TreasureChest }, // Changed icon
+      { value: 'Île au Trésor', label: 'La Carte du Capitaine', prompt: 'Vous trouvez une vieille carte au trésor dans une bouteille échouée sur une plage. Elle semble mener à un trésor légendaire caché sur une île volcanique dangereuse.', icon: Box }, // Changed icon from TreasureChest
       { value: 'Mutinerie à Bord', label: 'Mutinerie !', prompt: 'Une mutinerie éclate sur votre navire ! Vous devez choisir votre camp et essayer de reprendre le contrôle du bateau ou de vous échapper sur une île déserte.', icon: Skull },
       { value: 'Port Maudit', label: 'Le Port des Âmes Perdues', prompt: 'Votre navire accoste dans un port brumeux réputé maudit. Les habitants semblent étranges et des disparitions suspectes ont lieu. Vous devez enquêter.', icon: CloudFog },
       { value: 'Vaisseau Fantôme', label: 'La Légende du Hollandais Volant', prompt: 'Par une nuit sans lune, tu aperçois le légendaire vaisseau fantôme, le Hollandais Volant. Oseras-tu l\'aborder pour découvrir ses secrets ?', icon: Ship }, // Changed icon
