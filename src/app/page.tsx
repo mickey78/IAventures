@@ -347,7 +347,8 @@ export default function IAventuresGame() {
       case 'game_active':
         return (
           <>
-            {gameState.initialPromptDebug && <DebugInitialPrompt prompt={gameState.initialPromptDebug} />}
+            {/* DebugPrompt handles its own visibility, just pass the prompt */}
+            <DebugInitialPrompt prompt={gameState.initialPromptDebug} />
             <StoryDisplay
                 story={gameState.story}
                 playerName={gameState.playerName}
@@ -380,7 +381,8 @@ export default function IAventuresGame() {
        case 'game_ended':
          return (
            <>
-            {gameState.initialPromptDebug && <DebugInitialPrompt prompt={gameState.initialPromptDebug} />}
+            {/* DebugPrompt handles its own visibility */}
+            <DebugInitialPrompt prompt={gameState.initialPromptDebug} />
             <StoryDisplay
                 story={gameState.story}
                 playerName={gameState.playerName}
