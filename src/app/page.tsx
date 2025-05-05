@@ -292,13 +292,13 @@ export default function IAventuresGame() {
   }, [toast, scrollToBottom]); // Added scrollToBottom dependency
 
   const handleManualImageGeneration = (segmentId: number, segmentText: string) => {
-      if (!gameState.theme || !gameState.currentGameState.location || !gameState.playerName) {
-            toast({ title: 'Erreur', description: 'Impossible de générer une image sans thème, lieu ou nom de joueur définis.', variant: 'destructive' });
+      if (!gameState.theme || !gameState.currentGameState.location || !gameState.playerName || !gameState.selectedHero) {
+            toast({ title: 'Erreur', description: 'Impossible de générer une image sans thème, lieu, héros ou nom de joueur définis.', variant: 'destructive' });
             return;
       }
       // Construct a prompt similar to the automatic one, including player name and current mood if available
       const moodText = gameState.currentGameState.emotions && gameState.currentGameState.emotions.length > 0 ? ` Ambiance: ${gameState.currentGameState.emotions.join(', ')}.` : '';
-      const prompt = `Une illustration de "${gameState.playerName}": "${segmentText.substring(0, 80)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} Style: Cartoon.`;
+      const prompt = `Une illustration de "${gameState.playerName}", le/la ${gameState.selectedHero}: "${segmentText.substring(0, 80)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} Style: Cartoon.`;
       triggerImageGeneration(segmentId, prompt);
   };
 
@@ -478,9 +478,8 @@ export default function IAventuresGame() {
 
     const input: GenerateStoryContentInput = {
       theme: gameState.theme, // Pass main theme
-      // subTheme: gameState.subTheme, // Pass subTheme if needed
-      // hero: gameState.selectedHero, // Pass selected hero info
       playerName: gameState.playerName,
+      selectedHeroValue: gameState.selectedHero, // Pass the selected hero's value
       lastStorySegment: lastSegmentBeforeAction, // Pass previous segment for context and image prompt
       playerChoicesHistory: nextPlayerChoicesHistory,
       gameState: safeJsonStringify(previousGameState), // Stringify the ParsedGameState object
@@ -578,7 +577,7 @@ export default function IAventuresGame() {
     const subThemeLabel = gameState.subTheme
         ? themes.find(t => t.value === gameState.theme)?.subThemes.find(st => st.value === gameState.subTheme)?.label || gameState.subTheme
         : 'Sans Scénario Spécifique'; // Label for skipped subTheme
-    const heroLabel = gameState.selectedHero || 'Héros Inconnu'; // Add hero label
+    const heroLabel = heroOptions.find(h => h.value === gameState.selectedHero)?.label || 'Héros Inconnu'; // Add hero label
     const suggestedName = gameState.theme && gameState.playerName
        ? `${gameState.playerName} (${heroLabel}) - ${subThemeLabel} (T${gameState.currentTurn}/${gameState.maxTurns}) - ${dateStr}` // More specific name
        : `Sauvegarde ${dateStr}`;

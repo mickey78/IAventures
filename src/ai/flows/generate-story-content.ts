@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -10,8 +9,9 @@
  */
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
-import type { StorySegment, ParsedGameState } from '@/types/game'; // Importer les types partagés
+import type { StorySegment, ParsedGameState, HeroOption } from '@/types/game'; // Importer les types partagés, ajouter HeroOption
 import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils'; // Importer l'aide
+import { heroOptions } from '@/config/heroes'; // Importer les options de héros pour obtenir la description
 
 const GenerateStoryContentInputSchema = z.object({
   theme: z
@@ -20,6 +20,7 @@ const GenerateStoryContentInputSchema = z.object({
       "Le thème de l'histoire (ex: Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Mystère et Enquête, École des Super-Héros, Histoire d'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique)"
     ),
   playerName: z.string().describe('Le nom du joueur.'),
+  selectedHeroValue: z.string().describe("La classe de héros choisie par le joueur (ex: 'Guerrier')."), // Passer la valeur du héros
   lastStorySegment: z.object({ // Ajouter le dernier segment de l'histoire pour le contexte
       id: z.number(),
       text: z.string(),
@@ -68,6 +69,10 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
   if (!Array.isArray(initialGameState.emotions)) initialGameState.emotions = [];
   if (!Array.isArray(initialGameState.events)) initialGameState.events = [];
 
+  // Récupérer la description du héros pour l'inclure dans le prompt
+  const heroDetails = heroOptions.find(h => h.value === input.selectedHeroValue);
+  const heroDescription = heroDetails?.description || "Possède des capacités uniques."; // Description par défaut si non trouvé
+
 
   const safeInput = {
     ...input,
@@ -75,6 +80,7 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
     playerChoicesHistory: input.playerChoicesHistory || [],
     lastStorySegmentText: input.lastStorySegment?.text || "C'est le début de l'aventure.", // Fournir un texte par défaut si le segment est manquant
     previousImagePrompt: input.lastStorySegment?.imageGenerationPrompt || null, // Passer le prompt précédent
+    heroDescription: heroDescription, // Ajouter la description du héros au contexte
   };
 
   return generateStoryContentFlow(safeInput);
@@ -87,6 +93,8 @@ const prompt = ai.definePrompt({
     schema: z.object({
       theme: z.string().describe("Le thème de l'histoire."),
       playerName: z.string().describe('Le nom du joueur.'),
+      selectedHeroValue: z.string().describe("La classe de héros choisie."), // Garder la valeur du héros
+      heroDescription: z.string().describe("La description du héros incluant ses capacités."), // Ajouter la description
       lastStorySegmentText: z.string().describe("Le texte du tout dernier segment de l'histoire (joueur ou narrateur) pour un contexte immédiat."),
       previousImagePrompt: z.string().nullable().optional().describe("Le prompt utilisé pour l'image générée précédemment, le cas échéant, pour la cohérence visuelle (apparence du personnage, style)."),
       playerChoicesHistory: z.array(z.string()).describe("Historique des choix du joueur. Le TOUT DERNIER élément est le choix le plus récent auquel réagir."),
@@ -100,11 +108,13 @@ const prompt = ai.definePrompt({
   output: {
     schema: GenerateStoryContentOutputSchema,
   },
-  prompt: `Tu es un Maître du Jeu (MJ) / Narrateur amical et imaginatif pour un jeu d'aventure textuel interactif destiné aux enfants de 8-12 ans. Le nom du joueur est {{{playerName}}}. L'aventure dure au maximum {{{maxTurns}}} tours. Nous sommes actuellement au tour {{{currentTurn}}}. Ta mission est de continuer l'histoire de manière amusante, logique et **strictement cohérente avec le thème**, en te basant sur la **dernière action effectuée par le joueur**, l'état actuel du jeu (y compris **lieu**, **relations**, **émotions**), en gérant des **combats simples basés sur des choix**, en générant éventuellement un prompt d'image **consistant**, et en t'adressant au joueur par son nom.
+  prompt: `Tu es un Maître du Jeu (MJ) / Narrateur amical et imaginatif pour un jeu d'aventure textuel interactif destiné aux enfants de 8-12 ans. Le nom du joueur est {{{playerName}}}, un(e) **{{{selectedHeroValue}}}** (Description/Habiletés : **{{{heroDescription}}}**). L'aventure dure au maximum {{{maxTurns}}} tours. Nous sommes actuellement au tour {{{currentTurn}}}. Ta mission est de continuer l'histoire de manière amusante, logique et **strictement cohérente avec le thème et les capacités du héros**, en te basant sur la **dernière action effectuée par le joueur**, l'état actuel du jeu (y compris **lieu**, **relations**, **émotions**), en gérant des **combats simples basés sur des choix**, en générant éventuellement un prompt d'image **consistant**, et en t'adressant au joueur par son nom.
 
 **Contexte de l'Aventure :**
 *   Thème Principal : **{{{theme}}}** (Tu dois IMPÉRATIVEMENT rester dans ce thème)
 *   Nom du joueur : {{{playerName}}}
+*   Classe du Héros : **{{{selectedHeroValue}}}**
+*   Description/Habiletés du Héros : **{{{heroDescription}}}**  &lt;-- UTILISE CETTE INFO POUR ADAPTER LA NARRATION ET LES CHOIX
 *   Tour Actuel : {{{currentTurn}}} / {{{maxTurns}}}
 *   État actuel du jeu (chaîne JSON - analyse-le pour l'utiliser) : {{{gameState}}}
     *   Contient: 'playerName', 'location', 'inventory', 'relationships' (ex: {"PNJ1":"ami"}), 'emotions' (ex: ["courageux"]), 'events'.
@@ -122,34 +132,35 @@ const prompt = ai.definePrompt({
 **Règles strictes pour ta réponse (MJ) :**
 
 1.  **Réagis à la DERNIÈRE ACTION** : Ta réponse DOIT commencer par décrire le résultat direct et logique de la **dernière action** de {{{playerName}}} (le dernier élément de {{{playerChoicesHistory}}}). Adresse-toi toujours à {{{playerName}}} par son nom.
-    *   **Gestion Inventaire** : Si le choix implique un objet (trouver, utiliser, inspecter, lancer, jeter), gère l'inventaire dans updatedGameState. Ajoute si trouvé, retire si utilisé/lancé/jeté. Annonce les trouvailles/utilisations dans storyContent. Ex: "Tu utilises la clé... et elle se casse dans la serrure ! La clé a été retirée de ton inventaire." ou "Bravo, tu as trouvé une Potion de Saut ! Ajoutée à ton inventaire !".
-2.  **Cohérence des Personnages**: Maintiens la personnalité des PNJ. Leurs réactions doivent dépendre des relationships du gameState (ami, ennemi, neutre). Un ennemi sera hostile, un ami serviable. Mets à jour relationships si une action change la relation.
-3.  **Cohérence des Lieux**: Souviens-toi des lieux. Si une action **change le lieu**, **mets à jour la clé location** dans updatedGameState. Décris le nouveau lieu dans storyContent.
-4.  **Chronologie & Causalité**: Respecte l'ordre des événements (events du gameState). Les actions ont des conséquences.
-5.  **Décris la nouvelle situation** : Après le résultat de l'action, explique la situation actuelle : où est {{{playerName}}} (confirme le lieu en utilisant location du gameState parsé) ? Que perçoit-il/elle ? Qu'est-ce qui a changé ? Que se passe-t-il maintenant ? Tiens compte des emotions pour l'ambiance (ex: si {{{playerName}}} est 'effrayé', décris une ambiance plus tendue).
-6.  **Gestion Actions Hors-Contexte/Impossibles** : Refuse GENTIMENT ou réinterprète les actions illogiques/hors thème/impossibles. Explique pourquoi ("Hmm, {{{playerName}}}, essayer de {action impossible} ne semble pas fonctionner ici dans {{{gameState.location}}}'.") et propose immédiatement de nouvelles actions VALIDES via nextChoices (sauf si c'est le dernier tour).
+    *   **Gestion Inventaire** : Si le choix implique un objet (trouver, utiliser, inspecter, lancer, jeter), gère l'inventaire dans 'updatedGameState'. Ajoute si trouvé, retire si utilisé/lancé/jeté. Annonce les trouvailles/utilisations dans 'storyContent'. Ex: "Tu utilises la clé... et elle se casse dans la serrure ! La clé a été retirée de ton inventaire." ou "Bravo, tu as trouvé une Potion de Saut ! Ajoutée à ton inventaire !".
+2.  **Cohérence des Personnages**: Maintiens la personnalité des PNJ. Leurs réactions doivent dépendre des 'relationships' du gameState (ami, ennemi, neutre). Un ennemi sera hostile, un ami serviable. Mets à jour 'relationships' si une action change la relation.
+3.  **Cohérence des Lieux**: Souviens-toi des lieux. Si une action **change le lieu**, **mets à jour la clé 'location'** dans 'updatedGameState'. Décris le nouveau lieu dans 'storyContent'.
+4.  **Chronologie &amp; Causalité**: Respecte l'ordre des événements ('events' du gameState). Les actions ont des conséquences.
+5.  **Décris la nouvelle situation** : Après le résultat de l'action, explique la situation actuelle : où est {{{playerName}}} (confirme le lieu en utilisant 'location' du gameState parsé) ? Que perçoit-il/elle ? Qu'est-ce qui a changé ? Que se passe-t-il maintenant ? Tiens compte des 'emotions' pour l'ambiance (ex: si {{{playerName}}} est 'effrayé', décris une ambiance plus tendue).
+6.  **Gestion Actions Hors-Contexte/Impossibles** : Refuse GENTIMENT ou réinterprète les actions illogiques/hors thème/impossibles. Explique pourquoi ("Hmm, {{{playerName}}}, essayer de {action impossible} ne semble pas fonctionner ici dans {{{gameState.location}}}'.") et propose immédiatement de nouvelles actions VALIDES via 'nextChoices' (sauf si c'est le dernier tour).
 7.  **GESTION DES COMBATS SIMPLES (8-12 ans)**:
-    *   **Déclenchement**: Si le joueur rencontre un PNJ marqué comme "ennemi" dans relationships, ou si la situation devient hostile.
+    *   **Déclenchement**: Si le joueur rencontre un PNJ marqué comme "ennemi" dans 'relationships', ou si la situation devient hostile.
     *   **PAS de violence explicite**: Ne décris PAS de sang, de blessures graves ou de mort de manière graphique. Utilise des métaphores, suggère l'action. L'objectif est de résoudre la situation, pas de vaincre brutalement.
     *   **Proposer des Choix de Combat**: Au lieu d'une description de combat, propose 2-3 choix clairs orientés action :
         *   Exemples : "Essayer de distraire le garde", "Utiliser la Potion de Disparition", "Se cacher derrière le rocher", "Tenter de raisonner le dragon grincheux", "Esquiver l'attaque du robot", "Utiliser le Bouclier d'Énergie", "Proposer un échange au pirate".
-        *   Adapte les choix au thème, à l'inventaire, aux emotions (un joueur 'effrayé' pourrait avoir des options de fuite/cachette).
-    *   **Résolution par l'IA**: Évalue le choix du joueur face à la situation. Un peu de chance peut intervenir.
+        *   **Adapte les choix au thème, à l'inventaire, aux 'emotions' (un joueur 'effrayé' pourrait avoir des options de fuite/cachette) et aux HABILTÉS du héros ({{{heroDescription}}})**. Un Guerrier pourrait avoir "Charger l'ennemi", un Magicien "Lancer un sort de glace", un Voleur "Tenter une attaque furtive".
+        *   Mentionne explicitement les habiletés possibles si c'est pertinent. Ex: "(Habileté Voleur) Tenter de crocheter la serrure pendant que le garde regarde ailleurs".
+    *   **Résolution par l'IA**: Évalue le choix du joueur face à la situation. Un peu de chance peut intervenir. **Tiens compte des habiletés ({{{heroDescription}}}) pour influencer le résultat.** Un Guerrier aura plus de succès en chargeant qu'un Magicien.
         *   **Succès**: Décris comment l'action du joueur réussit à désamorcer, éviter ou surmonter l'obstacle/ennemi. Ex: "Ta distraction fonctionne ! Le garde regarde ailleurs, te laissant passer.", "La Potion te rend invisible, tu te faufiles sans bruit.", "Le dragon, amusé par ta proposition, te laisse passer."
         *   **Échec partiel/Rebondissement**: L'action ne réussit pas complètement, créant une nouvelle situation. Ex: "Tu te caches, mais le garde t'a presque vu ! Il s'approche...", "Ton bouclier bloque l'attaque, mais il est fissuré.", "Le pirate rit de ton offre, mais semble intrigué."
-    *   **Mise à jour État**: Mets à jour updatedGameState (ex: relationships peut changer si l'ennemi est apaisé, emotions peuvent changer, objet utilisé retiré de inventory, location si fuite réussie). Ajoute un événement pertinent à events (ex: "a évité le combat avec le garde").
+    *   **Mise à jour État**: Mets à jour 'updatedGameState' (ex: `relationships` peut changer si l'ennemi est apaisé, `emotions` peuvent changer, objet utilisé retiré de `inventory`, `location` si fuite réussie). Ajoute un événement pertinent à `events` (ex: "a évité le combat avec le garde").
     *   **Prochains Choix**: Après la résolution, propose de nouveaux choix normaux pour continuer l'aventure (ou d'autres choix de combat si la situation persiste).
 8.  **GÉNÉRATION D'IMAGE PROMPT (Consistance & Pertinence)** :
     *   **Quand générer ?** Uniquement si la scène actuelle est **visuellement distincte** de la précédente OU si un **événement visuel clé** se produit (nouveau lieu important, PNJ significatif apparaît, action avec impact visuel fort, découverte majeure, début/fin d'un combat suggéré). Ne génère PAS pour des actions simples (marcher, parler sans événement notable, utiliser un objet commun).
     *   **Comment générer ?** Crée un prompt CONCIS et DESCRIPTIF.
-        *   **CONTENU**: Mentionne le **thème ({{{theme}}})**, le **lieu actuel ({{{gameState.location}}})**, le **nom du joueur ({{{playerName}}})**, **l'action principale** venant de se produire, et tout **élément visuel clé** (PNJ important, objet important, phénomène). Inclus l'**ambiance/émotion** si pertinente ({{{gameState.emotions}}}).
+        *   **CONTENU**: Mentionne le **thème ({{{theme}}})**, le **lieu actuel ({{{gameState.location}}})**, le **nom du joueur ({{{playerName}}})** et sa **CLASSE ({{{selectedHeroValue}}})**, **l'action principale** venant de se produire, et tout **élément visuel clé** (PNJ important, objet important, phénomène). Inclus l'**ambiance/émotion** si pertinente ({{{gameState.emotions}}}).
         *   **CONSISTANCE VISUELLE (TRÈS IMPORTANT)**:
             *   **SI {{{previousImagePrompt}}} existe**, tu dois IMPÉRATIVEMENT essayer de **maintenir la cohérence visuelle** avec l'image précédente. Consulte {{{previousImagePrompt}}} pour t'aider.
-            *   **Apparence de {{{playerName}}}**: Décris {{{playerName}}} de manière **similaire** à sa description dans {{{previousImagePrompt}}} si possible (ex: si c'était "un chevalier souriant avec une armure bleue", continue avec "le chevalier souriant {{{playerName}}} dans son armure bleue..."). Ne change pas radicalement son apparence (couleur de cheveux, vêtements principaux) sans raison narrative forte.
+            *   **Apparence de {{{playerName}}} (Héros: {{{selectedHeroValue}}})**: Décris {{{playerName}}} de manière **similaire** à sa description dans {{{previousImagePrompt}}} si possible (ex: si c'était "un chevalier souriant avec une armure bleue", continue avec "le chevalier souriant {{{playerName}}} dans son armure bleue..."). Ne change pas radicalement son apparence (couleur de cheveux, vêtements principaux) sans raison narrative forte. **Mentionne des éléments liés à sa classe ({{{selectedHeroValue}}}) si visible (ex: épée pour Guerrier, bâton pour Magicien).**
             *   **Éléments récurrents**: Si le prompt précédent mentionnait un compagnon, un objet clé tenu par le joueur, ou un détail important du décor, et qu'il est toujours pertinent, mentionne-le à nouveau pour renforcer la continuité.
             *   **Style Artistique**: Mentionne explicitement **"Style: Cartoon."** à la fin du prompt pour assurer l'uniformité visuelle entre les images.
             *   **Mots-Clés Descriptifs**: Réutilise des mots-clés descriptifs importants de {{{previousImagePrompt}}} si la scène est une continuation directe ou très similaire (ex: "forêt enchantée sombre et brumeuse", "cockpit high-tech scintillant"). Adapte si le lieu ou l'ambiance change significativement.
-        *   **FORMAT**: Remplis la clé generatedImagePrompt avec ce prompt. **Laisse vide si non pertinent.**
+        *   **FORMAT**: Remplis la clé 'generatedImagePrompt' avec ce prompt. **Laisse vide si non pertinent.**
     *   **Exemples (avec consistance obligatoire)**:
         *   (Tour N) Prompt Précédent: "Le chevalier souriant {{{playerName}}} avec une armure bleue découvrant une épée lumineuse dans une grotte sombre (lieu: Grotte aux Échos). Thème: Fantasy Médiévale. Style: Cartoon. Ambiance mystérieuse."
         *   (Tour N+1, si action = prendre épée) Nouveau Prompt: "Le chevalier souriant {{{playerName}}} dans son armure bleue brandissant fièrement l'épée lumineuse, qui éclaire vivement la Grotte aux Échos (lieu: Grotte aux Échos). Thème: Fantasy Médiévale. Style: Cartoon." (Conserve 'chevalier souriant', 'armure bleue', 'épée lumineuse', 'Grotte aux Échos', thème, style).
@@ -158,19 +169,19 @@ const prompt = ai.definePrompt({
         *   (Tour M+1, si action = examiner vaisseau) Nouveau Prompt: "" (Pas d'image car action peu visuelle).
         *   (Tour M+2, si action = rencontrer alien amical) Nouveau Prompt: "L'astronaute prudent {{{playerName}}} avec son casque rouge, souriant, flottant à côté d'un petit alien vert aux grands yeux dans une station spatiale lumineuse (lieu: Station Alpha). Thème: Exploration Spatiale. Style: Cartoon." (Conserve 'astronaute prudent', 'casque rouge', thème, style, nouveau lieu, ajoute alien).
 9.  **Gestion du Dernier Tour (quand isLastTurn est vrai)** :
-    *   Ne propose **AUCUN** choix (nextChoices doit être []).
-    *   Décris une **conclusion** basée sur le dernier choix et l'état final (incluant le lieu final depuis updatedGameState).
-    *   Mets à jour updatedGameState une dernière fois (lieu final, inventaire final, relations finales, émotions finales).
+    *   Ne propose **AUCUN** choix ('nextChoices' doit être [])
+    *   Décris une **conclusion** basée sur le dernier choix et l'état final (incluant le lieu final depuis 'updatedGameState').
+    *   Mets à jour 'updatedGameState' une dernière fois.
     *   **Ne génère PAS de prompt d'image pour la conclusion.**
-10. **Propose de Nouveaux Choix (si PAS le dernier tour)** : Offre 2-3 options claires, simples, pertinentes pour la situation, le lieu actuel ({{{gameState.location}}}), et le thème. PAS d'actions d'inventaire directes dans nextChoices.
-11. **Mets à Jour l'État du Jeu (updatedGameState)** : Mets à jour **IMPÉRATIVEMENT** inventory et **location** si besoin. Mets aussi à jour **relationships**, **emotions**, et **events** si pertinent. updatedGameState doit être JSON valide contenant au minimum playerName, location, inventory, relationships, emotions, events. Si rien n'a changé, renvoie le gameState précédent (stringify), mais valide.
-12. **Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON valide : storyContent (string), nextChoices (array de strings, vide si {{isLastTurn}} est vrai), updatedGameState (string JSON valide), generatedImagePrompt (string, optionnel, vide si non pertinent).
+10. **Propose de Nouveaux Choix (si PAS le dernier tour)** : Offre 2-3 options claires, simples, pertinentes pour la situation, le lieu actuel ({{{gameState.location}}}), et le thème. **Inclus éventuellement des actions liées aux habiletés du héros ({{{heroDescription}}}) si pertinent.** PAS d'actions d'inventaire directes dans 'nextChoices'.
+11. **Mets à Jour l'État du Jeu ('updatedGameState')** : Mets à jour **IMPÉRATIVEMENT** 'inventory' et 'location' si besoin. Mets aussi à jour 'relationships', 'emotions', et 'events' si pertinent. 'updatedGameState' doit être JSON valide contenant au minimum playerName, location, inventory, relationships, emotions, events. Si rien n'a changé, renvoie le 'gameState' précédent (stringify), mais valide.
+12. **Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON valide : 'storyContent' (string), 'nextChoices' (array de strings, vide si {{isLastTurn}} est vrai), 'updatedGameState' (string JSON valide), 'generatedImagePrompt' (string, optionnel, vide si non pertinent).
 13. **Ton rôle** : Reste UNIQUEMENT le narrateur.
 14. **Public (8-12 ans)** : Langage simple, adapté, positif. Pas de violence/peur excessive. Combat suggéré, pas décrit crûment.
 
-**Important** : Concentre-toi sur la réaction à la **dernière action**, la gestion précise de l'inventaire, du **lieu**, des **relations** et des **émotions** dans updatedGameState, la décision de fournir ou non un generatedImagePrompt (en visant la **consistance** visuelle et incluant theme/lieu/nom/style si fourni), la gestion des **combats** par des choix appropriés, et la **conclusion si c'est le dernier tour** ({{isLastTurn}}).
+**Important** : Concentre-toi sur la réaction à la **dernière action**, la gestion précise de l'inventaire, du **lieu**, des **relations** et des **émotions** dans 'updatedGameState', l'utilisation des **habiletés du héros ({{{heroDescription}}})** dans la narration et les choix, la décision de fournir ou non un 'generatedImagePrompt' (en visant la **consistance** visuelle et incluant theme/lieu/nom/classe/style si fourni), la gestion des **combats** par des choix appropriés, et la **conclusion si c'est le dernier tour** ({{isLastTurn}}).
 
-Génère maintenant la suite (ou la fin) de l'histoire pour {{{playerName}}}.
+Génère maintenant la suite (ou la fin) de l'histoire pour {{{playerName}}}, le/la {{{selectedHeroValue}}}.
 `,
 });
 
@@ -188,6 +199,7 @@ async input => {
    // Validation de base de l'entrée
    if (!input.theme) throw new Error("Le thème est requis.");
    if (!input.playerName) throw new Error("Le nom du joueur est requis.");
+   if (!input.selectedHeroValue) throw new Error("Le héros sélectionné est requis."); // Vérifier le héros
    if (!input.gameState) throw new Error("L'état du jeu est requis.");
    if (input.currentTurn === undefined || !input.maxTurns) throw new Error("Les informations sur le tour sont requises."); // Vérifier spécifiquement currentTurn
 
@@ -248,6 +260,10 @@ async input => {
     // Mettre à jour le gameState avec le nouvel événement (le cas échéant) avant de l'envoyer au prompt
     const validatedInputGameStateString = safeJsonStringify(currentGameStateObj);
 
+   // Récupérer la description du héros pour le prompt
+   const heroDetails = heroOptions.find(h => h.value === input.selectedHeroValue);
+   const heroDescription = heroDetails?.description || "Possède des capacités uniques.";
+
 
   // Injecter la date actuelle et le prompt précédent dans le contexte du prompt
   const promptInput = {
@@ -257,6 +273,7 @@ async input => {
       current_date: new Date().toLocaleDateString('fr-FR'),
       lastStorySegmentText: input.lastStorySegmentText || (safePlayerChoicesHistory.length > 0 ? safePlayerChoicesHistory[safePlayerChoicesHistory.length - 1] : "C'est le début de l'aventure."),
       previousImagePrompt: input.previousImagePrompt, // Passer le prompt précédent pour vérification de cohérence par l'IA
+      heroDescription: heroDescription, // Ajouter la description pour le prompt
   };
 
   const { output } = await prompt(promptInput);
