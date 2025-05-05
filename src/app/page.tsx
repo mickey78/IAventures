@@ -4,31 +4,26 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { listSaveGames, type GameStateToSave } from '@/lib/saveLoadUtils';
-import type { StorySegment, ParsedGameState, GameState, GameView, Theme, SubTheme, HeroClass, HeroOption, HeroAbility } from '@/types/game'; // Import shared types, add HeroAbility
-import { generateInitialStory } from '@/ai/flows/generate-initial-story';
-import type { GenerateInitialStoryOutput, GenerateInitialStoryInput } from '@/ai/flows/generate-initial-story'; // Import Input type
-import { generateStoryContent } from '@/ai/flows/generate-story-content';
-import type { GenerateStoryContentInput, GenerateStoryContentOutput } from '@/ai/flows/generate-story-content';
-import { generateImage } from '@/ai/flows/generate-image';
-import type { GenerateImageOutput } from '@/ai/flows/generate-image';
-import { saveGame, loadGame, deleteSaveGame } from '@/lib/saveLoadUtils';
-import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils'; // Import helper
-import { themes } from '@/config/themes'; // Import themes config
+import type { StorySegment, GameState, GameView, HeroAbility } from '@/types/game'; // Import shared types
 import { heroOptions } from '@/config/heroes'; // Import hero config
+import { themes } from '@/config/themes'; // Import themes config
+import { useGameActions } from '@/hooks/useGameActions'; // Import the new hook
+import { useSaveLoad } from '@/hooks/useSaveLoad'; // Import the new hook
 
 import { Card } from '@/components/ui/card';
 import GameHeader from '@/components/game/GameHeader';
 import MainMenu from '@/components/game/MainMenu';
 import ThemeSelection from '@/components/game/ThemeSelection';
-import SubThemeSelection from '@/components/game/SubThemeSelection'; // Import SubThemeSelection
-import HeroSelection from '@/components/game/HeroSelection'; // Import HeroSelection
+import SubThemeSelection from '@/components/game/SubThemeSelection';
+import HeroSelection from '@/components/game/HeroSelection';
 import NameInput from '@/components/game/NameInput';
 import LoadGame from '@/components/game/LoadGame';
 import StoryDisplay from '@/components/game/StoryDisplay';
 import ActionInput from '@/components/game/ActionInput';
 import SaveDialog from '@/components/game/SaveDialog';
 import GameEndedDisplay from '@/components/game/GameEndedDisplay';
-import { AlertCircle, Loader, Info } from 'lucide-react'; // Import Info icon
+import DebugInitialPrompt from '@/components/game/DebugInitialPrompt'; // Import Debug Component
+import { AlertCircle, Loader } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function IAventuresGame() {
@@ -42,38 +37,56 @@ export default function IAventuresGame() {
         relationships: {},
         emotions: [],
         events: [],
-     }, // Initialize with default object and location
+     },
     theme: null,
-    subTheme: null, // Added subTheme state
-    selectedHero: null, // Added hero state
+    subTheme: null,
+    selectedHero: null,
     playerName: null,
     isLoading: false,
     error: null,
     playerChoicesHistory: [],
     currentView: 'menu',
-    maxTurns: 15, // Default max turns
-    currentTurn: 1, // Default current turn
-    generatingSegmentId: null, // Track which segment is generating an image
+    maxTurns: 15,
+    currentTurn: 1,
+    generatingSegmentId: null,
+    initialPromptDebug: null, // Initialize debug info
   });
-  const [savedGames, setSavedGames] = useState<Omit<GameStateToSave, 'story' | 'choices' | 'currentGameState' | 'playerChoicesHistory'>[]>([]); // Minimal info for list
-  const [saveNameInput, setSaveNameInput] = useState('');
-  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
   const [playerNameInput, setPlayerNameInput] = useState('');
   const [maxTurnsInput, setMaxTurnsInput] = useState<number>(15);
   const [customChoiceInput, setCustomChoiceInput] = useState('');
   const [isInventoryPopoverOpen, setIsInventoryPopoverOpen] = useState(false);
-  const [isAbilitiesPopoverOpen, setIsAbilitiesPopoverOpen] = useState(false); // State for abilities popover
+  const [isAbilitiesPopoverOpen, setIsAbilitiesPopoverOpen] = useState(false);
   const [isCustomInputVisible, setIsCustomInputVisible] = useState(false);
-  const [shouldFlashInventory, setShouldFlashInventory] = useState(false); // State for inventory flash
+
 
   const { toast } = useToast();
   const viewportRef = useRef<HTMLDivElement>(null);
   const customInputRef = useRef<HTMLInputElement>(null);
 
-  // --- Load saved games on initial mount ---
-  useEffect(() => {
-    setSavedGames(listSaveGames());
-  }, []);
+  // Use custom hook for game actions (AI interactions)
+  const {
+    startNewGame,
+    handleAction,
+    triggerImageGeneration,
+    handleManualImageGeneration,
+    shouldFlashInventory,
+    setShouldFlashInventory,
+  } = useGameActions(gameState, setGameState, toast, viewportRef);
+
+  // Use custom hook for save/load functionality
+  const {
+    savedGames,
+    setSavedGames, // Expose setter if needed from hook
+    saveNameInput,
+    setSaveNameInput,
+    isSaveDialogOpen,
+    setIsSaveDialogOpen,
+    handleOpenSaveDialog,
+    handleSaveGame,
+    handleLoadGame,
+    handleDeleteGame,
+  } = useSaveLoad(gameState, setGameState, toast);
+
 
   // --- Scrolling Effect ---
   const scrollToBottom = useCallback(() => {
@@ -100,13 +113,12 @@ export default function IAventuresGame() {
    // --- Inventory Flash Effect ---
    useEffect(() => {
     if (shouldFlashInventory) {
-      // Set a timeout to remove the flash class after the animation duration (0.5s * 3 = 1.5s)
       const timer = setTimeout(() => {
         setShouldFlashInventory(false);
-      }, 1500); // Match the total animation duration (0.5s * 3 iterations)
-      return () => clearTimeout(timer); // Cleanup timer on unmount or if effect runs again
+      }, 1500);
+      return () => clearTimeout(timer);
     }
-  }, [shouldFlashInventory]);
+  }, [shouldFlashInventory, setShouldFlashInventory]);
 
 
   // --- Navigation Handlers ---
@@ -115,7 +127,7 @@ export default function IAventuresGame() {
       ...prev,
       story: [],
       choices: [],
-      currentGameState: { // Reset inner state completely
+      currentGameState: {
           playerName: null,
           location: 'Menu Principal',
           inventory: [],
@@ -124,8 +136,8 @@ export default function IAventuresGame() {
           events: []
       },
       theme: null,
-      subTheme: null, // Reset subTheme
-      selectedHero: null, // Reset hero
+      subTheme: null,
+      selectedHero: null,
       playerName: null,
       isLoading: false,
       error: null,
@@ -134,10 +146,11 @@ export default function IAventuresGame() {
       maxTurns: 15,
       currentTurn: 1,
       generatingSegmentId: null,
+      initialPromptDebug: null, // Reset debug info
     }));
-    setSavedGames(listSaveGames());
+    setSavedGames(listSaveGames()); // Refresh saved games list via hook
     setIsInventoryPopoverOpen(false);
-    setIsAbilitiesPopoverOpen(false); // Close abilities popover
+    setIsAbilitiesPopoverOpen(false);
     setIsCustomInputVisible(false);
   }
 
@@ -146,15 +159,16 @@ export default function IAventuresGame() {
       ...prev,
       currentView: 'theme_selection',
       theme: null,
-      subTheme: null, // Reset subTheme when going back to theme selection
-      selectedHero: null, // Reset hero
+      subTheme: null,
+      selectedHero: null,
       playerName: null,
       currentTurn: 1,
       maxTurns: 15,
-      currentGameState: { ...prev.currentGameState, location: 'Sélection du Thème', relationships: {}, emotions: [], events: [] }, // Reset specific parts
+      currentGameState: { ...prev.currentGameState, location: 'Sélection du Thème', relationships: {}, emotions: [], events: [] },
+      initialPromptDebug: null, // Reset debug info
     }));
     setIsInventoryPopoverOpen(false);
-     setIsAbilitiesPopoverOpen(false); // Close abilities popover
+     setIsAbilitiesPopoverOpen(false);
     setIsCustomInputVisible(false);
   };
 
@@ -166,60 +180,58 @@ export default function IAventuresGame() {
     }
      setGameState(prev => ({
        ...prev,
-       theme: selectedThemeValue, // Set the main theme
+       theme: selectedThemeValue,
        currentView: 'sub_theme_selection',
-       subTheme: null, // Reset subtheme selection for this view
-       selectedHero: null, // Reset hero
+       subTheme: null,
+       selectedHero: null,
        currentGameState: { ...prev.currentGameState, location: `Choix du Scénario: ${selectedThemeValue}` },
      }));
      setIsInventoryPopoverOpen(false);
-     setIsAbilitiesPopoverOpen(false); // Close abilities popover
+     setIsAbilitiesPopoverOpen(false);
      setIsCustomInputVisible(false);
    };
 
    const showHeroSelection = () => {
-     if (!gameState.theme) { // Check for main theme
+     if (!gameState.theme) {
        toast({ title: 'Erreur', description: 'Veuillez choisir un thème avant de continuer.', variant: 'destructive' });
        return;
      }
      setGameState(prev => ({ ...prev, currentView: 'hero_selection', selectedHero: null, currentGameState: { ...prev.currentGameState, location: 'Choix du Héros' } }));
      setIsInventoryPopoverOpen(false);
-      setIsAbilitiesPopoverOpen(false); // Close abilities popover
+      setIsAbilitiesPopoverOpen(false);
      setIsCustomInputVisible(false);
    };
 
 
   const showNameInput = () => {
-    if (!gameState.theme || !gameState.selectedHero) { // Check theme and hero
+    if (!gameState.theme || !gameState.selectedHero) {
       toast({ title: 'Erreur', description: 'Veuillez choisir un thème et un héros avant de continuer.', variant: 'destructive' });
       return;
     }
     setGameState(prev => ({ ...prev, currentView: 'name_input', currentGameState: { ...prev.currentGameState, location: 'Création du Personnage' } }));
     setIsInventoryPopoverOpen(false);
-     setIsAbilitiesPopoverOpen(false); // Close abilities popover
-    setIsCustomInputVisible(false);
+     setIsAbilitiesPopoverOpen(false);
+     setIsCustomInputVisible(false);
   }
 
   const showLoadGameView = () => {
-    setSavedGames(listSaveGames());
+    setSavedGames(listSaveGames()); // Refresh saved games list via hook
     setGameState(prev => ({ ...prev, currentView: 'loading_game', currentGameState: { ...prev.currentGameState, location: 'Chargement de Partie' } }));
     setIsInventoryPopoverOpen(false);
-     setIsAbilitiesPopoverOpen(false); // Close abilities popover
-    setIsCustomInputVisible(false);
+     setIsAbilitiesPopoverOpen(false);
+     setIsCustomInputVisible(false);
   };
 
-  // --- Game Logic ---
+  // --- Game Logic Handlers ---
   const handleThemeSelect = (themeValue: string) => {
-     // No need to change view here, just update the selected theme in state
-     setGameState((prev) => ({ ...prev, theme: themeValue, subTheme: null, selectedHero: null })); // Reset subtheme and hero if main theme changes
+     setGameState((prev) => ({ ...prev, theme: themeValue, subTheme: null, selectedHero: null }));
   };
 
-  // Updated to handle null for skipping
   const handleSubThemeSelect = (subThemeValue: string | null) => {
-    setGameState((prev) => ({ ...prev, subTheme: subThemeValue, selectedHero: null })); // Reset hero if subtheme changes
+    setGameState((prev) => ({ ...prev, subTheme: subThemeValue, selectedHero: null }));
   };
 
-  const handleHeroSelect = (heroValue: HeroClass) => {
+  const handleHeroSelect = (heroValue: string) => { // Changed type to string
     setGameState((prev) => ({ ...prev, selectedHero: heroValue }));
   };
 
@@ -234,331 +246,19 @@ export default function IAventuresGame() {
       return;
     }
     const trimmedName = playerNameInput.trim();
-    setGameState(prev => ({
-      ...prev,
-      playerName: trimmedName,
-      currentGameState: { ...prev.currentGameState, playerName: trimmedName, location: 'Initialisation...' },
-      maxTurns: maxTurnsInput,
-      currentTurn: 1,
-    }));
-    startNewGame(trimmedName, gameState.theme, gameState.subTheme, gameState.selectedHero, maxTurnsInput); // Pass selected hero
+    // Call startNewGame from the hook
+    startNewGame(trimmedName, gameState.theme, gameState.subTheme, gameState.selectedHero, maxTurnsInput);
   }
 
-  // --- Image Generation ---
-  const triggerImageGeneration = useCallback(async (segmentId: number, prompt: string) => {
-    if (!prompt) {
-        console.warn(`Image generation skipped for segment ${segmentId}: no prompt provided.`);
-        setGameState((prev) => ({
-            ...prev,
-            story: prev.story.map(seg =>
-                seg.id === segmentId ? { ...seg, imageIsLoading: false, imageError: false } : seg
-            ),
-            generatingSegmentId: prev.generatingSegmentId === segmentId ? null : prev.generatingSegmentId, // Clear if it was this segment
-        }));
-        return;
-    }
-
-    setGameState((prev) => ({
-        ...prev,
-        story: prev.story.map(seg =>
-            seg.id === segmentId
-                ? { ...seg, imageIsLoading: true, imageError: false, imageGenerationPrompt: prompt } // Mark as loading and store prompt
-                : seg
-        ),
-        generatingSegmentId: segmentId, // Track generating segment
-    }));
-
-    try {
-        console.log(`Requesting image generation for segment ${segmentId} with prompt: ${prompt}`);
-        const imageData: GenerateImageOutput = await generateImage({ prompt });
-        console.log(`Image generated successfully for segment ${segmentId}`);
-        setGameState((prev) => ({
-            ...prev,
-            story: prev.story.map(seg =>
-                seg.id === segmentId
-                    ? { ...seg, storyImageUrl: imageData.imageUrl, imageIsLoading: false }
-                    : seg
-            ),
-            generatingSegmentId: null, // Clear generating tracker
-        }));
-        scrollToBottom(); // Scroll after image loads
-    } catch (err) {
-        console.error(`Error generating image for segment ${segmentId}:`, err);
-        const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
-        toast({ title: 'Erreur Image', description: `Impossible de générer l'image: ${errorMsg}`, variant: 'destructive' });
-        setGameState((prev) => ({
-            ...prev,
-            story: prev.story.map(seg =>
-                seg.id === segmentId
-                    ? { ...seg, storyImageUrl: null, imageIsLoading: false, imageError: true } // Mark as error
-                    : seg
-            ),
-            generatingSegmentId: null, // Clear generating tracker
-        }));
-    }
-  }, [toast, scrollToBottom]); // Added scrollToBottom dependency
-
-  const handleManualImageGeneration = (segmentId: number, segmentText: string) => {
-      if (!gameState.theme || !gameState.currentGameState.location || !gameState.playerName || !gameState.selectedHero) {
-            toast({ title: 'Erreur', description: 'Impossible de générer une image sans thème, lieu, héros ou nom de joueur définis.', variant: 'destructive' });
-            return;
-      }
-      // Construct a prompt similar to the automatic one, including player name and current mood if available
-      const moodText = gameState.currentGameState.emotions && gameState.currentGameState.emotions.length > 0 ? ` Ambiance: ${gameState.currentGameState.emotions.join(', ')}.` : '';
-      const prompt = `Une illustration de "${gameState.playerName}", le/la ${gameState.selectedHero}: "${segmentText.substring(0, 80)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} Style: Cartoon.`;
-      triggerImageGeneration(segmentId, prompt);
-  };
-
-
-  // Updated to handle null subTheme and hero
-  const startNewGame = async (nameToUse: string, themeToUse: string | null, subThemeToUse: string | null, heroToUse: string | null, turns: number) => {
-    if (!themeToUse) {
-      console.error('Theme missing, cannot start game.');
-      toast({ title: 'Erreur', description: 'Veuillez sélectionner un thème.', variant: 'destructive' });
-       showThemeSelection();
-      return;
-    }
-     if (!heroToUse) {
-       console.error('Hero missing, cannot start game.');
-       toast({ title: 'Erreur', description: 'Veuillez sélectionner un héros.', variant: 'destructive' });
-       showHeroSelection(); // Direct user back to hero selection
-       return;
-     }
-
-     let initialScenarioPrompt = `Commence une aventure créative et surprenante pour ${nameToUse}, le/la ${heroToUse}, dans le thème "${themeToUse}".`; // Generic prompt if skipping
-     if (subThemeToUse) {
-        // Find the specific subTheme prompt if one was selected
-         const mainTheme = themes.find(t => t.value === themeToUse);
-         const subThemeDetails = mainTheme?.subThemes.find(st => st.value === subThemeToUse);
-         if (!subThemeDetails) {
-            console.error('SubTheme details not found, but a subTheme was selected.');
-            toast({ title: 'Erreur', description: 'Détails du scénario sélectionné non trouvés. Utilisation d\'un démarrage générique.', variant: 'destructive' });
-            // Proceed with generic prompt, or could go back: showSubThemeSelection(themeToUse);
-         } else {
-             initialScenarioPrompt = subThemeDetails.prompt; // Use specific prompt
-         }
-     }
-
-
-    setGameState((prev) => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-      story: [],
-      choices: [],
-      playerChoicesHistory: [],
-      currentView: 'game_active',
-      theme: themeToUse,
-      subTheme: subThemeToUse, // Set subTheme (can be null)
-      selectedHero: heroToUse, // Set selected hero
-      playerName: nameToUse,
-      maxTurns: turns,
-      currentTurn: 1,
-      generatingSegmentId: null,
-      currentGameState: { // Reset game state inner parts completely for new game
-        playerName: nameToUse, // Ensure player name is set here too
-        location: 'Chargement...',
-        inventory: [],
-        relationships: {},
-        emotions: [],
-        events: [],
-      },
-    }));
-    setIsInventoryPopoverOpen(false);
-    setIsAbilitiesPopoverOpen(false); // Close abilities popover
-    setIsCustomInputVisible(false);
-
-    try {
-      const initialStoryInput: GenerateInitialStoryInput = { // Use the input type
-          theme: themeToUse,
-          subThemePrompt: initialScenarioPrompt, // Pass the specific or generic prompt
-          playerName: nameToUse,
-          // Pass hero info if needed by the prompt (currently not explicitly in prompt, but could be added)
-          // hero: heroToUse,
-        };
-
-      const initialStoryData: GenerateInitialStoryOutput = await generateInitialStory(initialStoryInput);
-
-
-      const initialSegmentId = Date.now();
-      const initialStorySegment: StorySegment = {
-        id: initialSegmentId,
-        text: initialStoryData.story,
-        speaker: 'narrator',
-        storyImageUrl: null,
-        imageIsLoading: !!initialStoryData.generatedImagePrompt,
-        imageError: false,
-        imageGenerationPrompt: initialStoryData.generatedImagePrompt,
-      };
-
-      setGameState((prev) => ({
-        ...prev,
-        story: [initialStorySegment],
-        choices: initialStoryData.choices,
-        isLoading: false,
-        currentGameState: {
-          ...prev.currentGameState, // Keep playerName, inventory already reset
-          location: initialStoryData.location,
-          // Initialize relationships and emotions based on story? Or keep empty? For now, keep empty.
-          relationships: {},
-          emotions: [],
-          events: [], // Start with no events
-        }
-      }));
-
-      if (initialStoryData.generatedImagePrompt) {
-        triggerImageGeneration(initialSegmentId, initialStoryData.generatedImagePrompt);
-      }
-
-    } catch (err) {
-      console.error('Error generating initial story:', err);
-      const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
-      setGameState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: `Impossible de générer l'histoire initiale: ${errorMsg}`,
-        theme: null,
-        subTheme: null, // Reset subTheme on error
-        selectedHero: null, // Reset hero on error
-        playerName: null,
-        currentGameState: { // Ensure reset on error too
-            playerName: null,
-            location: 'Erreur',
-            inventory: [],
-            relationships: {},
-            emotions: [],
-            events: []
-        },
-        currentView: 'theme_selection', // Go back to theme selection on error
-        maxTurns: 15,
-        currentTurn: 1,
-        generatingSegmentId: null,
-      }));
-      toast({ title: 'Erreur de Génération', description: `Impossible de générer l'histoire initiale: ${errorMsg}`, variant: 'destructive' });
-    }
-  };
-
-  const handleAction = async (actionText: string) => {
-    if (!actionText.trim()) {
-      toast({ title: "Action Vide", description: "Veuillez décrire votre action.", variant: "destructive" });
-      return;
-    }
-    if (!gameState.playerName || !gameState.theme || !gameState.selectedHero) { // Check hero too
-      console.error('Player name, theme, or hero missing during action handling.');
-      toast({ title: 'Erreur', description: 'Erreur de jeu critique. Retour au menu principal.', variant: 'destructive' });
-      showMainMenu();
-      return;
-    }
-    if (gameState.currentView === 'game_ended') {
-      toast({ title: "Fin de l'aventure", description: "L'histoire est terminée. Vous pouvez commencer une nouvelle partie.", variant: "destructive" });
-      return;
-    }
-
-    const playerActionSegment: StorySegment = {
-      id: Date.now(),
-      text: actionText.trim(),
-      speaker: 'player',
-      // No image fields for player actions
-    };
-    const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, actionText.trim()];
-    const previousStory = [...gameState.story];
-    const previousChoices = [...gameState.choices];
-    const previousGameState = gameState.currentGameState; // This is now ParsedGameState object
-    const lastSegmentBeforeAction = previousStory.length > 0 ? previousStory[previousStory.length - 1] : undefined;
-    const nextTurn = gameState.currentTurn + 1;
-
-
-    setGameState((prev) => ({
-      ...prev,
-      isLoading: true,
-      error: null,
-      story: [...prev.story, playerActionSegment],
-      choices: [],
-      playerChoicesHistory: nextPlayerChoicesHistory,
-      currentTurn: nextTurn,
-      generatingSegmentId: null,
-    }));
-    setCustomChoiceInput('');
-    setIsInventoryPopoverOpen(false);
-    setIsAbilitiesPopoverOpen(false); // Close abilities popover
-    setIsCustomInputVisible(false);
-
-    const isLastTurn = nextTurn > gameState.maxTurns;
-
-    const input: GenerateStoryContentInput = {
-      theme: gameState.theme, // Pass main theme
-      playerName: gameState.playerName,
-      selectedHeroValue: gameState.selectedHero, // Pass the selected hero's value
-      lastStorySegment: lastSegmentBeforeAction, // Pass previous segment for context and image prompt
-      playerChoicesHistory: nextPlayerChoicesHistory,
-      gameState: safeJsonStringify(previousGameState), // Stringify the ParsedGameState object
-      currentTurn: nextTurn,
-      maxTurns: gameState.maxTurns,
-      isLastTurn: isLastTurn,
-    };
-
-    try {
-      const nextStoryData: GenerateStoryContentOutput = await generateStoryContent(input);
-
-      const narratorResponseSegmentId = Date.now() + 1;
-      const narratorResponseSegment: StorySegment = {
-        id: narratorResponseSegmentId,
-        text: nextStoryData.storyContent,
-        speaker: 'narrator',
-        storyImageUrl: null,
-        imageIsLoading: !!nextStoryData.generatedImagePrompt,
-        imageError: false,
-        imageGenerationPrompt: nextStoryData.generatedImagePrompt, // Store the new prompt
-      };
-      const updatedParsedGameState = parseGameState(nextStoryData.updatedGameState, gameState.playerName);
-
-      // Check if inventory length increased
-      const inventoryIncreased = updatedParsedGameState.inventory.length > previousGameState.inventory.length;
-       if (inventoryIncreased) {
-         setShouldFlashInventory(true); // Trigger the flash animation
-       }
-
-
-      setGameState((prev) => ({
-        ...prev,
-        story: [...prev.story, narratorResponseSegment],
-        choices: nextStoryData.nextChoices,
-        currentGameState: updatedParsedGameState, // Store the parsed object
-        isLoading: false,
-        currentView: isLastTurn ? 'game_ended' : 'game_active',
-      }));
-
-      if (nextStoryData.generatedImagePrompt) {
-        triggerImageGeneration(narratorResponseSegmentId, nextStoryData.generatedImagePrompt);
-      }
-
-      if (isLastTurn) {
-        toast({ title: "Fin de l'Aventure !", description: "Votre histoire est terminée. Merci d'avoir joué !", duration: 5000 });
-      }
-
-    } catch (err) {
-      console.error('Error generating story content:', err);
-      const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
-      setGameState((prev) => ({
-        ...prev,
-        isLoading: false,
-        error: `Impossible de continuer l'histoire: ${errorMsg}`,
-        story: previousStory,
-        choices: previousChoices,
-        currentGameState: previousGameState, // Revert to previous ParsedGameState object
-        playerChoicesHistory: prev.playerChoicesHistory.slice(0, -1),
-        currentTurn: prev.currentTurn - 1, // Revert turn count on error
-      }));
-      toast({ title: 'Erreur de Génération', description: `Impossible de continuer l'histoire: ${errorMsg}`, variant: 'destructive' });
-    }
-  };
 
   const handleCustomChoiceSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
+    // Call handleAction from the hook
     handleAction(customChoiceInput);
+    setCustomChoiceInput(''); // Clear input after submission
+    setIsCustomInputVisible(false); // Hide custom input field
   };
 
-  // Updated handler for inventory actions
   const handleInventoryActionClick = (actionPrefix: string, item: string) => {
     if (gameState.currentView === 'game_ended') {
       toast({ title: "Fin de l'aventure", description: "L'histoire est terminée.", variant: "destructive" });
@@ -568,17 +268,14 @@ export default function IAventuresGame() {
     const fullActionText = `${actionPrefix} ${item}`;
     setCustomChoiceInput(fullActionText);
     setIsInventoryPopoverOpen(false);
-    setIsCustomInputVisible(true); // Show the input field
+    setIsCustomInputVisible(true);
     requestAnimationFrame(() => {
-      customInputRef.current?.focus(); // Focus it
-      // Set cursor to the end
+      customInputRef.current?.focus();
       customInputRef.current?.setSelectionRange(fullActionText.length, fullActionText.length);
     });
     toast({ title: "Action d'Inventaire", description: `Prêt à '${fullActionText}'. Appuyez sur Envoyer.` });
   };
 
-
-  // Handler for using abilities
   const handleAbilityActionClick = (ability: HeroAbility) => {
     if (gameState.currentView === 'game_ended') {
         toast({ title: "Fin de l'aventure", description: "L'histoire est terminée.", variant: "destructive" });
@@ -586,145 +283,18 @@ export default function IAventuresGame() {
         return;
     }
     const fullActionText = `Utiliser ${ability.label}`;
-    // Don't automatically submit, let the user review/confirm in the input field
     setCustomChoiceInput(fullActionText);
-    setIsAbilitiesPopoverOpen(false); // Close the popover
-    setIsCustomInputVisible(true); // Show the input field
+    setIsAbilitiesPopoverOpen(false);
+    setIsCustomInputVisible(true);
     requestAnimationFrame(() => {
-      customInputRef.current?.focus(); // Focus it
-      // Set cursor to the end
+      customInputRef.current?.focus();
       customInputRef.current?.setSelectionRange(fullActionText.length, fullActionText.length);
     });
     toast({ title: "Action d'Habileté", description: `Prêt à '${fullActionText}'. Appuyez sur Envoyer.` });
   };
 
+  // --- Save/Load Handlers are now called directly from the useSaveLoad hook ---
 
-  // --- Save/Load Handlers ---
-  const handleOpenSaveDialog = () => {
-     if (gameState.currentView !== 'game_active') { // Allow saving only when active
-      toast({ title: "Action Impossible", description: "Vous ne pouvez sauvegarder qu'une partie en cours.", variant: "default" });
-      return;
-    }
-    const dateStr = new Date().toLocaleDateString('fr-CA');
-    // Handle case where subTheme might be null
-    const subThemeLabel = gameState.subTheme
-        ? themes.find(t => t.value === gameState.theme)?.subThemes.find(st => st.value === gameState.subTheme)?.label || gameState.subTheme
-        : 'Sans Scénario Spécifique'; // Label for skipped subTheme
-    const heroLabel = heroOptions.find(h => h.value === gameState.selectedHero)?.label || 'Héros Inconnu'; // Add hero label
-    const suggestedName = gameState.theme && gameState.playerName && gameState.selectedHero // Ensure hero is also present
-       ? `${gameState.playerName} (${heroLabel}) - ${subThemeLabel} (T${gameState.currentTurn}/${gameState.maxTurns}) - ${dateStr}` // More specific name
-       : `Sauvegarde ${dateStr}`;
-
-    setSaveNameInput(suggestedName);
-    setIsSaveDialogOpen(true);
-  };
-
-  const handleSaveGame = () => {
-    if (!saveNameInput.trim()) {
-      toast({ title: "Nom Invalide", description: "Veuillez entrer un nom pour la sauvegarde.", variant: "destructive" });
-      return;
-    }
-     if (gameState.currentView !== 'game_active') {
-        toast({ title: "Action Impossible", description: "Vous ne pouvez sauvegarder qu'une partie en cours.", variant: "destructive" });
-        setIsSaveDialogOpen(false);
-        return;
-    }
-    if (!gameState.theme || !gameState.playerName || !gameState.selectedHero) { // Check for hero too
-      toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes (thème, nom, ou héros).", variant: "destructive" });
-      return;
-    }
-
-    // Ensure currentGameState is stringified before saving
-    const stringifiedGameState = safeJsonStringify(gameState.currentGameState); // Use the utility
-
-    // Prepare the state, ensuring story segments exclude transient/image data
-    const stateToSave: Omit<GameStateToSave, 'timestamp' | 'saveName'> = { // Prepare without timestamp/saveName initially
-      theme: gameState.theme,
-      subTheme: gameState.subTheme, // Save subTheme (can be null)
-      selectedHero: gameState.selectedHero, // Save selected hero
-      playerName: gameState.playerName,
-      story: gameState.story.map(seg => { // Map to exclude fields for saving
-          const { storyImageUrl, imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg;
-          return rest; // Keep only id, text, speaker
-      }),
-      choices: gameState.choices,
-      currentGameState: stringifiedGameState, // Pass the stringified version
-      playerChoicesHistory: gameState.playerChoicesHistory,
-      maxTurns: gameState.maxTurns,
-      currentTurn: gameState.currentTurn,
-    };
-
-    // Use saveGame utility, which now handles image data removal internally
-    if (saveGame(saveNameInput.trim(), stateToSave)) {
-      toast({ title: "Partie Sauvegardée", description: `La partie "${saveNameInput.trim()}" a été sauvegardée.` });
-      setSavedGames(listSaveGames());
-      setIsSaveDialogOpen(false);
-    } else {
-      // Error handling is now primarily within saveGame utility (e.g., quota exceeded)
-       toast({ title: "Erreur Sauvegarde", description: "La sauvegarde a échoué. Vérifiez la console pour les détails.", variant: "destructive" });
-    }
-  };
-
- const handleLoadGame = (saveName: string) => {
-    const loadedState = loadGame(saveName); // loadGame now adds default image states and handles subTheme/hero
-    if (loadedState) {
-       // Validate subTheme existence if possible (optional, depends on how strict you want to be)
-        if (loadedState.subTheme) {
-            const mainThemeExists = themes.some(t => t.value === loadedState.theme);
-            const subThemeExists = mainThemeExists && themes.find(t => t.value === loadedState.theme)?.subThemes.some(st => st.value === loadedState.subTheme);
-            if (!subThemeExists) {
-                 toast({ title: "Erreur de Chargement", description: `Le scénario sauvegardé ("${loadedState.subTheme}") pour le thème "${loadedState.theme}" n'existe plus ou est invalide. Impossible de charger.`, variant: "destructive" });
-                 setSavedGames(listSaveGames()); // Refresh list
-                 return;
-             }
-        }
-        // Validate hero existence
-         if (!loadedState.selectedHero || !heroOptions.some(h => h.value === loadedState.selectedHero)) {
-             toast({ title: "Erreur de Chargement", description: `Le héros sauvegardé ("${loadedState.selectedHero || 'Aucun'}") n'existe plus ou est invalide. Impossible de charger.`, variant: "destructive" });
-             setSavedGames(listSaveGames()); // Refresh list
-             return;
-         }
-
-
-      const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName); // Ensure parsing
-      const loadedView: GameView = loadedState.currentTurn > loadedState.maxTurns ? 'game_ended' : 'game_active'; // Determine view based on turns
-
-      setGameState(prev => ({
-        ...prev,
-        theme: loadedState.theme,
-        subTheme: loadedState.subTheme, // Load subTheme (can be null)
-        selectedHero: loadedState.selectedHero, // Load selected hero
-        playerName: loadedState.playerName,
-        story: loadedState.story, // Use the story with rehydrated image states
-        choices: loadedState.choices,
-        currentGameState: parsedLoadedGameState, // Use the parsed game state object
-        playerChoicesHistory: loadedState.playerChoicesHistory,
-        isLoading: false,
-        error: null,
-        currentView: loadedView,
-        maxTurns: loadedState.maxTurns,
-        currentTurn: loadedState.currentTurn,
-        generatingSegmentId: null, // Reset image generation tracking
-      }));
-      toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
-      setIsInventoryPopoverOpen(false);
-      setIsAbilitiesPopoverOpen(false); // Close abilities popover
-      setIsCustomInputVisible(false);
-    } else {
-      toast({ title: "Erreur de Chargement", description: `Impossible de charger la partie "${saveName}".`, variant: "destructive" });
-      setSavedGames(listSaveGames()); // Refresh list in case the save was corrupted/removed
-    }
-  };
-
-
-  const handleDeleteGame = (saveName: string) => {
-    if (deleteSaveGame(saveName)) {
-      toast({ title: "Sauvegarde Supprimée", description: `La sauvegarde "${saveName}" a été supprimée.` });
-      setSavedGames(listSaveGames());
-    } else {
-      toast({ title: "Erreur", description: `Impossible de supprimer la sauvegarde "${saveName}".`, variant: "destructive" });
-    }
-  };
 
   // --- Render Logic ---
   const renderCurrentView = () => {
@@ -736,26 +306,26 @@ export default function IAventuresGame() {
                     themes={themes}
                     selectedTheme={gameState.theme}
                     onThemeSelect={handleThemeSelect}
-                    onNext={showSubThemeSelection} // Go to subtheme selection
+                    onNext={showSubThemeSelection}
                     onBack={showMainMenu}
                 />;
-      case 'sub_theme_selection': { // Added case for sub-theme selection
+      case 'sub_theme_selection': {
         const selectedMainTheme = themes.find(t => t.value === gameState.theme);
         return <SubThemeSelection
                   mainTheme={selectedMainTheme}
                   selectedSubTheme={gameState.subTheme}
-                  onSubThemeSelect={handleSubThemeSelect} // Updated handler
-                  onNext={showHeroSelection} // Go to hero selection
-                  onBack={showThemeSelection} // Go back to theme selection
+                  onSubThemeSelect={handleSubThemeSelect}
+                  onNext={showHeroSelection}
+                  onBack={showThemeSelection}
               />;
         }
-      case 'hero_selection': // Added case for hero selection
+      case 'hero_selection':
         return <HeroSelection
                     heroes={heroOptions}
                     selectedHero={gameState.selectedHero}
                     onHeroSelect={handleHeroSelect}
-                    onNext={showNameInput} // Go to name input
-                    onBack={() => gameState.theme ? showSubThemeSelection(gameState.theme) : showThemeSelection()} // Go back to sub-theme or theme
+                    onNext={showNameInput}
+                    onBack={() => gameState.theme ? showSubThemeSelection(gameState.theme) : showThemeSelection()}
                 />;
       case 'name_input':
         return <NameInput
@@ -764,7 +334,6 @@ export default function IAventuresGame() {
                     maxTurns={maxTurnsInput}
                     onMaxTurnsChange={setMaxTurnsInput}
                     onSubmit={handleNameSubmit}
-                    // Go back based on whether a hero is selected
                     onBack={showHeroSelection}
                     isLoading={gameState.isLoading}
                 />;
@@ -778,6 +347,7 @@ export default function IAventuresGame() {
       case 'game_active':
         return (
           <>
+            {gameState.initialPromptDebug && <DebugInitialPrompt prompt={gameState.initialPromptDebug} />}
             <StoryDisplay
                 story={gameState.story}
                 playerName={gameState.playerName}
@@ -792,7 +362,7 @@ export default function IAventuresGame() {
                 customChoiceInput={customChoiceInput}
                 onCustomChoiceChange={setCustomChoiceInput}
                 onCustomChoiceSubmit={handleCustomChoiceSubmit}
-                onAction={handleAction}
+                onAction={handleAction} // Use handleAction from hook
                 isLoading={gameState.isLoading}
                 isCustomInputVisible={isCustomInputVisible}
                 onToggleCustomInput={() => setIsCustomInputVisible(!isCustomInputVisible)}
@@ -810,13 +380,14 @@ export default function IAventuresGame() {
        case 'game_ended':
          return (
            <>
+            {gameState.initialPromptDebug && <DebugInitialPrompt prompt={gameState.initialPromptDebug} />}
             <StoryDisplay
                 story={gameState.story}
                 playerName={gameState.playerName}
                 viewportRef={viewportRef}
-                isLoading={false} // Game ended, not loading new content
+                isLoading={false}
                 generatingSegmentId={gameState.generatingSegmentId}
-                onManualImageGeneration={handleManualImageGeneration} // Allow generation even after end? Maybe disable.
+                onManualImageGeneration={handleManualImageGeneration}
             />
             <GameEndedDisplay
                 maxTurns={gameState.maxTurns}
@@ -830,9 +401,8 @@ export default function IAventuresGame() {
     }
   };
 
-  const shouldCenterContent = ['menu', 'theme_selection', 'sub_theme_selection', 'hero_selection', 'name_input', 'loading_game'].includes(gameState.currentView); // Added hero_selection
+  const shouldCenterContent = ['menu', 'theme_selection', 'sub_theme_selection', 'hero_selection', 'name_input', 'loading_game'].includes(gameState.currentView);
 
-    // Find the current hero's abilities
     const currentHeroAbilities = gameState.selectedHero
       ? heroOptions.find(h => h.value === gameState.selectedHero)?.abilities || []
       : [];
@@ -844,24 +414,24 @@ export default function IAventuresGame() {
         <GameHeader
             currentView={gameState.currentView}
             theme={gameState.theme}
-            subTheme={gameState.subTheme} // Pass subTheme
-            selectedHero={gameState.selectedHero} // Pass selected hero
+            subTheme={gameState.subTheme}
+            selectedHero={gameState.selectedHero}
             playerName={gameState.playerName}
             location={gameState.currentGameState.location}
             inventory={gameState.currentGameState.inventory}
-            abilities={currentHeroAbilities} // Pass current hero abilities
+            abilities={currentHeroAbilities}
             currentTurn={gameState.currentTurn}
             maxTurns={gameState.maxTurns}
             isLoading={gameState.isLoading}
             isInventoryOpen={isInventoryPopoverOpen}
             onInventoryToggle={setIsInventoryPopoverOpen}
             onInventoryAction={handleInventoryActionClick}
-            isAbilitiesOpen={isAbilitiesPopoverOpen} // Pass abilities popover state
-            onAbilitiesToggle={setIsAbilitiesPopoverOpen} // Pass abilities toggle handler
-            onAbilityAction={handleAbilityActionClick} // Pass ability action handler
-            onSave={handleOpenSaveDialog}
+            isAbilitiesOpen={isAbilitiesPopoverOpen}
+            onAbilitiesToggle={setIsAbilitiesPopoverOpen}
+            onAbilityAction={handleAbilityActionClick}
+            onSave={handleOpenSaveDialog} // Use handler from save/load hook
             onMainMenu={showMainMenu}
-            shouldFlashInventory={shouldFlashInventory} // Pass flashing state
+            shouldFlashInventory={shouldFlashInventory}
         />
 
         <div className={cn(
@@ -870,7 +440,6 @@ export default function IAventuresGame() {
          )}>
           {renderCurrentView()}
 
-          {/* Error Display */}
           {gameState.error && (
             <div className="flex-shrink-0 mt-auto p-2 bg-destructive/10 rounded-md border border-destructive text-destructive text-sm flex items-center gap-2">
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -885,10 +454,9 @@ export default function IAventuresGame() {
         onOpenChange={setIsSaveDialogOpen}
         saveName={saveNameInput}
         onSaveNameChange={setSaveNameInput}
-        onSave={handleSaveGame}
+        onSave={handleSaveGame} // Use handler from save/load hook
         isGameActive={gameState.currentView === 'game_active'}
       />
     </div>
   );
 }
-

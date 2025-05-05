@@ -1,0 +1,150 @@
+
+import { useState, useCallback, type Dispatch, type SetStateAction } from 'react';
+import { useToast } from '@/hooks/use-toast';
+import { listSaveGames, saveGame, loadGame, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
+import type { GameState, GameView } from '@/types/game';
+import { parseGameState } from '@/lib/gameStateUtils';
+import { themes } from '@/config/themes';
+import { heroOptions } from '@/config/heroes';
+
+export function useSaveLoad(
+    gameState: GameState,
+    setGameState: Dispatch<SetStateAction<GameState>>,
+    toast: ReturnType<typeof useToast>['toast'] // Pass toast function type
+) {
+    const [savedGames, setSavedGames] = useState<Omit<GameStateToSave, 'story' | 'choices' | 'currentGameState' | 'playerChoicesHistory'>[]>([]);
+    const [saveNameInput, setSaveNameInput] = useState('');
+    const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
+
+    // --- Load saved games on initial mount (or when relevant) ---
+    // This might need adjustment depending on when you want to load the list
+    useState(() => {
+        setSavedGames(listSaveGames());
+    });
+
+    const handleOpenSaveDialog = useCallback(() => {
+        if (gameState.currentView !== 'game_active') {
+            toast({ title: "Action Impossible", description: "Vous ne pouvez sauvegarder qu'une partie en cours.", variant: "default" });
+            return;
+        }
+        const dateStr = new Date().toLocaleDateString('fr-CA');
+        const subThemeLabel = gameState.subTheme
+            ? themes.find(t => t.value === gameState.theme)?.subThemes.find(st => st.value === gameState.subTheme)?.label || gameState.subTheme
+            : 'Sans Scénario Spécifique';
+        const heroLabel = heroOptions.find(h => h.value === gameState.selectedHero)?.label || 'Héros Inconnu';
+        const suggestedName = gameState.theme && gameState.playerName && gameState.selectedHero
+            ? `${gameState.playerName} (${heroLabel}) - ${subThemeLabel} (T${gameState.currentTurn}/${gameState.maxTurns}) - ${dateStr}`
+            : `Sauvegarde ${dateStr}`;
+
+        setSaveNameInput(suggestedName);
+        setIsSaveDialogOpen(true);
+    }, [gameState, toast]);
+
+    const handleSaveGame = useCallback(() => {
+        if (!saveNameInput.trim()) {
+            toast({ title: "Nom Invalide", description: "Veuillez entrer un nom pour la sauvegarde.", variant: "destructive" });
+            return;
+        }
+        if (gameState.currentView !== 'game_active') {
+            toast({ title: "Action Impossible", description: "Vous ne pouvez sauvegarder qu'une partie en cours.", variant: "destructive" });
+            setIsSaveDialogOpen(false);
+            return;
+        }
+        if (!gameState.theme || !gameState.playerName || !gameState.selectedHero) {
+            toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes (thème, nom, ou héros).", variant: "destructive" });
+            return;
+        }
+
+        // Directly use gameState fields, saveGame handles stringifying currentGameState and removing image URLs
+        const stateToSave: Omit<GameStateToSave, 'timestamp' | 'saveName'> & { story: GameState['story'] } = {
+            theme: gameState.theme,
+            subTheme: gameState.subTheme,
+            selectedHero: gameState.selectedHero,
+            playerName: gameState.playerName,
+            story: gameState.story, // Pass the full story array
+            choices: gameState.choices,
+            currentGameState: JSON.stringify(gameState.currentGameState), // Pass the stringified object
+            playerChoicesHistory: gameState.playerChoicesHistory,
+            maxTurns: gameState.maxTurns,
+            currentTurn: gameState.currentTurn,
+        };
+
+        if (saveGame(saveNameInput.trim(), stateToSave)) {
+            toast({ title: "Partie Sauvegardée", description: `La partie "${saveNameInput.trim()}" a été sauvegardée.` });
+            setSavedGames(listSaveGames()); // Refresh list
+            setIsSaveDialogOpen(false);
+        } else {
+            // Error handling is now primarily within saveGame utility
+            toast({ title: "Erreur Sauvegarde", description: "La sauvegarde a échoué. Vérifiez la console pour les détails.", variant: "destructive" });
+        }
+    }, [saveNameInput, gameState, toast, setIsSaveDialogOpen, setSavedGames]);
+
+    const handleLoadGame = useCallback((saveName: string) => {
+        const loadedState = loadGame(saveName);
+        if (loadedState) {
+            if (loadedState.subTheme) {
+                const mainThemeExists = themes.some(t => t.value === loadedState.theme);
+                const subThemeExists = mainThemeExists && themes.find(t => t.value === loadedState.theme)?.subThemes.some(st => st.value === loadedState.subTheme);
+                if (!subThemeExists) {
+                    toast({ title: "Erreur de Chargement", description: `Le scénario sauvegardé ("${loadedState.subTheme}") pour le thème "${loadedState.theme}" n'existe plus ou est invalide. Impossible de charger.`, variant: "destructive" });
+                    setSavedGames(listSaveGames());
+                    return;
+                }
+            }
+            if (!loadedState.selectedHero || !heroOptions.some(h => h.value === loadedState.selectedHero)) {
+                toast({ title: "Erreur de Chargement", description: `Le héros sauvegardé ("${loadedState.selectedHero || 'Aucun'}") n'existe plus ou est invalide. Impossible de charger.`, variant: "destructive" });
+                setSavedGames(listSaveGames());
+                return;
+            }
+
+            const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName);
+            const loadedView: GameView = loadedState.currentTurn > loadedState.maxTurns ? 'game_ended' : 'game_active';
+
+            setGameState(prev => ({
+                ...prev,
+                theme: loadedState.theme,
+                subTheme: loadedState.subTheme,
+                selectedHero: loadedState.selectedHero,
+                playerName: loadedState.playerName,
+                story: loadedState.story,
+                choices: loadedState.choices,
+                currentGameState: parsedLoadedGameState,
+                playerChoicesHistory: loadedState.playerChoicesHistory,
+                isLoading: false,
+                error: null,
+                currentView: loadedView,
+                maxTurns: loadedState.maxTurns,
+                currentTurn: loadedState.currentTurn,
+                generatingSegmentId: null,
+                initialPromptDebug: null, // Reset debug prompt on load
+            }));
+            toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
+            // Consider closing popovers externally if needed
+        } else {
+            toast({ title: "Erreur de Chargement", description: `Impossible de charger la partie "${saveName}".`, variant: "destructive" });
+            setSavedGames(listSaveGames());
+        }
+    }, [setGameState, toast, setSavedGames]);
+
+    const handleDeleteGame = useCallback((saveName: string) => {
+        if (deleteSaveGame(saveName)) {
+            toast({ title: "Sauvegarde Supprimée", description: `La sauvegarde "${saveName}" a été supprimée.` });
+            setSavedGames(listSaveGames());
+        } else {
+            toast({ title: "Erreur", description: `Impossible de supprimer la sauvegarde "${saveName}".`, variant: "destructive" });
+        }
+    }, [toast, setSavedGames]);
+
+    return {
+        savedGames,
+        setSavedGames, // Expose if needed outside the hook
+        saveNameInput,
+        setSaveNameInput,
+        isSaveDialogOpen,
+        setIsSaveDialogOpen,
+        handleOpenSaveDialog,
+        handleSaveGame,
+        handleLoadGame,
+        handleDeleteGame,
+    };
+}
