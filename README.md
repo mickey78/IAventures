@@ -6,14 +6,18 @@ IAventures est un jeu d'aventure textuel interactif propulsé par une intelligen
 
 Dans IAventures, vous êtes le héros de votre propre histoire. Le jeu vous permet de :
 
-*   **Choisir un Thème** : Sélectionnez parmi plusieurs univers passionnants comme la Fantasy Médiévale, l'Exploration Spatiale, les Pirates, le Western, et bien d'autres.
+*   **Choisir un Thème Principal** : Sélectionnez parmi plusieurs univers passionnants comme la Fantasy Médiévale, l'Exploration Spatiale, les Pirates, le Western, et bien d'autres.
+*   **Choisir un Scénario (Optionnel)** : Affinez votre aventure en choisissant un scénario de départ spécifique lié au thème principal, ou laissez l'IA vous surprendre avec un début générique.
+*   **Choisir votre Héros** : Incarnez un Guerrier, Magicien, Archer ou Voleur, chacun avec ses propres habiletés spéciales qui influencent la narration et les options disponibles.
 *   **Nommer votre Personnage** : Donnez vie à votre aventurier en lui choisissant un nom. Le narrateur IA s'adressera directement à vous par ce nom.
-*   **Vivre une Aventure Unique** : L'IA génère une histoire initiale et adapte la suite en fonction de vos choix.
+*   **Vivre une Aventure Unique** : L'IA génère une histoire initiale et adapte la suite en fonction de vos choix, du thème, du scénario, et des capacités de votre héros.
 *   **Interagir avec l'Histoire** : Faites progresser l'aventure en sélectionnant des choix proposés ou en tapant vos propres actions.
-*   **Gérer un Inventaire** : Trouvez et utilisez des objets qui vous aideront dans votre quête.
-*   **Définir la Durée** : Choisissez le nombre de tours que durera votre aventure pour des parties rapides ou plus longues.
-*   **Sauvegarder et Charger** : Ne perdez jamais votre progression grâce au système de sauvegarde locale.
-*   **Personnaliser l'Interface** : Choisissez parmi plusieurs thèmes de couleurs pour adapter l'apparence du jeu.
+*   **Utiliser des Habiletés** : Mettez à profit les habiletés uniques de votre héros pour surmonter les obstacles et résoudre les défis.
+*   **Gérer un Inventaire** : Trouvez et utilisez des objets qui vous aideront dans votre quête via un inventaire interactif.
+*   **Définir la Durée** : Choisissez le nombre de tours (entre 10 et 25) que durera votre aventure pour des parties rapides ou plus longues. Un compteur de tour est visible.
+*   **Immersion Visuelle** : Des images générées par IA illustrent les moments clés de l'histoire pour une meilleure immersion. Vous pouvez aussi demander la génération d'une image pour un passage spécifique.
+*   **Sauvegarder et Charger** : Ne perdez jamais votre progression grâce au système de sauvegarde locale. Chargez une partie précédente ou supprimez les anciennes sauvegardes.
+*   **Personnaliser l'Interface** : Choisissez parmi plusieurs thèmes de couleurs primaires (rouge, bleu, vert, violet, orange) pour adapter l'apparence du jeu. L'interface utilise un thème sombre par défaut.
 
 ## Installation et Lancement
 
@@ -26,7 +30,7 @@ Vous avez deux options pour lancer IAventures : en utilisant Node.js directement
     git clone <URL_DU_DEPOT>
     cd <NOM_DU_REPERTOIRE>
     ```
-    Remplacez `<URL_DU_DEPOT>` et `<NOM_DU_REPERTOIRE>` par les informations appropriées si vous clonez le projet depuis une source externe. Si vous utilisez Firebase Studio, le code est déjà présent.
+    Remplacez `<URL_DU_DEPOT>` et `<NOM_DU_REPERTOIRE>` par les informations appropriées si vous clonez le projet depuis une source externe. Si vous utilisez un environnement de développement comme IDX, le code est déjà présent.
 
 2.  **Installer les dépendances** :
     Assurez-vous d'avoir Node.js (version 18 ou supérieure recommandée) et npm (ou Yarn) installés. Ouvrez un terminal dans le répertoire du projet et exécutez :
@@ -73,10 +77,11 @@ Vous avez deux options pour lancer IAventures : en utilisant Node.js directement
 4.  **Lancer le conteneur Docker** :
     Exécutez la commande suivante pour démarrer l'application. Le conteneur lira la clé API depuis votre fichier `.env` local.
     ```bash
-    docker run -p 9002:9002 --env-file .env --name iaventures-app -d iaventures
+    # Remplacez /chemin/vers/votre/.env par le chemin absolu de votre fichier .env si nécessaire, sinon Docker cherchera dans le répertoire courant.
+    docker run -p 9002:9002 --env-file ./.env --name iaventures-app -d iaventures
     ```
     *   `-p 9002:9002` : Mappe le port 9002 de votre machine au port 9002 du conteneur.
-    *   `--env-file .env` : Charge les variables d'environnement depuis votre fichier `.env`.
+    *   `--env-file ./.env` : Charge les variables d'environnement depuis votre fichier `.env` local (assurez-vous qu'il est dans le répertoire où vous lancez la commande ou spécifiez le chemin complet).
     *   `--name iaventures-app` : Donne un nom au conteneur pour une gestion facile.
     *   `-d` : Lance le conteneur en arrière-plan (detached mode).
     *   `iaventures` : Le nom de l'image que vous avez construite.
@@ -91,5 +96,4 @@ Vous avez deux options pour lancer IAventures : en utilisant Node.js directement
     ```
 
 Amusez-vous bien dans vos aventures !
-
 ```
