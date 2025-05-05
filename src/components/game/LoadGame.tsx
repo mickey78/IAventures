@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from 'lucide-react';
 import type { GameStateToSave } from '@/lib/saveLoadUtils'; // Keep this import
 import { themes } from '@/config/themes'; // Import themes to get subtheme labels
+import { heroOptions } from '@/config/heroes'; // Import heroes to get hero labels
 
 // Define the type for saved games list locally or import if shared
 interface SavedGameInfo extends Omit<GameStateToSave, 'story' | 'choices' | 'currentGameState' | 'playerChoicesHistory'> {
@@ -14,6 +15,7 @@ interface SavedGameInfo extends Omit<GameStateToSave, 'story' | 'choices' | 'cur
     playerName?: string; // Optional if playerName is part of GameStateToSave
     theme: string;      // Keep theme mandatory for display
     subTheme: string | null; // Include subTheme
+    selectedHero: string; // Include selectedHero
     timestamp: number;
     currentTurn: number;
     maxTurns: number;
@@ -36,6 +38,12 @@ const LoadGame: React.FC<LoadGameProps> = ({ savedGames, onLoadGame, onDeleteGam
         return subTheme?.label || subThemeValue; // Fallback to value if label not found
     };
 
+    // Helper function to get hero label
+    const getHeroLabel = (heroValue: string): string => {
+        const hero = heroOptions.find(h => h.value === heroValue);
+        return hero?.label || heroValue; // Fallback to value if label not found
+    }
+
 
     return (
         <div className="flex flex-col items-center space-y-4 w-full h-full justify-center">
@@ -49,7 +57,8 @@ const LoadGame: React.FC<LoadGameProps> = ({ savedGames, onLoadGame, onDeleteGam
                                     <div className="flex-1 overflow-hidden">
                                         <p className="font-medium truncate">{save.saveName}</p>
                                         <p className="text-xs text-muted-foreground truncate"> {/* Added truncate here too */}
-                                            {save.playerName ? `${save.playerName} - ` : ''}
+                                            {save.playerName ? `${save.playerName} ` : ''}
+                                            ({getHeroLabel(save.selectedHero)}) - {/* Display Hero */}
                                             {getSubThemeLabel(save.theme, save.subTheme)} - T{save.currentTurn}/{save.maxTurns} - {new Date(save.timestamp).toLocaleString('fr-FR')}
                                         </p>
                                     </div>

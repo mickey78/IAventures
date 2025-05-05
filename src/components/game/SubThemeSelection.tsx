@@ -11,7 +11,7 @@ interface SubThemeSelectionProps {
     mainTheme: Theme | undefined; // The main theme containing sub-themes
     selectedSubTheme: string | null;
     onSubThemeSelect: (subThemeValue: string | null) => void; // Allow null for skipping
-    onNext: () => void; // Proceed to name input
+    onNext: () => void; // Proceed to hero selection
     onBack: () => void; // Go back to main theme selection
 }
 
@@ -28,7 +28,7 @@ const SubThemeSelection: React.FC<SubThemeSelectionProps> = ({
 
     const handleSkip = () => {
         onSubThemeSelect(null); // Indicate skipping
-        onNext(); // Directly proceed to next step
+        onNext(); // Directly proceed to next step (Hero Selection)
     };
 
     return (
@@ -78,13 +78,13 @@ const SubThemeSelection: React.FC<SubThemeSelectionProps> = ({
             <div className="flex flex-col sm:flex-row gap-2 mt-4 shrink-0"> {/* Reduced mt */}
                 {/* Keep the "Suivant" button but it's less necessary if Skip goes directly */}
                  <Button
-                    onClick={onNext}
+                    onClick={onNext} // Go to Hero Selection
                     disabled={selectedSubTheme === null} // Only enabled if a specific scenario is selected
                     size="lg"
                     variant="primary"
                     className="rounded-md shadow-md"
                 >
-                    Suivant (Scénario Choisi)
+                    Choisir un Héros {/* Updated Button Text */}
                 </Button>
                 <Button variant="outline" onClick={onBack}>
                     Retour au choix du Thème
@@ -95,4 +95,3 @@ const SubThemeSelection: React.FC<SubThemeSelectionProps> = ({
 };
 
 export default SubThemeSelection;
-

@@ -7,12 +7,14 @@ import HeaderActions from './HeaderActions'; // Assuming HeaderActions is refact
 import { BookOpenText, MapPin } from 'lucide-react';
 import type { ParsedGameState, GameView } from '@/types/game'; // Import shared types
 import { themes } from '@/config/themes'; // Import themes to get labels
+import { heroOptions } from '@/config/heroes'; // Import heroes to get labels
 import { ThemeSwitcher } from '@/components/theme-switcher'; // Import ThemeSwitcher
 
 interface GameHeaderProps {
     currentView: GameView;
     theme: string | null;
     subTheme: string | null; // Added subTheme prop
+    selectedHero: string | null; // Added selectedHero prop
     playerName: string | null;
     location: string | undefined;
     inventory: string[];
@@ -31,6 +33,7 @@ const GameHeader: React.FC<GameHeaderProps> = ({
     currentView,
     theme,
     subTheme, // Destructure subTheme
+    selectedHero, // Destructure selectedHero
     playerName,
     location,
     inventory,
@@ -51,17 +54,18 @@ const GameHeader: React.FC<GameHeaderProps> = ({
 
         const mainThemeLabel = themes.find(t => t.value === theme)?.label;
         const subThemeLabel = themes.find(t => t.value === theme)?.subThemes.find(st => st.value === subTheme)?.label;
+        const heroLabel = heroOptions.find(h => h.value === selectedHero)?.label; // Get hero label
 
 
         switch (currentView) {
             case 'game_active':
-                mainTitle = playerName ? `Aventure de ${playerName}` : "Aventure en cours";
-                subTitle = mainThemeLabel ? `${mainThemeLabel}${subThemeLabel ? `: ${subThemeLabel}` : ''}` : '';
-                 break;
             case 'game_ended':
-                 mainTitle = playerName ? `Aventure terminée de ${playerName}` : "Aventure terminée";
-                 subTitle = mainThemeLabel ? `${mainThemeLabel}${subThemeLabel ? `: ${subThemeLabel}` : ''}` : '';
-                break;
+                mainTitle = playerName ? `Aventure de ${playerName}` : "Aventure en cours";
+                const themePart = mainThemeLabel ? `${mainThemeLabel}${subThemeLabel ? `: ${subThemeLabel}` : ''}` : 'Thème inconnu';
+                const heroPart = heroLabel ? `en tant que ${heroLabel}` : '';
+                subTitle = `${themePart} ${heroPart}`.trim();
+                if (currentView === 'game_ended') mainTitle = mainTitle.replace('en cours', 'terminée');
+                 break;
             case 'theme_selection':
                 mainTitle = "Choisissez un thème pour votre nouvelle aventure !";
                 subTitle= "(8-12 ans)";
@@ -69,11 +73,16 @@ const GameHeader: React.FC<GameHeaderProps> = ({
              case 'sub_theme_selection':
                  mainTitle = `Choisissez un scénario pour "${mainThemeLabel || 'Thème Inconnu'}"`;
                  break;
+             case 'hero_selection': // Added case for hero selection
+                 mainTitle = `Choisissez votre classe de héros pour "${mainThemeLabel || 'Thème Inconnu'}"`;
+                 subTitle = subThemeLabel || 'Sans Scénario Spécifique';
+                 break;
             case 'name_input':
                 mainTitle = "Prépare-toi pour l'aventure !";
-                // Ensure subThemeLabel is handled if null
+                // Ensure subThemeLabel and heroLabel are handled if null
                 const effectiveSubThemeLabel = subThemeLabel || 'Sans Scénario Spécifique';
-                subTitle = mainThemeLabel ? `${mainThemeLabel} - ${effectiveSubThemeLabel}` : '';
+                const effectiveHeroLabel = heroLabel || 'Héros Inconnu';
+                subTitle = mainThemeLabel ? `${mainThemeLabel} - ${effectiveSubThemeLabel} (${effectiveHeroLabel})` : '';
                 break;
             case 'loading_game':
                 mainTitle = "Choisissez une partie à charger.";
@@ -136,6 +145,12 @@ const GameHeader: React.FC<GameHeaderProps> = ({
                     </div>
                 </div>
             )}
+             {/* Fallback ThemeSwitcher for non-game views */}
+             {!showGameControls && currentView !== 'menu' && (
+                 <div className="absolute top-3 right-4">
+                     <ThemeSwitcher />
+                 </div>
+             )}
         </CardHeader>
     );
 };

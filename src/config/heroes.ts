@@ -1,5 +1,5 @@
 
-import { Swords, Wand2, Bow, Hand } from 'lucide-react';
+import { Swords, Wand2, Crosshair, Hand } from 'lucide-react'; // Replaced Bow with Crosshair
 import type { HeroOption } from '@/types/game'; // Import shared type
 
 export const heroOptions: HeroOption[] = [
@@ -19,7 +19,7 @@ export const heroOptions: HeroOption[] = [
     value: 'Archer',
     label: 'Archer',
     description: 'Agile et précis, excelle dans le combat à distance.',
-    icon: Bow,
+    icon: Crosshair, // Use Crosshair icon instead of Bow
   },
   {
     value: 'Voleur',
@@ -28,3 +28,4 @@ export const heroOptions: HeroOption[] = [
     icon: Hand, // Using Hand as a placeholder, consider a better icon if available
   },
 ];
+

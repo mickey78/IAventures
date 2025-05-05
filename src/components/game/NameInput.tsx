@@ -12,7 +12,7 @@ interface NameInputProps {
     maxTurns: number;
     onMaxTurnsChange: (turns: number) => void;
     onSubmit: () => void;
-    onBack: () => void;
+    onBack: () => void; // Updated to go back to hero selection
     isLoading: boolean;
 }
 
@@ -71,7 +71,7 @@ const NameInput: React.FC<NameInputProps> = ({
                 )}
             </Button>
             <Button variant="outline" onClick={onBack} className="mt-2 w-full">
-                Retour au choix du thème
+                Retour au choix du Héros {/* Updated button text */}
             </Button>
         </div>
     );

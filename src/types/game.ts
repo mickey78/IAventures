@@ -39,10 +39,11 @@ export interface GameState {
   maxTurns: number;
   currentTurn: number;
   generatingSegmentId: number | null; // ID of segment currently generating image, or null
+  selectedHero: string | null; // Added selectedHero field
 }
 
 // Represents the different views/screens of the application
-export type GameView = 'menu' | 'theme_selection' | 'sub_theme_selection' | 'name_input' | 'loading_game' | 'game_active' | 'game_ended'; // Added sub_theme_selection
+export type GameView = 'menu' | 'theme_selection' | 'sub_theme_selection' | 'hero_selection' | 'name_input' | 'loading_game' | 'game_active' | 'game_ended'; // Added hero_selection view
 
 // Represents a sub-theme option
 export interface SubTheme {
@@ -60,3 +61,14 @@ export interface Theme {
     icon: LucideIcon; // Icon component from lucide-react
     subThemes: SubTheme[]; // Array of specific sub-themes/scenarios
 }
+
+// Represents a hero option
+export interface HeroOption {
+    value: string; // Unique value for the hero class (e.g., 'Warrior')
+    label: string; // Display name for the user (e.g., 'Warrior')
+    description: string; // Short description of the hero class
+    icon: LucideIcon; // Icon component from lucide-react
+}
+
+// Represents the selected hero class (could be extended with abilities)
+export type HeroClass = string;

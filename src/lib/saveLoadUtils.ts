@@ -3,11 +3,13 @@
 
 import type { StorySegment, ParsedGameState } from '@/types/game'; // Importer les types partagés depuis leur nouvel emplacement
 import { themes } from '@/config/themes'; // Importer les thèmes pour la validation
+import { heroOptions } from '@/config/heroes'; // Import hero options for validation
 
 // Définir la structure des données à sauvegarder
 export interface GameStateToSave {
   theme: string;
   subTheme: string | null; // Champ sous-thème ajouté
+  selectedHero: string; // Champ héros ajouté
   playerName: string; // Nom du joueur ajouté
   story: Omit<StorySegment, 'imageIsLoading' | 'imageError' | 'imageGenerationPrompt' | 'storyImageUrl'>[]; // Exclure explicitement storyImageUrl du type sauvegardé
   choices: string[];
@@ -20,19 +22,19 @@ export interface GameStateToSave {
 }
 
 // Définir la structure chargée depuis le stockage, qui pourrait temporairement inclure storyImageUrl avant nettoyage
-// et inclut maintenant subTheme
+// et inclut maintenant subTheme et selectedHero
 interface LoadedGameState extends Omit<GameStateToSave, 'story'> {
     story: Omit<StorySegment, 'imageIsLoading' | 'imageError' | 'imageGenerationPrompt'>[]; // Segments d'histoire tels que chargés
 }
 
 
-const SAVE_GAME_KEY = 'iaventuresSaves_v3'; // Mettre à jour la clé de version pour le changement de schéma (ajout de subTheme)
+const SAVE_GAME_KEY = 'iaventuresSaves_v4'; // Mettre à jour la clé de version pour le changement de schéma (ajout de hero)
 const LOCAL_STORAGE_LIMIT_WARN_BYTES = 4.5 * 1024 * 1024; // Seuil d'avertissement ~4.5Mo
 
 /**
  * Récupère toutes les parties sauvegardées depuis localStorage.
  * Gère les erreurs potentielles d'analyse JSON et valide la structure.
- * Inclut désormais la validation pour `subTheme`.
+ * Inclut désormais la validation pour `subTheme` et `selectedHero`.
  * @returns Un tableau des états de jeu sauvegardés.
  */
 export function listSaveGames(): LoadedGameState[] {
@@ -80,6 +82,12 @@ export function listSaveGames(): LoadedGameState[] {
              } else if (save.subTheme === null && isValid) {
                  // Permettre subTheme d'être null (pourrait être une ancienne sauvegarde, bien que la version de la clé devrait empêcher cela)
                  console.warn(`Sauvegarde "${save.saveName || 'INCONNU'}" a subTheme=null.`);
+             }
+
+             // Valider selectedHero
+             if (typeof save.selectedHero !== 'string' || !save.selectedHero.trim() || !heroOptions.some(h => h.value === save.selectedHero)) {
+                 console.warn(`Sauvegarde "${save.saveName || 'INCONNU'}" héros sélectionné manquant, invalide, ou n'existant plus. Ignorer.`);
+                 isValid = false;
              }
 
 
@@ -195,9 +203,9 @@ export function listSaveGames(): LoadedGameState[] {
  * Trouve une sauvegarde existante avec le même nom ou en ajoute une nouvelle.
  * Attend que gameState.currentGameState soit une chaîne JSON valide contenant le lieu.
  * **Crucialement, omet `storyImageUrl` des segments d'histoire avant de sauvegarder pour éviter les problèmes de stockage.**
- * Inclut désormais `subTheme` dans la sauvegarde.
+ * Inclut désormais `subTheme` et `selectedHero` dans la sauvegarde.
  * @param saveName Le nom/identifiant de l'emplacement de sauvegarde.
- * @param gameState L'état du jeu à sauvegarder (incluant playerName, subTheme, currentGameState converti en chaîne avec lieu, relations, émotions et infos de tour).
+ * @param gameState L'état du jeu à sauvegarder (incluant playerName, subTheme, selectedHero, currentGameState converti en chaîne avec lieu, relations, émotions et infos de tour).
  * @returns True si la sauvegarde a réussi, false sinon.
  */
 export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'timestamp' | 'saveName'> & { story: StorySegment[] }): boolean { // Attend temporairement le StorySegment[] complet
@@ -218,6 +226,11 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
        console.error('Erreur sauvegarde: Sous-thème invalide fourni. Doit être une chaîne ou null.', gameState.subTheme);
        return false;
    }
+    // Valider selectedHero avant la sauvegarde
+    if (!gameState.selectedHero || typeof gameState.selectedHero !== 'string' || !gameState.selectedHero.trim() || !heroOptions.some(h => h.value === gameState.selectedHero)) {
+        console.error('Erreur sauvegarde: Héros sélectionné invalide ou manquant.', gameState.selectedHero);
+        return false;
+    }
    if (typeof gameState.maxTurns !== 'number' || gameState.maxTurns <= 0 || typeof gameState.currentTurn !== 'number' || gameState.currentTurn <= 0) {
         console.error('Erreur sauvegarde: Données de tour invalides fournies.', { maxTurns: gameState.maxTurns, currentTurn: gameState.currentTurn });
         return false;
@@ -299,6 +312,7 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
     const newState: GameStateToSave = {
         theme: gameState.theme,
         subTheme: gameState.subTheme, // Inclure subTheme dans la sauvegarde
+        selectedHero: gameState.selectedHero, // Inclure le héros sélectionné
         playerName: gameState.playerName,
         story: storyToSave, // Utiliser le tableau d'histoire SANS URL d'image
         choices: gameState.choices.filter(c => typeof c === 'string'), // Assurer que les choix sont des chaînes
@@ -334,7 +348,7 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
 
     // Tenter de sauvegarder
     localStorage.setItem(SAVE_GAME_KEY, saveDataString);
-    console.log(`Partie sauvegardée sous "${saveName}" pour le joueur "${gameState.playerName}" (Thème: ${gameState.theme}, Scénario: ${gameState.subTheme || 'N/A'}) au tour ${gameState.currentTurn}/${gameState.maxTurns} au lieu "${parsedStateForSave.location}".`);
+    console.log(`Partie sauvegardée sous "${saveName}" pour le joueur "${gameState.playerName}" (${gameState.selectedHero}) (Thème: ${gameState.theme}, Scénario: ${gameState.subTheme || 'N/A'}) au tour ${gameState.currentTurn}/${gameState.maxTurns} au lieu "${parsedStateForSave.location}".`);
     return true;
 
   } catch (error: any) {
@@ -352,17 +366,17 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
 /**
  * Charge un état de jeu spécifique depuis localStorage par nom de sauvegarde.
  * Ajoute des états d'image transitoires par défaut (imageIsLoading: false, imageError: false, storyImageUrl: null) aux segments d'histoire.
- * Inclut désormais le chargement de `subTheme`.
+ * Inclut désormais le chargement de `subTheme` et `selectedHero`.
  * @param saveName Le nom de l'emplacement de sauvegarde à charger.
- * @returns L'état de jeu chargé (incluant subTheme, avec currentGameState comme chaîne contenant lieu, relations, émotions et infos de tour) ou null si non trouvé ou en cas d'erreur.
+ * @returns L'état de jeu chargé (incluant subTheme et selectedHero, avec currentGameState comme chaîne contenant lieu, relations, émotions et infos de tour) ou null si non trouvé ou en cas d'erreur.
  */
 export function loadGame(saveName: string): (LoadedGameState & { story: StorySegment[] }) | null {
   if (typeof window === 'undefined') {
     return null;
   }
   try {
-    // listSaveGames valide déjà la structure, la validité JSON et les numéros de tour, et l'existence de subTheme
-    const saves = listSaveGames(); // Ceci retourne les sauvegardes sans URL d'image, mais avec subTheme
+    // listSaveGames valide déjà la structure, la validité JSON et les numéros de tour, et l'existence de subTheme/hero
+    const saves = listSaveGames(); // Ceci retourne les sauvegardes sans URL d'image, mais avec subTheme/hero
     const save = saves.find(s => s.saveName === saveName);
     if (!save) {
         console.warn(`Sauvegarde "${saveName}" non trouvée.`);
@@ -389,7 +403,7 @@ export function loadGame(saveName: string): (LoadedGameState & { story: StorySeg
      }));
 
 
-    console.log(`Partie "${saveName}" chargée pour le joueur "${save.playerName}" (Thème: ${save.theme}, Scénario: ${save.subTheme || 'N/A'}) au tour ${save.currentTurn}/${save.maxTurns} au lieu "${locationInfo}". Relations: ${JSON.stringify(parsedState?.relationships)}, Émotions: ${JSON.stringify(parsedState?.emotions)}`);
+    console.log(`Partie "${saveName}" chargée pour le joueur "${save.playerName}" (${save.selectedHero}) (Thème: ${save.theme}, Scénario: ${save.subTheme || 'N/A'}) au tour ${save.currentTurn}/${save.maxTurns} au lieu "${locationInfo}". Relations: ${JSON.stringify(parsedState?.relationships)}, Émotions: ${JSON.stringify(parsedState?.emotions)}`);
     // Caster le résultat vers le type attendu incluant l'histoire réhydratée
     return { ...save, story: storyWithTransientState } as (LoadedGameState & { story: StorySegment[] });
   } catch (error) {
