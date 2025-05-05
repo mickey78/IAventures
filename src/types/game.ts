@@ -80,3 +80,4 @@ export interface HeroOption {
 // Represents the selected hero class (could be extended with abilities)
 export type HeroClass = string;
 
+

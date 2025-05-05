@@ -4,7 +4,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { listSaveGames, type GameStateToSave } from '@/lib/saveLoadUtils';
-import type { StorySegment, ParsedGameState, GameState, GameView, Theme, SubTheme, HeroClass, HeroOption } from '@/types/game'; // Import shared types
+import type { StorySegment, ParsedGameState, GameState, GameView, Theme, SubTheme, HeroClass, HeroOption, HeroAbility } from '@/types/game'; // Import shared types, add HeroAbility
 import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import type { GenerateInitialStoryOutput, GenerateInitialStoryInput } from '@/ai/flows/generate-initial-story'; // Import Input type
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
@@ -62,6 +62,7 @@ export default function IAventuresGame() {
   const [maxTurnsInput, setMaxTurnsInput] = useState<number>(15);
   const [customChoiceInput, setCustomChoiceInput] = useState('');
   const [isInventoryPopoverOpen, setIsInventoryPopoverOpen] = useState(false);
+  const [isAbilitiesPopoverOpen, setIsAbilitiesPopoverOpen] = useState(false); // State for abilities popover
   const [isCustomInputVisible, setIsCustomInputVisible] = useState(false);
   const [shouldFlashInventory, setShouldFlashInventory] = useState(false); // State for inventory flash
 
@@ -136,6 +137,7 @@ export default function IAventuresGame() {
     }));
     setSavedGames(listSaveGames());
     setIsInventoryPopoverOpen(false);
+    setIsAbilitiesPopoverOpen(false); // Close abilities popover
     setIsCustomInputVisible(false);
   }
 
@@ -152,6 +154,7 @@ export default function IAventuresGame() {
       currentGameState: { ...prev.currentGameState, location: 'Sélection du Thème', relationships: {}, emotions: [], events: [] }, // Reset specific parts
     }));
     setIsInventoryPopoverOpen(false);
+     setIsAbilitiesPopoverOpen(false); // Close abilities popover
     setIsCustomInputVisible(false);
   };
 
@@ -170,6 +173,7 @@ export default function IAventuresGame() {
        currentGameState: { ...prev.currentGameState, location: `Choix du Scénario: ${selectedThemeValue}` },
      }));
      setIsInventoryPopoverOpen(false);
+     setIsAbilitiesPopoverOpen(false); // Close abilities popover
      setIsCustomInputVisible(false);
    };
 
@@ -180,6 +184,7 @@ export default function IAventuresGame() {
      }
      setGameState(prev => ({ ...prev, currentView: 'hero_selection', selectedHero: null, currentGameState: { ...prev.currentGameState, location: 'Choix du Héros' } }));
      setIsInventoryPopoverOpen(false);
+      setIsAbilitiesPopoverOpen(false); // Close abilities popover
      setIsCustomInputVisible(false);
    };
 
@@ -191,6 +196,7 @@ export default function IAventuresGame() {
     }
     setGameState(prev => ({ ...prev, currentView: 'name_input', currentGameState: { ...prev.currentGameState, location: 'Création du Personnage' } }));
     setIsInventoryPopoverOpen(false);
+     setIsAbilitiesPopoverOpen(false); // Close abilities popover
     setIsCustomInputVisible(false);
   }
 
@@ -198,6 +204,7 @@ export default function IAventuresGame() {
     setSavedGames(listSaveGames());
     setGameState(prev => ({ ...prev, currentView: 'loading_game', currentGameState: { ...prev.currentGameState, location: 'Chargement de Partie' } }));
     setIsInventoryPopoverOpen(false);
+     setIsAbilitiesPopoverOpen(false); // Close abilities popover
     setIsCustomInputVisible(false);
   };
 
@@ -358,6 +365,7 @@ export default function IAventuresGame() {
       },
     }));
     setIsInventoryPopoverOpen(false);
+    setIsAbilitiesPopoverOpen(false); // Close abilities popover
     setIsCustomInputVisible(false);
 
     try {
@@ -472,6 +480,7 @@ export default function IAventuresGame() {
     }));
     setCustomChoiceInput('');
     setIsInventoryPopoverOpen(false);
+    setIsAbilitiesPopoverOpen(false); // Close abilities popover
     setIsCustomInputVisible(false);
 
     const isLastTurn = nextTurn > gameState.maxTurns;
@@ -549,6 +558,7 @@ export default function IAventuresGame() {
     handleAction(customChoiceInput);
   };
 
+  // Updated handler for inventory actions
   const handleInventoryActionClick = (actionPrefix: string, item: string) => {
     if (gameState.currentView === 'game_ended') {
       toast({ title: "Fin de l'aventure", description: "L'histoire est terminée.", variant: "destructive" });
@@ -558,13 +568,36 @@ export default function IAventuresGame() {
     const fullActionText = `${actionPrefix} ${item}`;
     setCustomChoiceInput(fullActionText);
     setIsInventoryPopoverOpen(false);
-    setIsCustomInputVisible(true);
+    setIsCustomInputVisible(true); // Show the input field
     requestAnimationFrame(() => {
-      customInputRef.current?.focus();
+      customInputRef.current?.focus(); // Focus it
+      // Set cursor to the end
       customInputRef.current?.setSelectionRange(fullActionText.length, fullActionText.length);
     });
     toast({ title: "Action d'Inventaire", description: `Prêt à '${fullActionText}'. Appuyez sur Envoyer.` });
   };
+
+
+  // Handler for using abilities
+  const handleAbilityActionClick = (ability: HeroAbility) => {
+    if (gameState.currentView === 'game_ended') {
+        toast({ title: "Fin de l'aventure", description: "L'histoire est terminée.", variant: "destructive" });
+        setIsAbilitiesPopoverOpen(false);
+        return;
+    }
+    const fullActionText = `Utiliser ${ability.label}`;
+    // Don't automatically submit, let the user review/confirm in the input field
+    setCustomChoiceInput(fullActionText);
+    setIsAbilitiesPopoverOpen(false); // Close the popover
+    setIsCustomInputVisible(true); // Show the input field
+    requestAnimationFrame(() => {
+      customInputRef.current?.focus(); // Focus it
+      // Set cursor to the end
+      customInputRef.current?.setSelectionRange(fullActionText.length, fullActionText.length);
+    });
+    toast({ title: "Action d'Habileté", description: `Prêt à '${fullActionText}'. Appuyez sur Envoyer.` });
+  };
+
 
   // --- Save/Load Handlers ---
   const handleOpenSaveDialog = () => {
@@ -578,7 +611,7 @@ export default function IAventuresGame() {
         ? themes.find(t => t.value === gameState.theme)?.subThemes.find(st => st.value === gameState.subTheme)?.label || gameState.subTheme
         : 'Sans Scénario Spécifique'; // Label for skipped subTheme
     const heroLabel = heroOptions.find(h => h.value === gameState.selectedHero)?.label || 'Héros Inconnu'; // Add hero label
-    const suggestedName = gameState.theme && gameState.playerName
+    const suggestedName = gameState.theme && gameState.playerName && gameState.selectedHero // Ensure hero is also present
        ? `${gameState.playerName} (${heroLabel}) - ${subThemeLabel} (T${gameState.currentTurn}/${gameState.maxTurns}) - ${dateStr}` // More specific name
        : `Sauvegarde ${dateStr}`;
 
@@ -675,6 +708,7 @@ export default function IAventuresGame() {
       }));
       toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
       setIsInventoryPopoverOpen(false);
+      setIsAbilitiesPopoverOpen(false); // Close abilities popover
       setIsCustomInputVisible(false);
     } else {
       toast({ title: "Erreur de Chargement", description: `Impossible de charger la partie "${saveName}".`, variant: "destructive" });
@@ -798,6 +832,12 @@ export default function IAventuresGame() {
 
   const shouldCenterContent = ['menu', 'theme_selection', 'sub_theme_selection', 'hero_selection', 'name_input', 'loading_game'].includes(gameState.currentView); // Added hero_selection
 
+    // Find the current hero's abilities
+    const currentHeroAbilities = gameState.selectedHero
+      ? heroOptions.find(h => h.value === gameState.selectedHero)?.abilities || []
+      : [];
+
+
   return (
     <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground">
       <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg flex flex-col flex-grow mt-10" style={{ height: 'calc(95vh - 40px)' }}>
@@ -809,12 +849,16 @@ export default function IAventuresGame() {
             playerName={gameState.playerName}
             location={gameState.currentGameState.location}
             inventory={gameState.currentGameState.inventory}
+            abilities={currentHeroAbilities} // Pass current hero abilities
             currentTurn={gameState.currentTurn}
             maxTurns={gameState.maxTurns}
             isLoading={gameState.isLoading}
             isInventoryOpen={isInventoryPopoverOpen}
             onInventoryToggle={setIsInventoryPopoverOpen}
             onInventoryAction={handleInventoryActionClick}
+            isAbilitiesOpen={isAbilitiesPopoverOpen} // Pass abilities popover state
+            onAbilitiesToggle={setIsAbilitiesPopoverOpen} // Pass abilities toggle handler
+            onAbilityAction={handleAbilityActionClick} // Pass ability action handler
             onSave={handleOpenSaveDialog}
             onMainMenu={showMainMenu}
             shouldFlashInventory={shouldFlashInventory} // Pass flashing state
@@ -847,3 +891,4 @@ export default function IAventuresGame() {
     </div>
   );
 }
+

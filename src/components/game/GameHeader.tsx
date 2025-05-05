@@ -2,10 +2,11 @@
 import React from 'react';
 import { CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import InventoryPopover from './InventoryPopover'; // Assuming InventoryPopover is refactored
+import AbilitiesPopover from './AbilitiesPopover'; // Import AbilitiesPopover
 import TurnCounter from './TurnCounter'; // Assuming TurnCounter is refactored
 import HeaderActions from './HeaderActions'; // Assuming HeaderActions is refactored
 import { BookOpenText, MapPin } from 'lucide-react';
-import type { ParsedGameState, GameView } from '@/types/game'; // Import shared types
+import type { ParsedGameState, GameView, HeroAbility } from '@/types/game'; // Import shared types, add HeroAbility
 import { themes } from '@/config/themes'; // Import themes to get labels
 import { heroOptions } from '@/config/heroes'; // Import heroes to get labels
 import { ThemeSwitcher } from '@/components/theme-switcher'; // Import ThemeSwitcher
@@ -18,12 +19,16 @@ interface GameHeaderProps {
     playerName: string | null;
     location: string | undefined;
     inventory: string[];
+    abilities: HeroAbility[]; // Added abilities prop
     currentTurn: number;
     maxTurns: number;
     isLoading: boolean;
     isInventoryOpen: boolean;
     onInventoryToggle: (isOpen: boolean) => void;
     onInventoryAction: (actionPrefix: string, item: string) => void;
+    isAbilitiesOpen: boolean; // Added abilities state prop
+    onAbilitiesToggle: (isOpen: boolean) => void; // Added abilities toggle handler
+    onAbilityAction: (ability: HeroAbility) => void; // Added ability action handler
     onSave: () => void;
     onMainMenu: () => void;
     shouldFlashInventory: boolean; // Added prop for flashing effect
@@ -37,12 +42,16 @@ const GameHeader: React.FC<GameHeaderProps> = ({
     playerName,
     location,
     inventory,
+    abilities, // Destructure abilities
     currentTurn,
     maxTurns,
     isLoading,
     isInventoryOpen,
     onInventoryToggle,
     onInventoryAction,
+    isAbilitiesOpen, // Destructure abilities state
+    onAbilitiesToggle, // Destructure abilities toggle handler
+    onAbilityAction, // Destructure ability action handler
     onSave,
     onMainMenu,
     shouldFlashInventory, // Destructure flashing prop
@@ -100,18 +109,28 @@ const GameHeader: React.FC<GameHeaderProps> = ({
 
     return (
         <CardHeader className="relative text-center flex-shrink-0 pt-4 pb-2 flex items-center justify-between border-b border-border">
-            {/* Left Aligned: Inventory Button (only visible in game) */}
-            <div className="absolute top-3 left-4">
+            {/* Left Aligned: Inventory & Abilities Buttons (only visible in game) */}
+            <div className="absolute top-3 left-4 flex items-center gap-2">
                 {showGameControls && (
-                    <InventoryPopover
-                        inventory={inventory}
-                        isOpen={isInventoryOpen}
-                        onOpenChange={onInventoryToggle}
-                        onActionClick={onInventoryAction}
-                        isLoading={isLoading}
-                        isGameEnded={currentView === 'game_ended'}
-                        shouldFlash={shouldFlashInventory} // Pass the flashing state
-                    />
+                    <>
+                        <InventoryPopover
+                            inventory={inventory}
+                            isOpen={isInventoryOpen}
+                            onOpenChange={onInventoryToggle}
+                            onActionClick={onInventoryAction}
+                            isLoading={isLoading}
+                            isGameEnded={currentView === 'game_ended'}
+                            shouldFlash={shouldFlashInventory} // Pass the flashing state
+                        />
+                        <AbilitiesPopover
+                            abilities={abilities}
+                            isOpen={isAbilitiesOpen}
+                            onOpenChange={onAbilitiesToggle}
+                            onActionClick={onAbilityAction}
+                            isLoading={isLoading}
+                            isGameEnded={currentView === 'game_ended'}
+                        />
+                    </>
                 )}
             </div>
 
