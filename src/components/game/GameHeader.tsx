@@ -7,6 +7,7 @@ import HeaderActions from './HeaderActions'; // Assuming HeaderActions is refact
 import { BookOpenText, MapPin } from 'lucide-react';
 import type { ParsedGameState, GameView } from '@/types/game'; // Import shared types
 import { themes } from '@/config/themes'; // Import themes to get labels
+import { ThemeSwitcher } from '@/components/theme-switcher'; // Import ThemeSwitcher
 
 interface GameHeaderProps {
     currentView: GameView;
@@ -70,7 +71,9 @@ const GameHeader: React.FC<GameHeaderProps> = ({
                  break;
             case 'name_input':
                 mainTitle = "Prépare-toi pour l'aventure !";
-                subTitle = mainThemeLabel && subThemeLabel ? `${mainThemeLabel} - ${subThemeLabel}` : '';
+                // Ensure subThemeLabel is handled if null
+                const effectiveSubThemeLabel = subThemeLabel || 'Sans Scénario Spécifique';
+                subTitle = mainThemeLabel ? `${mainThemeLabel} - ${effectiveSubThemeLabel}` : '';
                 break;
             case 'loading_game':
                 mainTitle = "Choisissez une partie à charger.";
@@ -126,7 +129,11 @@ const GameHeader: React.FC<GameHeaderProps> = ({
             {showGameControls && (
                 <div className="absolute top-3 right-4 flex flex-col items-end space-y-2">
                     <TurnCounter currentTurn={currentTurn} maxTurns={maxTurns} />
-                    <HeaderActions onSave={onSave} onMainMenu={onMainMenu} isLoading={isLoading || currentView === 'game_ended'} />
+                     {/* Wrap HeaderActions and ThemeSwitcher */}
+                     <div className="flex items-center gap-2">
+                        <HeaderActions onSave={onSave} onMainMenu={onMainMenu} isLoading={isLoading || currentView === 'game_ended'} />
+                        <ThemeSwitcher /> {/* Add the ThemeSwitcher here */}
+                    </div>
                 </div>
             )}
         </CardHeader>
