@@ -62,13 +62,21 @@ export interface Theme {
     subThemes: SubTheme[]; // Array of specific sub-themes/scenarios
 }
 
+// Represents a hero's ability
+export interface HeroAbility {
+    label: string; // Description of the ability
+    icon: LucideIcon; // Icon for the ability
+}
+
 // Represents a hero option
 export interface HeroOption {
     value: string; // Unique value for the hero class (e.g., 'Warrior')
     label: string; // Display name for the user (e.g., 'Warrior')
     description: string; // Short description of the hero class
     icon: LucideIcon; // Icon component from lucide-react
+    abilities: HeroAbility[]; // Array of hero abilities
 }
 
 // Represents the selected hero class (could be extended with abilities)
 export type HeroClass = string;
+

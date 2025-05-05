@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { HeroClass, HeroOption } from '@/types/game';
+import { Separator } from '@/components/ui/separator'; // Import Separator
 
 interface HeroSelectionProps {
     heroes: HeroOption[];
@@ -41,8 +42,24 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({ heroes, selectedHero, onH
                                     <Icon className="h-10 w-10 mb-2 text-primary" />
                                     <CardTitle className="text-lg">{hero.label}</CardTitle>
                                 </CardHeader>
-                                <CardContent className="text-center text-sm text-muted-foreground pt-0 pb-4 flex-grow"> {/* Added flex-grow */}
-                                    {hero.description}
+                                <CardContent className="text-center text-sm text-muted-foreground pt-0 pb-4 flex-grow flex flex-col"> {/* Added flex-grow and flex-col */}
+                                    <p className="mb-2">{hero.description}</p>
+                                    {hero.abilities && hero.abilities.length > 0 && (
+                                        <>
+                                            <Separator className="my-2 bg-border/50" />
+                                            <div className="space-y-1 mt-1 text-left">
+                                                {hero.abilities.map((ability, index) => {
+                                                     const AbilityIcon = ability.icon;
+                                                     return (
+                                                         <div key={index} className="flex items-center gap-1.5 text-xs">
+                                                             <AbilityIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+                                                             <span>{ability.label}</span>
+                                                         </div>
+                                                     );
+                                                })}
+                                            </div>
+                                        </>
+                                    )}
                                 </CardContent>
                             </Card>
                         );
@@ -68,4 +85,3 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({ heroes, selectedHero, onH
 };
 
 export default HeroSelection;
-
