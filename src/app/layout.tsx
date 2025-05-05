@@ -27,7 +27,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark" suppressHydrationWarning> {/* Add suppressHydrationWarning */}
+    <html lang="en" className="dark" suppressHydrationWarning> {/* Ensure no leading space */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <ThemeProvider
           attribute="data-theme-primary" // Use data-theme-primary for ShadCN theme integration
