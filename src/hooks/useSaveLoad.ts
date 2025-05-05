@@ -1,5 +1,5 @@
 
-import { useState, useCallback, type Dispatch, type SetStateAction } from 'react';
+import { useState, useEffect, useCallback, type Dispatch, type SetStateAction } from 'react'; // Import useEffect
 import { useToast } from '@/hooks/use-toast';
 import { listSaveGames, saveGame, loadGame, deleteSaveGame, type GameStateToSave } from '@/lib/saveLoadUtils';
 import type { GameState, GameView } from '@/types/game';
@@ -12,15 +12,15 @@ export function useSaveLoad(
     setGameState: Dispatch<SetStateAction<GameState>>,
     toast: ReturnType<typeof useToast>['toast'] // Pass toast function type
 ) {
+    // Initialize savedGames as empty array to prevent hydration mismatch
     const [savedGames, setSavedGames] = useState<Omit<GameStateToSave, 'story' | 'choices' | 'currentGameState' | 'playerChoicesHistory'>[]>([]);
     const [saveNameInput, setSaveNameInput] = useState('');
     const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
 
-    // --- Load saved games on initial mount (or when relevant) ---
-    // This might need adjustment depending on when you want to load the list
-    useState(() => {
+    // Load saved games list only on the client after mount
+    useEffect(() => {
         setSavedGames(listSaveGames());
-    });
+    }, []); // Empty dependency array ensures this runs once on mount (client-side)
 
     const handleOpenSaveDialog = useCallback(() => {
         if (gameState.currentView !== 'game_active') {
@@ -82,18 +82,26 @@ export function useSaveLoad(
     const handleLoadGame = useCallback((saveName: string) => {
         const loadedState = loadGame(saveName);
         if (loadedState) {
+            // Validation: Ensure theme still exists
+            if (!themes.some(t => t.value === loadedState.theme)) {
+                 toast({ title: "Erreur de Chargement", description: `Le thème sauvegardé ("${loadedState.theme}") n'existe plus. Impossible de charger.`, variant: "destructive" });
+                 setSavedGames(listSaveGames()); // Refresh list after failed load
+                 return;
+            }
+            // Validation: Ensure subTheme (if not null) still exists for the main theme
             if (loadedState.subTheme) {
                 const mainThemeExists = themes.some(t => t.value === loadedState.theme);
                 const subThemeExists = mainThemeExists && themes.find(t => t.value === loadedState.theme)?.subThemes.some(st => st.value === loadedState.subTheme);
                 if (!subThemeExists) {
                     toast({ title: "Erreur de Chargement", description: `Le scénario sauvegardé ("${loadedState.subTheme}") pour le thème "${loadedState.theme}" n'existe plus ou est invalide. Impossible de charger.`, variant: "destructive" });
-                    setSavedGames(listSaveGames());
+                    setSavedGames(listSaveGames()); // Refresh list
                     return;
                 }
             }
+            // Validation: Ensure selectedHero still exists
             if (!loadedState.selectedHero || !heroOptions.some(h => h.value === loadedState.selectedHero)) {
                 toast({ title: "Erreur de Chargement", description: `Le héros sauvegardé ("${loadedState.selectedHero || 'Aucun'}") n'existe plus ou est invalide. Impossible de charger.`, variant: "destructive" });
-                setSavedGames(listSaveGames());
+                setSavedGames(listSaveGames()); // Refresh list
                 return;
             }
 
@@ -124,7 +132,7 @@ export function useSaveLoad(
             toast({ title: "Erreur de Chargement", description: `Impossible de charger la partie "${saveName}".`, variant: "destructive" });
             setSavedGames(listSaveGames());
         }
-    }, [setGameState, toast, setSavedGames]);
+    }, [setGameState, toast, setSavedGames]); // Added setSavedGames dependency
 
     const handleDeleteGame = useCallback((saveName: string) => {
         if (deleteSaveGame(saveName)) {
@@ -133,7 +141,7 @@ export function useSaveLoad(
         } else {
             toast({ title: "Erreur", description: `Impossible de supprimer la sauvegarde "${saveName}".`, variant: "destructive" });
         }
-    }, [toast, setSavedGames]);
+    }, [toast, setSavedGames]); // Added setSavedGames dependency
 
     return {
         savedGames,
