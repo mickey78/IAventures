@@ -1,5 +1,6 @@
 
 import React from 'react';
+import Image from 'next/image';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -54,8 +55,12 @@ const SubThemeSelection: React.FC<SubThemeSelectionProps> = ({
                             <Card
                                 key={subTheme.value}
                                 className={cn(
-                                    "cursor-pointer transition-all duration-200 hover:shadow-lg hover:border-primary flex flex-col h-full", // Added h-full
-                                    isSelected ? 'border-primary ring-2 ring-primary bg-primary/10' : 'border-border hover:bg-accent/50'
+                                    "cursor-pointer transition-all duration-200 hover:shadow-lg flex flex-col h-full relative overflow-hidden group", // Added relative, overflow-hidden, group
+                                    "bg-card text-card-foreground", // Use card background and foreground
+                                    isSelected
+                                        ? 'border-primary ring-2 ring-primary' // Apply primary border and ring when selected
+                                        : 'border-border hover:border-accent', // Default border, accent border on hover
+                                    "hover:bg-accent/10" // Slight accent background on hover
                                 )}
                                 onClick={() => onSubThemeSelect(subTheme.value)}
                                 role="button"
@@ -63,13 +68,34 @@ const SubThemeSelection: React.FC<SubThemeSelectionProps> = ({
                                 tabIndex={0}
                                 onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onSubThemeSelect(subTheme.value); }}
                             >
-                                <CardHeader className="items-center text-center pb-2">
-                                    <Icon className="h-8 w-8 mb-2 text-primary" /> {/* Display the icon */}
-                                    <CardTitle className="text-lg">{subTheme.label}</CardTitle>
-                                </CardHeader>
-                                <CardContent className="text-center text-sm text-muted-foreground pt-0 pb-4 flex-grow"> {/* Added flex-grow */}
-                                    {subTheme.prompt}
-                                </CardContent>
+                                 {/* Background Image Container */}
+                                 {subTheme.image && (
+                                    <div className="absolute inset-0 z-0">
+                                        <Image
+                                            // Use placeholder image URL if local image is not available yet or fails to load
+                                            src={subTheme.image || `https://picsum.photos/seed/${subTheme.value}/400/300`}
+                                            alt={`Arrière-plan pour ${subTheme.label}`}
+                                            fill
+                                            sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                                            style={{ objectFit: 'cover' }}
+                                            className="opacity-40 group-hover:opacity-50 transition-opacity duration-300" // Increased opacity slightly
+                                            data-ai-hint={`${subTheme.value.split(' ')[0]} scene`} // Add AI hint for picsum
+                                            unoptimized // Add unoptimized if using external URLs like picsum often
+                                        />
+                                         {/* Overlay */}
+                                        <div className="absolute inset-0 bg-gradient-to-t from-background/80 via-background/50 to-transparent z-10"></div>
+                                    </div>
+                                 )}
+                                 {/* Content must be relative and have higher z-index */}
+                                <div className="relative z-20 flex flex-col h-full">
+                                    <CardHeader className="items-center text-center pb-2">
+                                        <Icon className="h-8 w-8 mb-2 text-primary drop-shadow-lg" /> {/* Display the icon, added drop-shadow */}
+                                        <CardTitle className="text-lg text-foreground">{subTheme.label}</CardTitle> {/* Ensure foreground color */}
+                                    </CardHeader>
+                                    <CardContent className="text-center text-sm text-foreground/90 pt-0 pb-4 flex-grow"> {/* Ensure foreground color */}
+                                        {subTheme.prompt}
+                                    </CardContent>
+                                </div>
                             </Card>
                         );
                     })}
@@ -79,7 +105,7 @@ const SubThemeSelection: React.FC<SubThemeSelectionProps> = ({
                 {/* Keep the "Suivant" button but it's less necessary if Skip goes directly */}
                  <Button
                     onClick={onNext} // Go to Hero Selection
-                    disabled={selectedSubTheme === null} // Only enabled if a specific scenario is selected
+                    disabled={selectedSubTheme === undefined} // Allow proceeding if null (skipped) or a value is selected
                     size="lg"
                     variant="primary"
                     className="rounded-md shadow-md"
