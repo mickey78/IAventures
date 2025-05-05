@@ -38,7 +38,7 @@ const SubThemeSelection: React.FC<SubThemeSelectionProps> = ({
 
             {/* Skip Button */}
             <Button
-                variant="secondary"
+                variant="primary" // Changed variant to primary
                 className="w-full max-w-md mb-4" // Full width up to md
                 onClick={handleSkip}
             >
@@ -78,7 +78,7 @@ const SubThemeSelection: React.FC<SubThemeSelectionProps> = ({
                                             fill
                                             sizes="(max-width: 768px) 100vw, (max-width: 1024px) 50vw, 33vw"
                                             style={{ objectFit: 'cover' }}
-                                            className="opacity-40 group-hover:opacity-50 transition-opacity duration-300" // Increased opacity slightly
+                                            className="opacity-60 group-hover:opacity-70 transition-opacity duration-300" // Adjusted opacity
                                             data-ai-hint={`${subTheme.value.split(' ')[0]} scene`} // Add AI hint for picsum
                                             unoptimized // Add unoptimized if using external URLs like picsum often
                                         />
