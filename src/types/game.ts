@@ -1,4 +1,5 @@
 
+
 import type { LucideIcon } from 'lucide-react';
 
 // Represents a single segment in the story conversation
@@ -7,8 +8,8 @@ export interface StorySegment {
   text: string;
   speaker: 'player' | 'narrator'; // Identify the speaker
   storyImageUrl?: string | null; // Optional URL for the generated image
-  imageIsLoading?: boolean; // Flag to indicate image is being generated
-  imageError?: boolean; // Flag to indicate image generation failed
+  imageIsLoading?: boolean | null; // Flag to indicate image is being generated
+  imageError?: boolean | null; // Flag to indicate image generation failed
   imageGenerationPrompt?: string | null; // Store the prompt used for generation (for debugging/consistency)
 }
 
@@ -40,6 +41,7 @@ export interface GameState {
   currentTurn: number;
   generatingSegmentId: number | null; // ID of segment currently generating image, or null
   selectedHero: string | null; // Added selectedHero field
+  initialPromptDebug: string | null; // Store the initial prompt string for debugging
 }
 
 // Represents the different views/screens of the application
@@ -79,5 +81,6 @@ export interface HeroOption {
 
 // Represents the selected hero class (could be extended with abilities)
 export type HeroClass = string;
+
 
 

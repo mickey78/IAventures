@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -68,6 +69,7 @@ export default function IAventuresGame() {
     startNewGame,
     handleAction,
     triggerImageGeneration,
+    retryImageGeneration, // Get retry function from hook
     handleManualImageGeneration,
     shouldFlashInventory,
     setShouldFlashInventory,
@@ -356,6 +358,7 @@ export default function IAventuresGame() {
                 isLoading={gameState.isLoading}
                 generatingSegmentId={gameState.generatingSegmentId}
                 onManualImageGeneration={handleManualImageGeneration}
+                onRetryImageGeneration={retryImageGeneration} // Pass retry function
             />
             {!gameState.isLoading && (
               <ActionInput
@@ -390,6 +393,7 @@ export default function IAventuresGame() {
                 isLoading={false}
                 generatingSegmentId={gameState.generatingSegmentId}
                 onManualImageGeneration={handleManualImageGeneration}
+                onRetryImageGeneration={retryImageGeneration} // Pass retry function
             />
             <GameEndedDisplay
                 maxTurns={gameState.maxTurns}

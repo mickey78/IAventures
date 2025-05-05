@@ -1,4 +1,5 @@
 
+
 import { useState, useCallback, type RefObject, type Dispatch, type SetStateAction } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import type { StorySegment, GameState, ParsedGameState, HeroAbility } from '@/types/game';
@@ -30,7 +31,7 @@ export function useGameActions(
     }, [viewportRef]);
 
     // --- Image Generation Logic ---
-    const triggerImageGeneration = useCallback(async (segmentId: number, prompt: string) => {
+    const triggerImageGeneration = useCallback(async (segmentId: number, prompt: string | null | undefined) => {
         if (!prompt) {
             console.warn(`Image generation skipped for segment ${segmentId}: no prompt provided.`);
             setGameState((prev) => ({
@@ -47,7 +48,7 @@ export function useGameActions(
             ...prev,
             story: prev.story.map(seg =>
                 seg.id === segmentId
-                    ? { ...seg, imageIsLoading: true, imageError: false, imageGenerationPrompt: prompt }
+                    ? { ...seg, imageIsLoading: true, imageError: false, imageGenerationPrompt: prompt } // Ensure prompt is stored
                     : seg
             ),
             generatingSegmentId: segmentId,
@@ -75,13 +76,47 @@ export function useGameActions(
                 ...prev,
                 story: prev.story.map(seg =>
                     seg.id === segmentId
-                        ? { ...seg, storyImageUrl: null, imageIsLoading: false, imageError: true }
+                        ? { ...seg, storyImageUrl: null, imageIsLoading: false, imageError: true } // Set imageError to true
                         : seg
                 ),
-                generatingSegmentId: null,
+                generatingSegmentId: null, // Reset generating ID on error
             }));
         }
     }, [setGameState, toast, scrollToBottom]); // Include scrollToBottom in dependencies
+
+     // --- Retry Image Generation ---
+    const retryImageGeneration = useCallback(async (segmentId: number) => {
+        console.log(`Retrying image generation for segment ${segmentId}`);
+        const segmentToRetry = gameState.story.find(seg => seg.id === segmentId);
+
+        if (!segmentToRetry) {
+            console.error(`Cannot retry image generation: Segment ${segmentId} not found.`);
+            toast({ title: 'Erreur', description: 'Segment d\'histoire introuvable.', variant: 'destructive' });
+            return;
+        }
+
+        if (!segmentToRetry.imageGenerationPrompt) {
+            console.error(`Cannot retry image generation for segment ${segmentId}: No prompt available.`);
+            toast({ title: 'Erreur', description: 'Aucun prompt disponible pour regénérer cette image.', variant: 'destructive' });
+            // Optionally reset error state here if no prompt exists
+             setGameState(prev => ({
+                 ...prev,
+                 story: prev.story.map(seg =>
+                     seg.id === segmentId ? { ...seg, imageError: false } : seg
+                 ),
+             }));
+            return;
+        }
+
+        // Reset error state and trigger generation again
+        setGameState(prev => ({
+            ...prev,
+            story: prev.story.map(seg =>
+                seg.id === segmentId ? { ...seg, imageError: false, imageIsLoading: true } : seg
+            ),
+        }));
+        await triggerImageGeneration(segmentId, segmentToRetry.imageGenerationPrompt);
+    }, [gameState.story, setGameState, toast, triggerImageGeneration]); // Include gameState.story
 
     const handleManualImageGeneration = useCallback((segmentId: number, segmentText: string) => {
         if (!gameState.theme || !gameState.currentGameState.location || !gameState.playerName || !gameState.selectedHero) {
@@ -90,7 +125,8 @@ export function useGameActions(
         }
         const moodText = gameState.currentGameState.emotions && gameState.currentGameState.emotions.length > 0 ? ` Ambiance: ${gameState.currentGameState.emotions.join(', ')}.` : '';
         // Ensure player name and hero class are included in the manual prompt
-        const prompt = `Une illustration de "${gameState.playerName}", le/la ${gameState.selectedHero}: "${segmentText.substring(0, 80)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} Style: Cartoon.`;
+        const heroLabel = heroOptions.find(h => h.value === gameState.selectedHero)?.label || gameState.selectedHero; // Get hero label
+        const prompt = `Une illustration de "${gameState.playerName}", le/la ${heroLabel}: "${segmentText.substring(0, 80)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} Style: Cartoon.`;
         triggerImageGeneration(segmentId, prompt);
     }, [gameState, toast, triggerImageGeneration]);
 
@@ -159,12 +195,12 @@ export function useGameActions(
                 selectedHeroValue: heroToUse, // Pass hero value
             };
 
-             // Create the full prompt string for debugging
-             const debugPromptString = `Tu es un Maître du Jeu (MJ) / Narrateur sympathique, créatif et plein d'humour pour un jeu d'aventure textuel interactif destiné aux enfants de 8 à 12 ans. Le nom du joueur est ${initialStoryInput.playerName} et il/elle a choisi la classe ${initialStoryInput.selectedHeroValue}. Ta mission est de démarrer une histoire passionnante et immersive basée sur le thème principal et le **scénario de départ (${initialStoryInput.subThemePrompt})** fourni, en t'adressant à lui par son nom, en définissant un **lieu de départ clair**, en proposant des choix et en générant un **prompt d'image initial**, tout en respectant les règles ci-dessous.
+            // Create the full prompt string for debugging (reconstructed based on template logic)
+            const debugPromptString = `Tu es un Maître du Jeu (MJ) / Narrateur sympathique, créatif et plein d'humour pour un jeu d'aventure textuel interactif destiné aux enfants de 8 à 12 ans. Le nom du joueur est ${initialStoryInput.playerName} et il/elle a choisi la classe ${initialStoryInput.selectedHeroValue}. Ta mission est de démarrer une histoire passionnante et immersive basée sur le thème principal et le **scénario de départ (${initialStoryInput.subThemePrompt})** fourni, en t'adressant à lui par son nom, en définissant un **lieu de départ clair**, en proposant des choix et en générant un **prompt d'image initial**, tout en respectant les règles ci-dessous.
 
 **Contexte de l'aventure :**
 * Thème Principal : ${initialStoryInput.theme}
-* **Scénario de Départ (Sous-Thème ou Générique)** : ${initialStoryInput.subThemePrompt}  <-- **UTILISE CE SCÉNARIO comme point de départ pour l'histoire initiale.**
+* **Scénario de Départ (Sous-Thème ou Générique)** : ${initialStoryInput.subThemePrompt} <-- **UTILISE CE SCÉNARIO comme point de départ pour l'histoire initiale.**
 * Nom du joueur : ${initialStoryInput.playerName}
 * Classe du Héros : ${initialStoryInput.selectedHeroValue}
 
@@ -172,7 +208,7 @@ export function useGameActions(
 1. **Ton rôle** : Tu es UNIQUEMENT le narrateur de l'histoire. Ne sors JAMAIS de ce rôle. Ne parle pas de toi en tant qu'IA. N'accepte pas de discuter d'autre chose que l'aventure en cours. Tu dois interagir avec le joueur en lui posant des questions.
 2. **Ton public** : Écris de manière simple, engageante et adaptée aux enfants (8-12 ans). Utilise un vocabulaire accessible, et n'hésite pas à ajouter des jeux de mots et de l'humour. Évite les mots trop compliqués, les situations trop effrayantes, violentes ou inappropriées pour cet âge. L'ambiance doit être amusante, stimulante et pleine de mystères.
 3. **Le début de l'histoire (basé sur le scénario fourni)** :
-    * Commence directement l'histoire **en te basant sur le SCÉNARIO DE DÉPART **. Si le scénario est générique, invente une situation de départ créative et surprenante qui correspond au thème ${initialStoryInput.theme}.
+    * Commence directement l'histoire **en te basant sur le SCÉNARIO DE DÉPART**. Si le scénario est générique, invente une situation de départ créative et surprenante qui correspond au thème ${initialStoryInput.theme}.
     * **DÉFINIS le LIEU** : Décris la scène de départ de manière détaillée et immersive, **en accord avec le scénario**. **Spécifie clairement et de manière concise le nom du lieu de départ dans la clé 'location' de la sortie JSON.** Où se trouve ${initialStoryInput.playerName} (${initialStoryInput.selectedHeroValue}) ? Que voit-il/elle ? Que ressent-il/elle ? Que se passe-t-il ? Crée une ambiance immersive qui correspond au thème et au scénario, et ajoute une touche de mystère et de surprise.
     * Adresse-toi DIRECTEMENT à ${initialStoryInput.playerName} par son nom, et n'hésite pas à lui poser des questions.
 4. **Le prompt d'image initial** : Génère un prompt CONCIS et DESCRIPTIF pour une image représentant la scène de départ que tu viens de décrire (basée sur le scénario fourni). Ce prompt DOIT inclure une mention du **thème principal (${initialStoryInput.theme})**, du **nom du lieu ('location')**, du **nom du joueur (${initialStoryInput.playerName})**, de sa **classe de héros (${initialStoryInput.selectedHeroValue})** et spécifier un **style cartoon**. Remplis la clé 'generatedImagePrompt' avec ce prompt. Si la description est très simple, tu peux laisser le prompt vide, mais essaie d'en générer un.
@@ -368,6 +404,7 @@ Génère maintenant l'histoire de départ, le lieu de départ ('location'), les 
         startNewGame,
         handleAction,
         triggerImageGeneration,
+        retryImageGeneration, // Expose retry function
         handleManualImageGeneration,
         shouldFlashInventory,
         setShouldFlashInventory,

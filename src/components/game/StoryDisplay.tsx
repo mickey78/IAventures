@@ -1,4 +1,5 @@
 
+
 import React from 'react';
 import Image from 'next/image';
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
@@ -6,7 +7,7 @@ import { ScrollBar } from "@/components/ui/scroll-area";
 import { Button } from '@/components/ui/button'; // Added import
 import { Skeleton } from '@/components/ui/skeleton';
 import { cn } from "@/lib/utils";
-import { Bot, Smile, Loader, History, ImageOff, ImageIcon, Info } from 'lucide-react'; // Added ImageIcon and Info
+import { Bot, Smile, Loader, History, ImageOff, ImageIcon, Info, RefreshCw } from 'lucide-react'; // Added ImageIcon, Info, RefreshCw
 import type { StorySegment } from '@/types/game'; // Import shared types
 
 interface StoryDisplayProps {
@@ -16,6 +17,7 @@ interface StoryDisplayProps {
     isLoading: boolean; // To show the overall loading state
     generatingSegmentId: number | null; // ID of the segment currently generating an image
     onManualImageGeneration: (segmentId: number, segmentText: string) => void; // Callback for manual generation
+    onRetryImageGeneration: (segmentId: number) => void; // Callback for retrying generation
 }
 
 // Function to parse segment text and highlight inventory additions
@@ -46,7 +48,8 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
     viewportRef,
     isLoading,
     generatingSegmentId,
-    onManualImageGeneration
+    onManualImageGeneration,
+    onRetryImageGeneration // Destructure retry function
  }) => {
 
     const isGeneratingImage = (segmentId: number) => generatingSegmentId === segmentId;
@@ -105,9 +108,20 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
                              </div>
                         )}
                         {segment.speaker === 'narrator' && segment.imageError && (
-                             <div className="mt-2 flex flex-col justify-center items-center h-48 bg-destructive/10 rounded-md text-destructive p-2 text-center">
+                             <div className="mt-2 flex flex-col justify-center items-center h-48 bg-destructive/10 rounded-md text-destructive p-2 text-center relative">
                                  <ImageOff className="h-8 w-8 mb-2" />
                                  <p className="text-xs">Erreur de génération d'image.</p>
+                                  {/* Retry Button */}
+                                 <Button
+                                    variant="destructive"
+                                    size="sm"
+                                    className="absolute bottom-2 right-2 h-7 px-2 text-xs"
+                                    onClick={() => onRetryImageGeneration(segment.id)}
+                                    aria-label="Réessayer de générer l'image"
+                                 >
+                                     <RefreshCw className="h-3 w-3 mr-1" />
+                                     Réessayer
+                                 </Button>
                              </div>
                         )}
                         {segment.speaker === 'narrator' && segment.storyImageUrl && !segment.imageIsLoading && !segment.imageError && (
@@ -119,6 +133,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
                                     sizes="(max-width: 768px) 90vw, 85vw"
                                     style={{ objectFit: 'cover' }}
                                     priority={story.length > 0 && story[story.length - 1].id === segment.id}
+                                    unoptimized // Added to potentially help with very large Base64 strings if needed
                                 />
                             </div>
                         )}
@@ -148,3 +163,4 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
  };
 
  export default StoryDisplay;
+
