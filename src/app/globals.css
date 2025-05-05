@@ -1,3 +1,4 @@
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -136,6 +137,36 @@ body {
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-ring: 30 70% 55%;
   }
+
+  .dark[data-theme-primary="pink"] { /* Added Pink */
+    --primary: 340 70% 55%; /* Bright Pink */
+    --primary-foreground: 0 0% 100%;
+    --ring: 340 70% 65%;
+    --chart-1: 340 70% 55%;
+    --sidebar-primary: 340 70% 55%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 340 70% 65%;
+  }
+
+  .dark[data-theme-primary="cyan"] { /* Added Cyan */
+    --primary: 180 70% 50%; /* Bright Cyan */
+    --primary-foreground: 0 0% 100%;
+    --ring: 180 70% 60%;
+    --chart-1: 180 70% 50%;
+    --sidebar-primary: 180 70% 50%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-ring: 180 70% 60%;
+  }
+
+  .dark[data-theme-primary="yellow"] { /* Added Yellow */
+    --primary: 50 70% 50%; /* Bright Yellow */
+    --primary-foreground: 240 10% 5%; /* Use dark text for yellow */
+    --ring: 50 70% 60%;
+    --chart-1: 50 70% 50%;
+    --sidebar-primary: 50 70% 50%;
+    --sidebar-primary-foreground: 240 10% 5%; /* Use dark text */
+    --sidebar-ring: 50 70% 60%;
+  }
 }
 
 @layer base {
@@ -158,3 +189,4 @@ body {
     animation: flash-orange 0.5s ease-in-out 3; /* 0.5s duration, 3 iterations */
   }
 }
+

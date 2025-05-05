@@ -1,12 +1,12 @@
 
 import type { Metadata } from 'next';
-import { Geist, Geist_Mono } from 'next/font/google';
+import { Geist_Sans, Geist_Mono } from 'next/font/google'; // Import Geist_Sans and Geist_Mono
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"; // Import Toaster
 import { ThemeProvider } from '@/components/theme-provider'; // Import ThemeProvider
 // Removed ThemeSwitcher import
 
-const geistSans = Geist({
+const geistSans = Geist_Sans({
   variable: '--font-geist-sans',
   subsets: ['latin'],
 });
@@ -27,12 +27,13 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    // Ensure no leading space before <html>
     <html lang="en" className="dark" suppressHydrationWarning>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <ThemeProvider
           attribute="data-theme-primary" // Use data-theme-primary for ShadCN theme integration
           defaultTheme="red" // Default primary color theme
-          themes={['red', 'blue', 'green', 'purple', 'orange']} // Available primary color themes
+          themes={['red', 'blue', 'green', 'purple', 'orange', 'pink', 'cyan', 'yellow']} // Available primary color themes + new ones
         >
            {/* ThemeSwitcher removed from here, managed within GameHeader/settings */}
           {children}
@@ -42,3 +43,4 @@ export default function RootLayout({
     </html>
   );
 }
+

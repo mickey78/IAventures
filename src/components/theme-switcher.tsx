@@ -1,3 +1,4 @@
+
 "use client"
 
 import * as React from "react"
@@ -19,6 +20,9 @@ const themeColors = [
   { name: 'green', label: 'Vert Forêt', colorClass: 'bg-[hsl(140,60%,35%)]' },
   { name: 'purple', label: 'Violet Ombre', colorClass: 'bg-[hsl(270,50%,50%)]' },
   { name: 'orange', label: 'Orange Braise', colorClass: 'bg-[hsl(30,70%,45%)]' },
+  { name: 'pink', label: 'Rose Bonbon', colorClass: 'bg-[hsl(340,70%,55%)]' }, // Added Pink
+  { name: 'cyan', label: 'Cyan Glacé', colorClass: 'bg-[hsl(180,70%,50%)]' }, // Added Cyan
+  { name: 'yellow', label: 'Jaune Soleil', colorClass: 'bg-[hsl(50,70%,50%)]' }, // Added Yellow
 ]
 
 export function ThemeSwitcher() {
