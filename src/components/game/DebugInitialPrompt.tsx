@@ -37,7 +37,7 @@ const DebugInitialPrompt: React.FC<DebugInitialPromptProps> = ({ prompt }) => {
             </Button>
         </div>
         {isOpen && (
-            <pre className="font-mono whitespace-pre-wrap break-words text-[10px] leading-tight mt-1 pl-[22px]"> {/* Indent content */}
+            <pre className="font-mono whitespace-pre-wrap break-words text-[10px] leading-tight mt-1 pl-[22px] max-h-48 overflow-auto"> {/* Added max-h-48 and overflow-auto */}
                 {prompt}
             </pre>
         )}
