@@ -1,3 +1,4 @@
+
 'use client';
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
@@ -50,7 +51,6 @@ export default function IAventuresGame() {
     maxTurns: 15, // Default max turns
     currentTurn: 1, // Default current turn
     generatingSegmentId: null, // Track which segment is generating an image
-    initialPromptDebugInfo: null, // Store initial prompt for debugging
   });
   const [savedGames, setSavedGames] = useState<Omit<GameStateToSave, 'story' | 'choices' | 'currentGameState' | 'playerChoicesHistory'>[]>([]); // Minimal info for list
   const [saveNameInput, setSaveNameInput] = useState('');
@@ -129,7 +129,6 @@ export default function IAventuresGame() {
       maxTurns: 15,
       currentTurn: 1,
       generatingSegmentId: null,
-      initialPromptDebugInfo: null, // Clear debug info
     }));
     setSavedGames(listSaveGames());
     setIsInventoryPopoverOpen(false);
@@ -146,7 +145,6 @@ export default function IAventuresGame() {
       currentTurn: 1,
       maxTurns: 15,
       currentGameState: { ...prev.currentGameState, location: 'Sélection du Thème', relationships: {}, emotions: [], events: [] }, // Reset specific parts
-      initialPromptDebugInfo: null, // Clear debug info
     }));
     setIsInventoryPopoverOpen(false);
     setIsCustomInputVisible(false);
@@ -164,7 +162,6 @@ export default function IAventuresGame() {
        currentView: 'sub_theme_selection',
        subTheme: null, // Reset subtheme selection for this view
        currentGameState: { ...prev.currentGameState, location: `Choix du Scénario: ${selectedThemeValue}` },
-       initialPromptDebugInfo: null, // Clear debug info
      }));
      setIsInventoryPopoverOpen(false);
      setIsCustomInputVisible(false);
@@ -183,7 +180,7 @@ export default function IAventuresGame() {
 
   const showLoadGameView = () => {
     setSavedGames(listSaveGames());
-    setGameState(prev => ({ ...prev, currentView: 'loading_game', currentGameState: { ...prev.currentGameState, location: 'Chargement de Partie' }, initialPromptDebugInfo: null }));
+    setGameState(prev => ({ ...prev, currentView: 'loading_game', currentGameState: { ...prev.currentGameState, location: 'Chargement de Partie' } }));
     setIsInventoryPopoverOpen(false);
     setIsCustomInputVisible(false);
   };
@@ -328,7 +325,6 @@ export default function IAventuresGame() {
         emotions: [],
         events: [],
       },
-      initialPromptDebugInfo: { theme: themeToUse, subThemePrompt: initialScenarioPrompt, playerName: nameToUse }, // Store debug info
     }));
     setIsInventoryPopoverOpen(false);
     setIsCustomInputVisible(false);
@@ -395,7 +391,6 @@ export default function IAventuresGame() {
         maxTurns: 15,
         currentTurn: 1,
         generatingSegmentId: null,
-        initialPromptDebugInfo: null, // Clear debug info on error
       }));
       toast({ title: 'Erreur de Génération', description: `Impossible de générer l'histoire initiale: ${errorMsg}`, variant: 'destructive' });
     }
@@ -635,7 +630,6 @@ export default function IAventuresGame() {
         maxTurns: loadedState.maxTurns,
         currentTurn: loadedState.currentTurn,
         generatingSegmentId: null, // Reset image generation tracking
-        initialPromptDebugInfo: null, // Clear debug info on load
       }));
       toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
       setIsInventoryPopoverOpen(false);
@@ -700,18 +694,6 @@ export default function IAventuresGame() {
       case 'game_active':
         return (
           <>
-             {/* Debug Info - Initial Prompt */}
-             {gameState.initialPromptDebugInfo && (
-               <div className="p-2 mb-2 bg-yellow-900/20 border border-yellow-800/30 rounded-md text-xs text-yellow-400 flex items-start gap-1.5">
-                 <Info className="h-3 w-3 mt-0.5 shrink-0" />
-                 <p className="font-mono break-words text-[10px] leading-tight">
-                    <span className='font-semibold'>DEBUG - Prompt Initial:</span><br/>
-                    Thème: {gameState.initialPromptDebugInfo.theme}<br/>
-                    Scénario: {gameState.initialPromptDebugInfo.subThemePrompt}<br/>
-                    Nom: {gameState.initialPromptDebugInfo.playerName}
-                 </p>
-               </div>
-             )}
             <StoryDisplay
                 story={gameState.story}
                 playerName={gameState.playerName}
