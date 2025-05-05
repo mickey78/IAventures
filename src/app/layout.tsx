@@ -1,20 +1,14 @@
 
 import type { Metadata } from 'next';
-import { Geist_Sans, Geist_Mono } from 'next/font/google'; // Import Geist_Sans and Geist_Mono
+import { GeistSans } from 'geist/font/sans'; // Import GeistSans
+import { GeistMono } from 'geist/font/mono'; // Import GeistMono
 import './globals.css';
 import { Toaster } from "@/components/ui/toaster"; // Import Toaster
 import { ThemeProvider } from '@/components/theme-provider'; // Import ThemeProvider
 // Removed ThemeSwitcher import
 
-const geistSans = Geist_Sans({
-  variable: '--font-geist-sans',
-  subsets: ['latin'],
-});
-
-const geistMono = Geist_Mono({
-  variable: '--font-geist-mono',
-  subsets: ['latin'],
-});
+const geistSans = GeistSans; // Use imported GeistSans directly
+const geistMono = GeistMono; // Use imported GeistMono directly
 
 export const metadata: Metadata = {
   title: 'IAventures', // Updated title
@@ -29,6 +23,7 @@ export default function RootLayout({
   return (
     // Ensure no leading space before <html>
     <html lang="en" className="dark" suppressHydrationWarning>
+      {/* Apply font variables directly to the body or html tag */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <ThemeProvider
           attribute="data-theme-primary" // Use data-theme-primary for ShadCN theme integration
@@ -43,4 +38,3 @@ export default function RootLayout({
     </html>
   );
 }
-
