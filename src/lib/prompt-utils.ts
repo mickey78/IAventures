@@ -1,6 +1,6 @@
 
 // src/lib/prompt-utils.ts
-import fs from 'fs/promises';
+import fs from 'node:fs/promises'; // Changed to use 'node:' prefix
 import path from 'path';
 
 /**
@@ -23,3 +23,4 @@ export async function readPromptFile(filename: string): Promise<string> {
     throw new Error(`Failed to read prompt file: ${filename}. Details: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
+

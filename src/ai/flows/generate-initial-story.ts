@@ -12,8 +12,8 @@
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
 import { heroOptions } from '@/config/heroes'; // Import hero options to get hero label and description
-import { logToFile } from '@/services/loggingService'; // Corrected import path
-import { readPromptFile } from '@/lib/prompt-utils'; // Corrected import path
+import { logToFile } from '@/services/loggingService'; 
+import { readPromptFile } from '@/lib/prompt-utils'; 
 
 const promptTemplatePromise = readPromptFile('initialStoryPrompt.prompt'); // Charger le template depuis le fichier
 
@@ -26,7 +26,7 @@ const GenerateInitialStoryInputSchema = z.object({
   subThemePrompt: z.string().optional().describe("Le prompt de scénario spécifique pour le sous-thème choisi par le joueur, ou un prompt générique si aucun sous-thème n'est choisi."),
   playerName: z.string().describe('Le nom du joueur.'),
   selectedHeroValue: z.string().describe("La valeur de la classe de héros choisie par le joueur (ex: 'Guerrier')."),
-  heroDescription: z.string().describe("La description et les habiletés du héros choisi."), // Added hero description for prompt context
+  heroDescription: z.string().describe("La description et les habiletés du héros choisi."), 
 });
 export type GenerateInitialStoryInput = z.infer<typeof GenerateInitialStoryInputSchema>;
 
@@ -36,7 +36,7 @@ const GenerateInitialStoryOutputSchema = z.object({
     .array(z.string())
     .describe('Les choix présentés au joueur sous forme de boutons sélectionnables.'),
   location: z.string().describe("Le lieu/cadre initial de l'histoire."),
-  generatedImagePrompt: z.string().optional().describe("Un prompt concis mais VIVID pour générer une image représentant la scène initiale. DOIT inclure le thème, le lieu, le nom du joueur, sa CLASSE de héros, et une DESCRIPTION DÉTAILLÉE de l'apparence du héros basée sur sa classe (ex: 'Le Guerrier {{{playerName}}}, grand et musclé, portant une armure de plaques...'). Style: Réaliste."),
+  generatedImagePrompt: z.string().optional().describe("Un prompt concis mais VIVID pour générer une image représentant la scène initiale. DOIT inclure le thème, le lieu, le nom du joueur {{{playerName}}}, sa CLASSE de héros {{{selectedHeroValue}}}, et une DESCRIPTION DÉTAILLÉE de l'apparence du héros basée sur sa classe et sa description ({{{heroDescription}}}). Style: Réaliste."),
 });
 export type GenerateInitialStoryOutput = z.infer<typeof GenerateInitialStoryOutputSchema>;
 
@@ -53,12 +53,12 @@ export async function generateInitialStory(input: GenerateInitialStoryInput): Pr
   const flowInput = {
     ...input,
     subThemePrompt: effectiveSubThemePrompt,
-    heroDescription: heroFullDescription, // Pass the full hero description
+    heroDescription: heroFullDescription, 
   };
 
-  await logToFile({ level: 'info', message: '[AI_REQUEST] generateInitialStoryFlow - Input', payload: flowInput });
+  await logToFile({ level: 'info', message: '[AI_REQUEST] generateInitialStoryFlow - Input', payload: flowInput, excludeMedia: true });
   const result = await generateInitialStoryFlow(flowInput);
-  await logToFile({ level: 'info', message: '[AI_RESPONSE] generateInitialStoryFlow - Output', payload: result });
+  await logToFile({ level: 'info', message: '[AI_RESPONSE] generateInitialStoryFlow - Output', payload: result, excludeMedia: true });
   return result;
 }
 
@@ -70,7 +70,7 @@ const initialStoryPrompt = ai.definePrompt({
   output: {
     schema: GenerateInitialStoryOutputSchema,
   },
-  prompt: promptTemplatePromise, // Utiliser le template chargé
+  prompt: await promptTemplatePromise, // Utiliser le template chargé
 });
 
 
@@ -83,13 +83,13 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
   async (flowInput) => {
     // Input validation
     if (!flowInput.theme || !flowInput.playerName || !flowInput.selectedHeroValue || !flowInput.heroDescription) {
-      await logToFile({ level: 'error', message: '[VALIDATION_ERROR] Initial story generation - missing required fields', payload: flowInput });
+      await logToFile({ level: 'error', message: '[VALIDATION_ERROR] Initial story generation - missing required fields', payload: flowInput, excludeMedia: true });
       throw new Error("Theme, playerName, selectedHeroValue, et heroDescription sont requis pour la génération de l'histoire initiale.");
     }
     
     const promptText = await promptTemplatePromise;
     if (!promptText || typeof promptText !== 'string' || promptText.trim() === '') {
-      await logToFile({ level: 'error', message: '[CRITICAL_ERROR] Initial story prompt template is empty or invalid.' });
+      await logToFile({ level: 'error', message: '[CRITICAL_ERROR] Initial story prompt template is empty or invalid.', excludeMedia: true });
       throw new Error("Le template de prompt pour l'histoire initiale est vide ou invalide.");
     }
 
@@ -98,7 +98,7 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
 
     // Basic output validation
     if (!output || typeof output.story !== 'string' || !Array.isArray(output.choices) || output.choices.length === 0 || typeof output.location !== 'string' || !output.location.trim()) {
-      await logToFile({ level: 'error', message: '[AI_OUTPUT_INVALID] Format invalide reçu de l\'IA pour l\'histoire initiale', payload: output });
+      await logToFile({ level: 'error', message: '[AI_OUTPUT_INVALID] Format invalide reçu de l\'IA pour l\'histoire initiale', payload: output, excludeMedia: true });
       const missingFields = [];
       if (typeof output?.story !== 'string') missingFields.push('story');
       if (!Array.isArray(output?.choices) || output?.choices.length === 0) missingFields.push('choices');
@@ -107,14 +107,15 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
       throw new Error(`Format invalide reçu de l'IA pour l'histoire initiale. Champs manquants ou invalides: ${missingFields.join(', ')}`);
     }
     if (!output.choices.every(choice => typeof choice === 'string')) {
-      await logToFile({ level: 'error', message: '[AI_OUTPUT_INVALID] Format de choix invalide reçu de l\'IA', payload: output.choices });
+      await logToFile({ level: 'error', message: '[AI_OUTPUT_INVALID] Format de choix invalide reçu de l\'IA', payload: output.choices, excludeMedia: true });
       throw new Error("Format invalide reçu de l'IA pour les choix.");
     }
     if (output.generatedImagePrompt !== undefined && output.generatedImagePrompt !== null && typeof output.generatedImagePrompt === 'string' && !output.generatedImagePrompt.trim()) {
-      await logToFile({ level: 'warn', message: '[AI_OUTPUT_WARN] L\'IA a retourné un generatedImagePrompt vide, le définissant à undefined.', payload: output.generatedImagePrompt });
+      await logToFile({ level: 'warn', message: '[AI_OUTPUT_WARN] L\'IA a retourné un generatedImagePrompt vide, le définissant à undefined.', payload: output.generatedImagePrompt, excludeMedia: true });
       output.generatedImagePrompt = undefined;
     }
 
     return output!;
   }
 );
+

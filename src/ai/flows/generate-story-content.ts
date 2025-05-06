@@ -13,8 +13,8 @@ import { z } from 'genkit';
 import type { StorySegment, ParsedGameState } from '@/types/game'; // Importer les types partagés
 import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils'; // Importer l'aide
 import { heroOptions } from '@/config/heroes'; // Importer les options de héros pour obtenir la description et l'apparence
-import { logToFile } from '@/services/loggingService'; // Corrected import path
-import { readPromptFile } from '@/lib/prompt-utils'; // Corrected import path
+import { logToFile } from '@/services/loggingService'; 
+import { readPromptFile } from '@/lib/prompt-utils'; 
 
 const promptTemplatePromise = readPromptFile('generateStoryContentPrompt.prompt'); // Charger le template depuis le fichier
 
@@ -26,7 +26,7 @@ const GenerateStoryContentInputSchema = z.object({
     ),
   playerName: z.string().describe('Le nom du joueur.'),
   selectedHeroValue: z.string().describe("La classe de héros choisie par le joueur (ex: 'Guerrier')."),
-  heroDescription: z.string().describe("La description complète du héros, incluant ses capacités et son apparence."), // Updated to include appearance
+  heroDescription: z.string().describe("La description complète du héros, incluant ses capacités et son apparence."), 
   lastStorySegment: z.object({
       id: z.number(),
       text: z.string(),
@@ -39,8 +39,8 @@ const GenerateStoryContentInputSchema = z.object({
   currentTurn: z.number().int().positive().describe('Le numéro du tour actuel (commence à 1).'),
   maxTurns: z.number().int().positive().describe("Le nombre maximum de tours pour cette aventure."),
   isLastTurn: z.boolean().describe('Indique si c\'est le dernier tour de l\'aventure.'),
-  current_date: z.string().optional().describe('Date actuelle, injectée pour des éléments potentiels de l\'histoire.'), // Made optional, will be injected by flow
-  previousImagePrompt: z.string().nullable().optional().describe("Le prompt utilisé pour l'image générée précédemment, le cas échéant, pour la cohérence visuelle."), // Added to schema
+  current_date: z.string().optional().describe('Date actuelle, injectée pour des éléments potentiels de l\'histoire.'), 
+  previousImagePrompt: z.string().nullable().optional().describe("Le prompt utilisé pour l'image générée précédemment, le cas échéant, pour la cohérence visuelle."), 
 });
 export type GenerateStoryContentInput = z.infer<typeof GenerateStoryContentInputSchema>;
 
@@ -48,7 +48,7 @@ const GenerateStoryContentOutputSchema = z.object({
   storyContent: z.string().describe("Le contenu de l'histoire généré. Si c'est le dernier tour, ce devrait être la conclusion."),
   nextChoices: z.array(z.string()).describe("2-3 choix pour la prochaine action. Tableau vide si c'est le dernier tour."),
   updatedGameState: z.string().describe("L'état du jeu mis à jour en JSON valide."),
-  generatedImagePrompt: z.string().optional().describe("Prompt d'image UNIQUEMENT si scène visuellement distincte. DOIT être cohérent avec les images précédentes (description et style du héros). Inclure thème, lieu, nom du joueur, CLASSE du héros, et DESCRIPTION DÉTAILLÉE de l'apparence du héros. Style: Réaliste. Laisser vide sinon."),
+  generatedImagePrompt: z.string().optional().describe("Prompt d'image UNIQUEMENT si scène visuellement distincte. DOIT être cohérent avec les images précédentes (description et style du héros). Inclure thème, lieu, nom du joueur {{{playerName}}}, CLASSE du héros {{{selectedHeroValue}}}, et DESCRIPTION DÉTAILLÉE de l'apparence du héros ({{{heroDescription}}}). Style: Réaliste. Laisser vide sinon."),
 });
 export type GenerateStoryContentOutput = z.infer<typeof GenerateStoryContentOutputSchema>;
 
@@ -58,7 +58,7 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
   try {
     initialGameState = parseGameState(input.gameState, input.playerName);
   } catch (e) {
-    await logToFile({ level: 'warn', message: '[INPUT_VALIDATION] Invalid input gameState JSON, using defaults', payload: { gameState: input.gameState, error: e } });
+    await logToFile({ level: 'warn', message: '[INPUT_VALIDATION] Invalid input gameState JSON, using defaults', payload: { gameState: input.gameState, error: e }, excludeMedia: true });
     initialGameState = {
         playerName: input.playerName || 'Unknown Player',
         location: 'Unknown Location',
@@ -70,7 +70,7 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
   }
 
   if (!initialGameState.playerName) initialGameState.playerName = input.playerName || 'Unknown Player';
-  if (typeof initialGameState.location !== 'string' || !initialGameState.location.trim()) initialGameState.location = 'Indeterminate Location';
+  if (typeof initialGameState.location !== 'string' || !initialGameState.location.trim()) initialGameState.location = 'Unknown Location';
   if (!Array.isArray(initialGameState.inventory)) initialGameState.inventory = [];
   if (typeof initialGameState.relationships !== 'object' || initialGameState.relationships === null) initialGameState.relationships = {};
   if (!Array.isArray(initialGameState.emotions)) initialGameState.emotions = [];
@@ -79,7 +79,7 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
 
   const heroDetails = heroOptions.find(h => h.value === input.selectedHeroValue);
   if (!heroDetails) {
-      await logToFile({ level: 'error', message: `[CONFIG_ERROR] Hero details not found for value: ${input.selectedHeroValue}` });
+      await logToFile({ level: 'error', message: `[CONFIG_ERROR] Hero details not found for value: ${input.selectedHeroValue}`, excludeMedia: true });
       throw new Error(`Invalid hero selected: ${input.selectedHeroValue}`);
   }
 
@@ -92,7 +92,7 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
     lastStorySegmentText: input.lastStorySegment?.text || "C'est le début de l'aventure.",
     previousImagePrompt: input.lastStorySegment?.imageGenerationPrompt || null,
     heroDescription: heroFullDescription,
-    current_date: new Date().toLocaleDateString('fr-FR'), // Inject date here
+    current_date: new Date().toLocaleDateString('fr-FR'), 
   };
 
   await logToFile({ level: 'info', message: '[AI_REQUEST] generateStoryContentFlow - Input', payload: safeInput, excludeMedia: true });
@@ -124,25 +124,25 @@ const generateStoryContentFlow = ai.defineFlow<
 async (flowInput) => {
 
    if (!flowInput.theme || !flowInput.playerName || !flowInput.selectedHeroValue || !flowInput.heroDescription || !flowInput.gameState || flowInput.currentTurn === undefined || !flowInput.maxTurns) {
-       await logToFile({ level: 'error', message: '[VALIDATION_ERROR] Story content generation - missing required fields', payload: flowInput });
+       await logToFile({ level: 'error', message: '[VALIDATION_ERROR] Story content generation - missing required fields', payload: flowInput, excludeMedia: true });
        throw new Error("Theme, playerName, selectedHeroValue, heroDescription, gameState, et informations de tour sont requis.");
    }
     const promptText = await promptTemplatePromise;
     if (!promptText || typeof promptText !== 'string' || promptText.trim() === '') {
-      await logToFile({ level: 'error', message: '[CRITICAL_ERROR] Story content prompt template is empty or invalid.' });
+      await logToFile({ level: 'error', message: '[CRITICAL_ERROR] Story content prompt template is empty or invalid.', excludeMedia: true });
       throw new Error("Le template de prompt pour le contenu de l'histoire est vide ou invalide.");
     }
 
    const safePlayerChoicesHistory = flowInput.playerChoicesHistory || [];
    if (safePlayerChoicesHistory.length === 0 && !flowInput.lastStorySegmentText?.includes("début") && flowInput.currentTurn > 1) {
-       await logToFile({ level: 'warn', message: '[INPUT_WARN] generateStoryContent appelé avec un historique de choix vide en milieu de partie.', payload: { currentTurn: flowInput.currentTurn }});
+       await logToFile({ level: 'warn', message: '[INPUT_WARN] generateStoryContent appelé avec un historique de choix vide en milieu de partie.', payload: { currentTurn: flowInput.currentTurn }, excludeMedia: true });
    }
 
     let currentGameStateObj: ParsedGameState;
     try {
         currentGameStateObj = parseGameState(flowInput.gameState, flowInput.playerName);
     } catch (e) {
-        await logToFile({ level: 'error', message: '[JSON_PARSE_ERROR] JSON gameState d\'entrée invalide, réinitialisation aux valeurs par défaut', payload: {gameState: flowInput.gameState, error: e }});
+        await logToFile({ level: 'error', message: '[JSON_PARSE_ERROR] JSON gameState d\'entrée invalide, réinitialisation aux valeurs par défaut', payload: {gameState: flowInput.gameState, error: e }, excludeMedia: true});
         currentGameStateObj = {
             playerName: flowInput.playerName || 'Unknown Player',
             location: 'Unknown Location',
@@ -153,24 +153,28 @@ async (flowInput) => {
         };
     }
 
-    const shouldGenerateEvent = Math.random() < 0.1; // 10% chance for a random event
-    if (shouldGenerateEvent && flowInput.currentTurn > 1) { // Avoid event on first turn
+    const shouldGenerateEvent = Math.random() < 0.15; // 15% chance for a random event
+    if (shouldGenerateEvent && flowInput.currentTurn > 1 && !flowInput.isLastTurn) { 
         const events = [
-            "Une pluie torrentielle s'abat soudainement.",
-            "Un léger tremblement de terre secoue le sol.",
-            "Un étrange marchand ambulant apparaît au loin.",
-            "Tu découvres une inscription ancienne sur un rocher.",
-            "Une créature inconnue et rapide passe en coup de vent.",
-            "Tu entends un appel à l'aide au loin.",
-            "Une musique mystérieuse flotte dans l'air.",
-            "Un brouillard épais commence à se lever.",
+            "Une pluie torrentielle s'abat soudainement, rendant le sol glissant.",
+            "Un léger tremblement de terre secoue le sol, ouvrant une petite fissure non loin.",
+            "Un étrange marchand ambulant avec un chariot plein de curiosités apparaît au loin.",
+            "Tu découvres une inscription ancienne et à moitié effacée sur un rocher ou un mur.",
+            "Une créature inconnue et rapide passe en coup de vent, laissant une traînée de poussière.",
+            "Tu entends un appel à l'aide étouffé venant d'une direction incertaine.",
+            "Une musique mystérieuse et envoûtante flotte dans l'air, semblant t'appeler.",
+            "Un brouillard épais et soudain commence à se lever, réduisant la visibilité.",
+            "Tu trouves une petite bourse remplie de quelques pièces étranges.",
+            "Le ciel change de couleur de manière spectaculaire pendant quelques instants.",
+            "Un PNJ que tu as déjà rencontré réapparaît de manière inattendue.",
+            "Un objet de ton inventaire se met à briller ou à vibrer faiblement."
         ];
         const randomEvent = events[Math.floor(Math.random() * events.length)];
         if (!Array.isArray(currentGameStateObj.events)) {
             currentGameStateObj.events = [];
         }
         currentGameStateObj.events.push(`Événement aléatoire (${currentGameStateObj.location || 'unknown location'}) : ${randomEvent}`);
-        await logToFile({ level: 'info', message: '[GAME_EVENT] Random event triggered', payload: { event: randomEvent, location: currentGameStateObj.location }});
+        await logToFile({ level: 'info', message: '[GAME_EVENT] Random event triggered', payload: { event: randomEvent, location: currentGameStateObj.location }, excludeMedia: true});
     }
 
     if (!currentGameStateObj.playerName) currentGameStateObj.playerName = flowInput.playerName || 'Unknown Player';
@@ -181,8 +185,6 @@ async (flowInput) => {
     if (!Array.isArray(currentGameStateObj.events)) currentGameStateObj.events = [];
 
     const validatedInputGameStateString = safeJsonStringify(currentGameStateObj);
-
-    // The heroDescription is now fully prepared in the wrapper function `generateStoryContent`
 
     const promptPayload = {
       ...flowInput,
@@ -195,7 +197,7 @@ async (flowInput) => {
 
 
    if (!output || typeof output.storyContent !== 'string' || !Array.isArray(output.nextChoices) || typeof output.updatedGameState !== 'string') {
-        await logToFile({ level: 'error', message: '[AI_OUTPUT_INVALID] Format invalide reçu de l\'IA pour le contenu de l\'histoire', payload: output });
+        await logToFile({ level: 'error', message: '[AI_OUTPUT_INVALID] Format invalide reçu de l\'IA pour le contenu de l\'histoire', payload: output, excludeMedia: true });
         return {
             storyContent: "Oups ! Le narrateur semble avoir perdu le fil de l'histoire à cause d'une interférence cosmique. Essayons autre chose.",
             nextChoices: flowInput.isLastTurn ? [] : ["Regarder autour de moi", "Vérifier mon inventaire"],
@@ -205,19 +207,19 @@ async (flowInput) => {
     }
 
     if (flowInput.isLastTurn && output.nextChoices.length > 0) {
-        await logToFile({ level: 'warn', message: '[AI_OUTPUT_WARN] L\'IA a retourné des choix au dernier tour. Remplacement par un tableau vide.', payload: { choices: output.nextChoices }});
+        await logToFile({ level: 'warn', message: '[AI_OUTPUT_WARN] L\'IA a retourné des choix au dernier tour. Remplacement par un tableau vide.', payload: { choices: output.nextChoices }, excludeMedia: true });
         output.nextChoices = [];
     }
      if (!flowInput.isLastTurn && output.nextChoices.length === 0 && output.storyContent.length > 0 && !output.storyContent.toLowerCase().includes("attendre")) {
-         await logToFile({ level: 'warn', message: '[AI_OUTPUT_WARN] L\'IA a retourné des choix vides lors d\'un tour normal sans attente explicite. Fourniture de choix de secours.', payload: { storyContent: output.storyContent } });
+         await logToFile({ level: 'warn', message: '[AI_OUTPUT_WARN] L\'IA a retourné des choix vides lors d\'un tour normal sans attente explicite. Fourniture de choix de secours.', payload: { storyContent: output.storyContent }, excludeMedia: true });
          output.nextChoices = ["Regarder autour de moi", "Vérifier mon inventaire"];
          output.storyContent += "\n(Le narrateur semble chercher ses mots... Que fais-tu en attendant ?)";
      }
      if (output.generatedImagePrompt !== undefined && typeof output.generatedImagePrompt !== 'string') {
-          await logToFile({ level: 'warn', message: '[AI_OUTPUT_WARN] L\'IA a retourné un format generatedImagePrompt invalide. Définition à undefined.', payload: { generatedImagePrompt: output.generatedImagePrompt }});
+          await logToFile({ level: 'warn', message: '[AI_OUTPUT_WARN] L\'IA a retourné un format generatedImagePrompt invalide. Définition à undefined.', payload: { generatedImagePrompt: output.generatedImagePrompt }, excludeMedia: true});
           output.generatedImagePrompt = undefined;
      } else if (typeof output.generatedImagePrompt === 'string' && !output.generatedImagePrompt.trim()) {
-          await logToFile({ level: 'warn', message: '[AI_OUTPUT_WARN] L\'IA a retourné une chaîne generatedImagePrompt vide. Définition à undefined.' });
+          await logToFile({ level: 'warn', message: '[AI_OUTPUT_WARN] L\'IA a retourné une chaîne generatedImagePrompt vide. Définition à undefined.', excludeMedia: true });
           output.generatedImagePrompt = undefined;
      }
 
@@ -226,12 +228,12 @@ async (flowInput) => {
     try {
         updatedGameStateObj = parseGameState(output.updatedGameState, flowInput.playerName || 'Unknown Player');
         if (updatedGameStateObj.playerName !== (flowInput.playerName || 'Unknown Player')) {
-            await logToFile({ level: 'warn', message: '[AI_BEHAVIOR] AI changed playerName in updatedGameState. Reverting to original.', payload: { originalName: flowInput.playerName, aiName: updatedGameStateObj.playerName }});
+            await logToFile({ level: 'warn', message: '[AI_BEHAVIOR] AI changed playerName in updatedGameState. Reverting to original.', payload: { originalName: flowInput.playerName, aiName: updatedGameStateObj.playerName }, excludeMedia: true});
             updatedGameStateObj.playerName = flowInput.playerName || 'Unknown Player';
         }
 
     } catch (e) {
-        await logToFile({ level: 'error', message: '[JSON_PARSE_ERROR] Error processing updatedGameState from AI', payload: {updatedGameState: output.updatedGameState, error: e }});
+        await logToFile({ level: 'error', message: '[JSON_PARSE_ERROR] Error processing updatedGameState from AI', payload: {updatedGameState: output.updatedGameState, error: e }, excludeMedia: true});
         updatedGameStateObj = parseGameState(validatedInputGameStateString, flowInput.playerName || 'Unknown Player');
         output.storyContent += "\n(Attention : L'état du jeu pourrait ne pas être à jour suite à une petite erreur technique.)";
         output.nextChoices = flowInput.isLastTurn ? [] : ["Regarder autour", "Vérifier inventaire"];
@@ -241,7 +243,7 @@ async (flowInput) => {
     output.updatedGameState = safeJsonStringify(updatedGameStateObj);
 
     if (!output.nextChoices.every(choice => typeof choice === 'string')) {
-        await logToFile({ level: 'error', message: '[AI_OUTPUT_INVALID] Format de choix invalide reçu de l\'IA après validation gameState', payload: output.nextChoices });
+        await logToFile({ level: 'error', message: '[AI_OUTPUT_INVALID] Format de choix invalide reçu de l\'IA après validation gameState', payload: output.nextChoices, excludeMedia: true });
         output.nextChoices = flowInput.isLastTurn ? [] : ["Regarder autour de moi", "Vérifier l'inventaire"];
         output.storyContent += "\n(Le narrateur a eu un petit bug en proposant les choix...)";
     }

@@ -9,7 +9,7 @@
 
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
-import { logToFile } from '@/services/loggingService'; // Corrected import path
+import { logToFile } from '@/services/loggingService'; 
 
 const GenerateImageInputSchema = z.object({
   prompt: z.string().describe("L'invite textuelle à partir de laquelle générer une image."),
@@ -36,7 +36,7 @@ const generateImageFlow = ai.defineFlow<
   },
   async (input) => {
      try {
-        await logToFile({ level: 'info', message: `[IMAGE_GEN_FLOW_START] Generating image with prompt: "${input.prompt}"` });
+        await logToFile({ level: 'info', message: `[IMAGE_GEN_FLOW_START] Generating image with prompt: "${input.prompt}"`, excludeMedia: true });
         const { media } = await ai.generate({
           // IMPORTANT: SEUL le modèle googleai/gemini-2.0-flash-exp peut générer des images.
           model: 'googleai/gemini-2.0-flash-exp',
@@ -47,16 +47,16 @@ const generateImageFlow = ai.defineFlow<
         });
 
         if (!media?.url) {
-            await logToFile({ level: 'error', message: "[IMAGE_GEN_FLOW_ERROR] Image generation failed: No media URL returned.", payload: { prompt: input.prompt } });
+            await logToFile({ level: 'error', message: "[IMAGE_GEN_FLOW_ERROR] Image generation failed: No media URL returned.", payload: { prompt: input.prompt }, excludeMedia: true });
             throw new Error("Échec de la génération d'image : Aucune URL de média retournée.");
         }
 
-        await logToFile({ level: 'info', message: "[IMAGE_GEN_FLOW_SUCCESS] Image generated successfully (data URI):", payload: { prompt: input.prompt, imageUrlStart: media.url.substring(0, 50) + "..." } });
+        await logToFile({ level: 'info', message: "[IMAGE_GEN_FLOW_SUCCESS] Image generated successfully (data URI start):", payload: { prompt: input.prompt }, excludeMedia: true });
 
         return { imageUrl: media.url };
       } catch (error) {
         const errorMessage = error instanceof Error ? error.message : String(error);
-        await logToFile({ level: 'error', message: `[IMAGE_GEN_FLOW_CRITICAL_ERROR] During image generation flow: ${errorMessage}`, payload: { prompt: input.prompt, errorDetails: error } });
+        await logToFile({ level: 'error', message: `[IMAGE_GEN_FLOW_CRITICAL_ERROR] During image generation flow: ${errorMessage}`, payload: { prompt: input.prompt, errorDetails: error }, excludeMedia: true });
         throw new Error(`Échec de la génération de l'image : ${errorMessage}`);
      }
   }
