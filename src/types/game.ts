@@ -53,6 +53,7 @@ export interface SubTheme {
     label: string; // Display name for the sub-theme
     prompt: string; // Specific starting scenario prompt for the AI
     icon: LucideIcon; // Icon for the sub-theme card
+    image?: string; // Optional: path to a background image for the card
 }
 
 // Represents a theme option for the game
@@ -62,6 +63,7 @@ export interface Theme {
     description: string; // Short general description of the theme
     icon: LucideIcon; // Icon component from lucide-react
     subThemes: SubTheme[]; // Array of specific sub-themes/scenarios
+    image?: string; // Optional: path to a background image for the card
 }
 
 // Represents a hero's ability
@@ -77,10 +79,8 @@ export interface HeroOption {
     description: string; // Short description of the hero class
     icon: LucideIcon; // Icon component from lucide-react
     abilities: HeroAbility[]; // Array of hero abilities
+    appearance?: string; // Detailed description of the hero's appearance
 }
 
 // Represents the selected hero class (could be extended with abilities)
 export type HeroClass = string;
-
-
-
