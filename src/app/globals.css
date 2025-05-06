@@ -9,40 +9,37 @@ body {
 
 @layer base {
   :root {
-    /* Light Theme (kept for reference, but dark is default) */
-    --background: 60 56% 91%; /* Light Beige */
-    --foreground: 240 10% 3.9%; /* Dark Gray for readability */
-    --card: 120 73% 85%; /* Lighter Soft Green */
+    /* Light Theme - Default if no .dark class is present */
+    --background: 0 0% 100%; /* White */
+    --foreground: 240 10% 3.9%; /* Dark Gray */
+    --card: 0 0% 100%; /* White */
     --card-foreground: 240 10% 3.9%; /* Dark Gray */
-    --popover: 120 73% 85%; /* Lighter Soft Green */
+    --popover: 0 0% 100%; /* White */
     --popover-foreground: 240 10% 3.9%; /* Dark Gray */
-    --primary: 195 53% 65%; /* Darker Bright Blue */
-    --primary-foreground: 0 0% 100%; /* White */
-    --secondary: 120 73% 75%; /* Soft Green */
-    --secondary-foreground: 240 10% 3.9%; /* Dark Gray */
-    --muted: 120 73% 88%; /* Lighter Soft Green */
-    --muted-foreground: 60 5% 50%; /* Muted Gray */
-    --accent: 195 53% 79%; /* Bright Blue */
-    --accent-foreground: 240 10% 3.9%; /* Dark Gray */
+    --secondary: 240 4.8% 95.9%; /* Light Gray */
+    --secondary-foreground: 240 5.9% 10%; /* Dark Gray */
+    --muted: 240 4.8% 95.9%; /* Light Gray */
+    --muted-foreground: 240 3.8% 46.1%; /* Medium Gray */
+    --accent: 240 4.8% 95.9%; /* Light Gray */
+    --accent-foreground: 240 5.9% 10%; /* Dark Gray */
     --destructive: 0 84.2% 60.2%; /* Default Red */
     --destructive-foreground: 0 0% 98%; /* Default White */
-    --border: 120 30% 70%; /* Greenish Border */
-    --input: 120 30% 80%; /* Light Greenish Input */
-    --ring: 195 53% 65%; /* Primary Blue Ring */
-    --chart-1: 195 53% 65%; /* Blue */
-    --chart-2: 120 73% 60%; /* Green */
-    --chart-3: 60 56% 70%; /* Beige */
-    --chart-4: 30 80% 70%; /* Orange */
-    --chart-5: 270 60% 70%; /* Purple */
+    --border: 240 5.9% 90%; /* Light Gray Border */
+    --input: 240 5.9% 90%; /* Light Gray Input */
+    --ring: 240 5.9% 10%; /* Dark Gray Ring */
+
+    /* Default Primary (Red) for light theme */
+    --primary: 0 72.2% 50.6%; /* Brighter Red for light theme */
+    --primary-foreground: 0 0% 100%; /* White */
+    
+    /* Chart colors - ensure these are defined for light theme too */
+    --chart-1: 0 72.2% 50.6%; /* Red */
+    --chart-2: 120 62% 45%; /* Green */
+    --chart-3: 210 70% 55%; /* Blue */
+    --chart-4: 40 70% 50%; /* Orange */
+    --chart-5: 270 60% 60%; /* Purple */
+    
     --radius: 0.5rem;
-    --sidebar-background: 60 56% 91%; /* Match background */
-    --sidebar-foreground: 240 10% 3.9%; /* Match foreground */
-    --sidebar-primary: 195 53% 65%; /* Match primary */
-    --sidebar-primary-foreground: 0 0% 100%; /* Match primary foreground */
-    --sidebar-accent: 195 53% 79%; /* Match accent */
-    --sidebar-accent-foreground: 240 10% 3.9%; /* Match accent foreground */
-    --sidebar-border: 120 30% 70%; /* Match border */
-    --sidebar-ring: 195 53% 65%; /* Match ring */
   }
 
   .dark {
@@ -63,33 +60,34 @@ body {
     --destructive-foreground: 0 0% 98%; /* White */
     --border: 240 5% 20%; /* Subtle Dark Border */
     --input: 240 5% 18%; /* Dark Input Background */
+    --ring: 0 65% 55%; /* Primary Red Ring (default for dark) */
 
-    /* Default Primary (Red) */
+    /* Default Primary (Red) for dark theme */
     --primary: 0 65% 45%; /* Deep Blood Red */
     --primary-foreground: 0 0% 100%; /* White */
-    --ring: 0 65% 55%; /* Primary Red Ring */
 
-    /* Chart colors based on default primary */
+    /* Chart colors based on default primary for dark theme */
     --chart-1: 0 65% 45%; /* Red */
     --chart-2: 120 40% 30%; /* Green */
     --chart-3: 240 5% 50%; /* Gray-Blue */
     --chart-4: 40 50% 40%; /* Muted Yellow/Brown */
     --chart-5: 270 40% 40%; /* Muted Purple */
 
-    /* Sidebar colors based on default primary */
-    --sidebar-background: 240 10% 5%; /* Match background */
-    --sidebar-foreground: 210 40% 95%; /* Match foreground */
-    --sidebar-primary: 0 65% 45%; /* Match primary */
-    --sidebar-primary-foreground: 0 0% 100%; /* Match primary foreground */
-    --sidebar-accent: 120 40% 30%; /* Match accent */
-    --sidebar-accent-foreground: 120 10% 90%; /* Match accent foreground */
-    --sidebar-border: 240 5% 20%; /* Match border */
-    --sidebar-ring: 0 65% 55%; /* Match ring */
+    /* Sidebar variables for dark theme - can be same as main dark theme vars */
+    --sidebar-background: var(--background);
+    --sidebar-foreground: var(--foreground);
+    --sidebar-primary: var(--primary);
+    --sidebar-primary-foreground: var(--primary-foreground);
+    --sidebar-accent: var(--accent);
+    --sidebar-accent-foreground: var(--accent-foreground);
+    --sidebar-border: var(--border);
+    --sidebar-ring: var(--ring);
   }
 
-  /* Primary Color Theme Overrides within .dark */
-  .dark[data-theme-primary="red"] {
-    --primary: 0 65% 45%; /* Deep Blood Red */
+  /* Primary Color Theme Overrides based on data-theme-primary attribute */
+  /* These apply to both light and dark mode, allowing primary color choice independently */
+  html[data-theme-primary="red"] {
+    --primary: 0 65% 45%; 
     --primary-foreground: 0 0% 100%;
     --ring: 0 65% 55%;
     --chart-1: 0 65% 45%;
@@ -97,9 +95,13 @@ body {
     --sidebar-primary-foreground: 0 0% 100%;
     --sidebar-ring: 0 65% 55%;
   }
+  .dark[data-theme-primary="red"] { /* Keep specific dark overrides if needed */
+    --primary: 0 65% 45%;
+  }
 
-  .dark[data-theme-primary="blue"] {
-    --primary: 210 70% 50%; /* Darker Blue */
+
+  html[data-theme-primary="blue"] {
+    --primary: 210 70% 50%;
     --primary-foreground: 0 0% 100%;
     --ring: 210 70% 60%;
     --chart-1: 210 70% 50%;
@@ -108,8 +110,8 @@ body {
     --sidebar-ring: 210 70% 60%;
   }
 
-  .dark[data-theme-primary="green"] {
-    --primary: 140 60% 35%; /* Dark Forest Green */
+  html[data-theme-primary="green"] {
+    --primary: 140 60% 35%;
     --primary-foreground: 0 0% 100%;
     --ring: 140 60% 45%;
     --chart-1: 140 60% 35%;
@@ -118,8 +120,8 @@ body {
     --sidebar-ring: 140 60% 45%;
   }
 
-  .dark[data-theme-primary="purple"] {
-    --primary: 270 50% 50%; /* Deep Purple */
+  html[data-theme-primary="purple"] {
+    --primary: 270 50% 50%;
     --primary-foreground: 0 0% 100%;
     --ring: 270 50% 60%;
     --chart-1: 270 50% 50%;
@@ -128,8 +130,8 @@ body {
     --sidebar-ring: 270 50% 60%;
   }
 
-  .dark[data-theme-primary="orange"] {
-    --primary: 30 70% 45%; /* Burnt Orange */
+  html[data-theme-primary="orange"] {
+    --primary: 30 70% 45%;
     --primary-foreground: 0 0% 100%;
     --ring: 30 70% 55%;
     --chart-1: 30 70% 45%;
@@ -138,8 +140,8 @@ body {
     --sidebar-ring: 30 70% 55%;
   }
 
-  .dark[data-theme-primary="pink"] {
-    --primary: 340 70% 55%; /* Bright Pink */
+  html[data-theme-primary="pink"] {
+    --primary: 340 70% 55%; 
     --primary-foreground: 0 0% 100%;
     --ring: 340 70% 65%;
     --chart-1: 340 70% 55%;
@@ -148,8 +150,8 @@ body {
     --sidebar-ring: 340 70% 65%;
   }
 
-  .dark[data-theme-primary="cyan"] {
-    --primary: 180 70% 50%; /* Bright Cyan */
+  html[data-theme-primary="cyan"] {
+    --primary: 180 70% 50%;
     --primary-foreground: 0 0% 100%;
     --ring: 180 70% 60%;
     --chart-1: 180 70% 50%;
@@ -158,18 +160,23 @@ body {
     --sidebar-ring: 180 70% 60%;
   }
 
-  .dark[data-theme-primary="yellow"] {
-    --primary: 50 70% 50%; /* Bright Yellow */
-    --primary-foreground: 240 10% 5%; /* Use dark text for yellow */
+  html[data-theme-primary="yellow"] {
+    --primary: 50 70% 50%;
+    --primary-foreground: 240 10% 5%; /* Dark text for yellow */
     --ring: 50 70% 60%;
     --chart-1: 50 70% 50%;
     --sidebar-primary: 50 70% 50%;
-    --sidebar-primary-foreground: 240 10% 5%; /* Use dark text */
+    --sidebar-primary-foreground: 240 10% 5%;
     --sidebar-ring: 50 70% 60%;
   }
+  .dark[data-theme-primary="yellow"] {
+    --primary-foreground: 240 10% 5%; /* Ensure dark text on dark yellow too */
+    --sidebar-primary-foreground: 240 10% 5%;
+  }
 
-  .dark[data-theme-primary="teal"] {
-    --primary: 160 60% 40%; /* Deep Teal */
+
+  html[data-theme-primary="teal"] {
+    --primary: 160 60% 40%;
     --primary-foreground: 0 0% 100%;
     --ring: 160 60% 50%;
     --chart-1: 160 60% 40%;
@@ -178,8 +185,8 @@ body {
     --sidebar-ring: 160 60% 50%;
   }
 
-  .dark[data-theme-primary="indigo"] {
-    --primary: 250 60% 50%; /* Mystical Indigo */
+  html[data-theme-primary="indigo"] {
+    --primary: 250 60% 50%;
     --primary-foreground: 0 0% 100%;
     --ring: 250 60% 60%;
     --chart-1: 250 60% 50%;
@@ -188,28 +195,36 @@ body {
     --sidebar-ring: 250 60% 60%;
   }
 
-  .dark[data-theme-primary="lime"] {
-    --primary: 90 60% 45%; /* Lime Green */
-    --primary-foreground: 240 10% 5%; /* Use dark text */
+  html[data-theme-primary="lime"] {
+    --primary: 90 60% 45%;
+    --primary-foreground: 240 10% 5%; /* Dark text for lime */
     --ring: 90 60% 55%;
     --chart-1: 90 60% 45%;
     --sidebar-primary: 90 60% 45%;
     --sidebar-primary-foreground: 240 10% 5%;
     --sidebar-ring: 90 60% 55%;
   }
+   .dark[data-theme-primary="lime"] {
+    --primary-foreground: 240 10% 5%;
+    --sidebar-primary-foreground: 240 10% 5%;
+  }
 
-  .dark[data-theme-primary="amber"] {
-    --primary: 40 70% 50%; /* Golden Amber */
-    --primary-foreground: 240 10% 5%; /* Use dark text */
+  html[data-theme-primary="amber"] {
+    --primary: 40 70% 50%;
+    --primary-foreground: 240 10% 5%; /* Dark text for amber */
     --ring: 40 70% 60%;
     --chart-1: 40 70% 50%;
     --sidebar-primary: 40 70% 50%;
     --sidebar-primary-foreground: 240 10% 5%;
     --sidebar-ring: 40 70% 60%;
   }
+  .dark[data-theme-primary="amber"] {
+    --primary-foreground: 240 10% 5%;
+    --sidebar-primary-foreground: 240 10% 5%;
+  }
 
-  .dark[data-theme-primary="fuchsia"] {
-    --primary: 300 70% 50%; /* Bright Fuchsia */
+  html[data-theme-primary="fuchsia"] {
+    --primary: 300 70% 50%;
     --primary-foreground: 0 0% 100%;
     --ring: 300 70% 60%;
     --chart-1: 300 70% 50%;
@@ -218,8 +233,8 @@ body {
     --sidebar-ring: 300 70% 60%;
   }
 
-  .dark[data-theme-primary="sky"] {
-    --primary: 195 70% 50%; /* Sky Blue */
+  html[data-theme-primary="sky"] {
+    --primary: 195 70% 50%;
     --primary-foreground: 0 0% 100%;
     --ring: 195 70% 60%;
     --chart-1: 195 70% 50%;
@@ -228,8 +243,8 @@ body {
     --sidebar-ring: 195 70% 60%;
   }
 
-  .dark[data-theme-primary="emerald"] {
-    --primary: 150 60% 35%; /* Dark Emerald */
+  html[data-theme-primary="emerald"] {
+    --primary: 150 60% 35%;
     --primary-foreground: 0 0% 100%;
     --ring: 150 60% 45%;
     --chart-1: 150 60% 35%;
@@ -238,8 +253,8 @@ body {
     --sidebar-ring: 150 60% 45%;
   }
 
-  .dark[data-theme-primary="crimson"] {
-    --primary: 350 70% 45%; /* Intense Crimson */
+  html[data-theme-primary="crimson"] {
+    --primary: 350 70% 45%;
     --primary-foreground: 0 0% 100%;
     --ring: 350 70% 55%;
     --chart-1: 350 70% 45%;
@@ -248,18 +263,22 @@ body {
     --sidebar-ring: 350 70% 55%;
   }
 
-  .dark[data-theme-primary="gold"] {
-    --primary: 50 70% 45%; /* Sparkling Gold */
-    --primary-foreground: 240 10% 5%; /* Use dark text */
+  html[data-theme-primary="gold"] {
+    --primary: 50 70% 45%;
+    --primary-foreground: 240 10% 5%; /* Dark text for gold */
     --ring: 50 70% 55%;
     --chart-1: 50 70% 45%;
     --sidebar-primary: 50 70% 45%;
     --sidebar-primary-foreground: 240 10% 5%;
     --sidebar-ring: 50 70% 55%;
   }
+  .dark[data-theme-primary="gold"] {
+     --primary-foreground: 240 10% 5%;
+     --sidebar-primary-foreground: 240 10% 5%;
+  }
 
-  .dark[data-theme-primary="slate"] {
-    --primary: 220 20% 40%; /* Dark Slate */
+  html[data-theme-primary="slate"] {
+    --primary: 220 20% 40%;
     --primary-foreground: 0 0% 100%;
     --ring: 220 20% 50%;
     --chart-1: 220 20% 40%;

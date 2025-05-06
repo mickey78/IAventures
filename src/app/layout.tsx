@@ -21,16 +21,16 @@ export default function RootLayout({
 }>) {
   return (
     // Ensure no leading space before <html>
-    <html lang="en" className="dark" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning>
       {/* Apply font variables directly to the body or html tag */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <ThemeProvider
-          attribute="data-theme-primary"
-          defaultTheme="red"
-          themes={[
-            'red', 'blue', 'green', 'purple', 'orange', 'pink', 'cyan', 'yellow',
-            'teal', 'indigo', 'lime', 'amber', 'fuchsia', 'sky', 'emerald', 'crimson', 'gold', 'slate'
-          ]}
+          attribute="class" // Use class for light/dark mode
+          defaultTheme="system" // Default to system preference
+          enableSystem
+          disableTransitionOnChange
+          // Keep the primary color themes for the .dark class specifically
+          // The ThemeSwitcher will still work on data-theme-primary attribute on the html tag
         >
           {children}
           <Toaster />
@@ -39,3 +39,4 @@ export default function RootLayout({
     </html>
   );
 }
+

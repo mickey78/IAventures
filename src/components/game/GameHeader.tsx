@@ -9,7 +9,8 @@ import { BookOpenText, MapPin } from 'lucide-react';
 import type { ParsedGameState, GameView, HeroAbility } from '@/types/game'; // Import shared types, add HeroAbility
 import { themes } from '@/config/themes'; // Import themes to get labels
 import { heroOptions } from '@/config/heroes'; // Import heroes to get labels
-import { ThemeSwitcher } from '@/components/theme-switcher'; // Import ThemeSwitcher
+import { ThemeSwitcher } from '@/components/theme-switcher'; // Import ThemeSwitcher for primary colors
+import { ThemeToggle } from '@/components/ThemeToggle'; // Import ThemeToggle for light/dark mode
 
 interface GameHeaderProps {
     currentView: GameView;
@@ -154,22 +155,31 @@ const GameHeader: React.FC<GameHeaderProps> = ({
             </div>
 
             {/* Right Aligned: Turn Counter and Action Buttons */}
-            {showGameControls && (
-                <div className="absolute top-3 right-4 flex flex-col items-end space-y-2">
-                    <TurnCounter currentTurn={currentTurn} maxTurns={maxTurns} />
-                     {/* Wrap HeaderActions and ThemeSwitcher */}
+             <div className="absolute top-3 right-4 flex flex-col items-end space-y-2">
+                {showGameControls && (
+                    <>
+                        <TurnCounter currentTurn={currentTurn} maxTurns={maxTurns} />
+                         <div className="flex items-center gap-2">
+                            <HeaderActions onSave={onSave} onMainMenu={onMainMenu} isLoading={isLoading || currentView === 'game_ended'} />
+                            <ThemeSwitcher /> {/* Primary color theme switcher */}
+                            <ThemeToggle /> {/* Light/Dark/System theme toggle */}
+                        </div>
+                    </>
+                )}
+                 {/* Fallback ThemeSwitchers for non-game views */}
+                 {currentView !== 'game_active' && currentView !== 'game_ended' && currentView !== 'menu' && (
                      <div className="flex items-center gap-2">
-                        <HeaderActions onSave={onSave} onMainMenu={onMainMenu} isLoading={isLoading || currentView === 'game_ended'} />
-                        <ThemeSwitcher /> {/* Add the ThemeSwitcher here */}
+                        <ThemeSwitcher />
+                        <ThemeToggle />
+                     </div>
+                 )}
+                 {currentView === 'menu' && (
+                    <div className="flex items-center gap-2">
+                        <ThemeSwitcher />
+                        <ThemeToggle />
                     </div>
-                </div>
-            )}
-             {/* Fallback ThemeSwitcher for non-game views */}
-             {!showGameControls && currentView !== 'menu' && (
-                 <div className="absolute top-3 right-4">
-                     <ThemeSwitcher />
-                 </div>
-             )}
+                 )}
+            </div>
         </CardHeader>
     );
 };
