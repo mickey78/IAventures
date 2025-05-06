@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -109,14 +108,12 @@ const storyContentPrompt = ai.definePrompt({
   output: {
     schema: GenerateStoryContentOutputSchema,
   },
-  prompt: promptTemplatePromise, // Utiliser le template chargé
+  prompt: await promptTemplatePromise, // Utiliser le template chargé
 });
 
 
-const generateStoryContentFlow = ai.defineFlow<
-  typeof GenerateStoryContentInputSchema,
-  typeof GenerateStoryContentOutputSchema
->({
+const generateStoryContentFlow = ai.defineFlow(
+{
   name: 'generateStoryContentFlow',
   inputSchema: GenerateStoryContentInputSchema,
   outputSchema: GenerateStoryContentOutputSchema,

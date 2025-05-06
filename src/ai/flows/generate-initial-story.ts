@@ -12,7 +12,7 @@
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
 import { heroOptions } from '@/config/heroes'; // Import hero options to get hero label and description
-import { logToFile } from '@/services/loggingService'; 
+import { logToFile, logAdventureStart } from '@/services/loggingService'; 
 import { readPromptFile } from '@/lib/prompt-utils'; 
 
 const promptTemplatePromise = readPromptFile('initialStoryPrompt.prompt'); // Charger le template depuis le fichier
@@ -27,6 +27,7 @@ const GenerateInitialStoryInputSchema = z.object({
   playerName: z.string().describe('Le nom du joueur.'),
   selectedHeroValue: z.string().describe("La valeur de la classe de héros choisie par le joueur (ex: 'Guerrier')."),
   heroDescription: z.string().describe("La description et les habiletés du héros choisi."), 
+  maxTurns: z.number().int().positive().describe("Le nombre maximum de tours pour cette aventure."), // Added maxTurns
 });
 export type GenerateInitialStoryInput = z.infer<typeof GenerateInitialStoryInputSchema>;
 
@@ -37,10 +38,14 @@ const GenerateInitialStoryOutputSchema = z.object({
     .describe('Les choix présentés au joueur sous forme de boutons sélectionnables.'),
   location: z.string().describe("Le lieu/cadre initial de l'histoire."),
   generatedImagePrompt: z.string().optional().describe("Un prompt concis mais VIVID pour générer une image représentant la scène initiale. DOIT inclure le thème, le lieu, le nom du joueur {{{playerName}}}, sa CLASSE de héros {{{selectedHeroValue}}}, et une DESCRIPTION DÉTAILLÉE de l'apparence du héros basée sur sa classe et sa description ({{{heroDescription}}}). Style: Réaliste."),
+  initialPromptDebug: z.string().optional().describe("The fully resolved initial prompt text used by the AI, for debugging purposes."),
 });
 export type GenerateInitialStoryOutput = z.infer<typeof GenerateInitialStoryOutputSchema>;
 
 export async function generateInitialStory(input: GenerateInitialStoryInput): Promise<GenerateInitialStoryOutput> {
+  // Log adventure start here as this is the first AI interaction point for a new game.
+  await logAdventureStart(input.playerName, input.theme, input.subThemePrompt, input.selectedHeroValue, input.maxTurns);
+
   const heroDetails = heroOptions.find(h => h.value === input.selectedHeroValue);
   if (!heroDetails) {
     throw new Error(`Détails du héros non trouvés pour la valeur: ${input.selectedHeroValue}`);
@@ -93,6 +98,13 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
       throw new Error("Le template de prompt pour l'histoire initiale est vide ou invalide.");
     }
 
+    // Construct the debug prompt string using the resolved template and current input
+    const debugPromptString = promptText
+        .replace(/{{{theme}}}/g, flowInput.theme)
+        .replace(/{{{subThemePrompt}}}/g, flowInput.subThemePrompt || 'N/A (aucun scénario spécifique choisi)')
+        .replace(/{{{playerName}}}/g, flowInput.playerName)
+        .replace(/{{{selectedHeroValue}}}/g, flowInput.selectedHeroValue)
+        .replace(/{{{heroDescription}}}/g, flowInput.heroDescription);
 
     const { output } = await initialStoryPrompt(flowInput);
 
@@ -115,7 +127,11 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
       output.generatedImagePrompt = undefined;
     }
 
-    return output!;
+    // Ensure the output from the prompt call is spread, and then add/override initialPromptDebug
+    return {
+        ...output!,
+        initialPromptDebug: debugPromptString,
+    };
   }
 );
 

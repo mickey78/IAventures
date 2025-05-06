@@ -1,4 +1,3 @@
-
 // src/lib/prompt-utils.ts
 import fs from 'node:fs/promises'; // Changed to use 'node:' prefix
 import path from 'path';
@@ -10,6 +9,11 @@ import path from 'path';
  * @throws Error if the file cannot be read.
  */
 export async function readPromptFile(filename: string): Promise<string> {
+  if (typeof window !== 'undefined') {
+    // This function is intended for server-side operations only.
+    console.error('readPromptFile was called on the client side. This is not supported.');
+    throw new Error('readPromptFile cannot be called on the client side.');
+  }
   try {
     // Construct the full path to the prompt file
     // Note: In Next.js server-side code, process.cwd() usually points to the project root.
@@ -23,4 +27,3 @@ export async function readPromptFile(filename: string): Promise<string> {
     throw new Error(`Failed to read prompt file: ${filename}. Details: ${error instanceof Error ? error.message : String(error)}`);
   }
 }
-

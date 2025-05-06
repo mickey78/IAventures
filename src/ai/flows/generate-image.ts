@@ -25,10 +25,7 @@ export async function generateImage(input: GenerateImageInput): Promise<Generate
   return generateImageFlow(input);
 }
 
-const generateImageFlow = ai.defineFlow<
-  typeof GenerateImageInputSchema,
-  typeof GenerateImageOutputSchema
->(
+const generateImageFlow = ai.defineFlow(
   {
     name: 'generateImageFlow',
     inputSchema: GenerateImageInputSchema,

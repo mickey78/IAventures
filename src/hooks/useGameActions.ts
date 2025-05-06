@@ -12,12 +12,11 @@ import type { GenerateImageOutput } from '@/ai/flows/generate-image';
 import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils';
 import { themes } from '@/config/themes';
 import { heroOptions } from '@/config/heroes';
-import { logToFile, logAdventureStart } from '@/services/loggingService';
-import { readPromptFile } from '@/lib/prompt-utils';
+import { logToFile } from '@/services/loggingService';
+// Removed client-side readPromptFile import as it's server-only
 
 
-const initialStoryPromptTemplatePromise = readPromptFile('initialStoryPrompt.prompt');
-const generateStoryContentPromptTemplatePromise = readPromptFile('generateStoryContentPrompt.prompt');
+// Removed client-side prompt template promises
 
 
 export function useGameActions(
@@ -39,7 +38,7 @@ export function useGameActions(
     const triggerImageGeneration = useCallback(async (segmentId: number, prompt: string | null | undefined) => {
         if (!prompt) {
             console.warn(`Image generation skipped for segment ${segmentId}: no prompt provided.`);
-            await logToFile({ level: 'warn', message: `[IMAGE_GEN_SKIP] No prompt for segment ${segmentId}` });
+            await logToFile({ level: 'warn', message: `[IMAGE_GEN_SKIP] No prompt for segment ${segmentId}` , excludeMedia: true});
             setGameState((prev) => ({
                 ...prev,
                 story: prev.story.map(seg =>
@@ -61,9 +60,9 @@ export function useGameActions(
         }));
 
         try {
-            await logToFile({ level: 'info', message: `[IMAGE_GEN_REQUEST] Segment ${segmentId}`, payload: { prompt } });
+            await logToFile({ level: 'info', message: `[IMAGE_GEN_REQUEST] Segment ${segmentId}`, payload: { prompt }, excludeMedia: true });
             const imageData: GenerateImageOutput = await generateImage({ prompt });
-            await logToFile({ level: 'info', message: `[IMAGE_GEN_SUCCESS] Segment ${segmentId}`, payload: { imageUrl: imageData.imageUrl?.substring(0,100) + "..." } }); // Log partial URL
+            await logToFile({ level: 'info', message: `[IMAGE_GEN_SUCCESS] Segment ${segmentId}`, payload: { imageUrl: imageData.imageUrl?.substring(0,100) + "..." } , excludeMedia: true}); // Log partial URL
             setGameState((prev) => ({
                 ...prev,
                 story: prev.story.map(seg =>
@@ -76,7 +75,7 @@ export function useGameActions(
             scrollToBottom();
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
-            await logToFile({ level: 'error', message: `[IMAGE_GEN_ERROR] Segment ${segmentId}`, payload: { error: errorMsg, prompt } });
+            await logToFile({ level: 'error', message: `[IMAGE_GEN_ERROR] Segment ${segmentId}`, payload: { error: errorMsg, prompt }, excludeMedia: true });
             toast({ title: 'Erreur Image', description: `Impossible de générer l'image: ${errorMsg}`, variant: 'destructive' });
             setGameState((prev) => ({
                 ...prev,
@@ -91,17 +90,17 @@ export function useGameActions(
     }, [setGameState, toast, scrollToBottom]);
 
     const retryImageGeneration = useCallback(async (segmentId: number) => {
-        await logToFile({ level: 'info', message: `[IMAGE_GEN_RETRY] Attempting retry for segment ${segmentId}` });
+        await logToFile({ level: 'info', message: `[IMAGE_GEN_RETRY] Attempting retry for segment ${segmentId}`, excludeMedia: true });
         const segmentToRetry = gameState.story.find(seg => seg.id === segmentId);
 
         if (!segmentToRetry) {
-            await logToFile({ level: 'error', message: `[IMAGE_GEN_RETRY_FAIL] Segment ${segmentId} not found.` });
+            await logToFile({ level: 'error', message: `[IMAGE_GEN_RETRY_FAIL] Segment ${segmentId} not found.`, excludeMedia: true });
             toast({ title: 'Erreur', description: 'Segment d\'histoire introuvable.', variant: 'destructive' });
             return;
         }
 
         if (!segmentToRetry.imageGenerationPrompt) {
-            await logToFile({ level: 'error', message: `[IMAGE_GEN_RETRY_FAIL] No prompt for segment ${segmentId}.` });
+            await logToFile({ level: 'error', message: `[IMAGE_GEN_RETRY_FAIL] No prompt for segment ${segmentId}.`, excludeMedia: true });
             toast({ title: 'Erreur', description: 'Aucun prompt disponible pour regénérer cette image.', variant: 'destructive' });
              setGameState(prev => ({
                  ...prev,
@@ -133,7 +132,14 @@ export function useGameActions(
         }
         const heroAppearance = heroDetails.appearance || `apparence typique de ${heroDetails.label}`;
         const moodText = gameState.currentGameState.emotions && gameState.currentGameState.emotions.length > 0 ? ` Ambiance: ${gameState.currentGameState.emotions.join(', ')}.` : '';
-        const prompt = `Une illustration de "${gameState.playerName}", le/la ${heroDetails.label} (${heroAppearance}): "${segmentText.substring(0, 150)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} Style: Réaliste.`;
+        // Incorporate previous prompt for consistency if available
+        const lastNarratorSegmentWithPrompt = gameState.story
+            .slice() // Create a copy to avoid mutating the original
+            .reverse() // Start from the most recent
+            .find(seg => seg.speaker === 'narrator' && seg.imageGenerationPrompt);
+        const previousPromptContext = lastNarratorSegmentWithPrompt?.imageGenerationPrompt ? ` Inspiré de : "${lastNarratorSegmentWithPrompt.imageGenerationPrompt.substring(0,100)}...".` : '';
+
+        const prompt = `Une illustration de "${gameState.playerName}", le/la ${heroDetails.label} (${heroAppearance}): "${segmentText.substring(0, 150)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} ${previousPromptContext} Style: Réaliste.`;
         triggerImageGeneration(segmentId, prompt);
     }, [gameState, toast, triggerImageGeneration]);
 
@@ -170,7 +176,6 @@ export function useGameActions(
             }
         }
 
-        await logAdventureStart(nameToUse, themeToUse, subThemeToUse, heroToUse, turns);
 
         setGameState((prev) => ({
             ...prev,
@@ -195,7 +200,7 @@ export function useGameActions(
                 emotions: [],
                 events: [],
             },
-            initialPromptDebug: null,
+            initialPromptDebug: "Chargement du prompt initial...", // Placeholder
         }));
 
         try {
@@ -205,17 +210,9 @@ export function useGameActions(
                 playerName: nameToUse,
                 selectedHeroValue: heroToUse,
                 heroDescription: heroFullDescription,
+                maxTurns: turns, // Pass maxTurns to the flow
             };
-
-            const initialStoryPromptTemplate = await initialStoryPromptTemplatePromise;
-            const debugPromptString = initialStoryPromptTemplate
-                .replace(/{{{theme}}}/g, initialStoryInput.theme)
-                .replace(/{{{subThemePrompt}}}/g, initialStoryInput.subThemePrompt || 'N/A')
-                .replace(/{{{playerName}}}/g, initialStoryInput.playerName)
-                .replace(/{{{selectedHeroValue}}}/g, initialStoryInput.selectedHeroValue)
-                .replace(/{{{heroDescription}}}/g, initialStoryInput.heroDescription);
-
-
+            
             const initialStoryData: GenerateInitialStoryOutput = await generateInitialStory(initialStoryInput);
 
             const initialSegmentId = Date.now();
@@ -241,7 +238,7 @@ export function useGameActions(
                     emotions: [],
                     events: [],
                 },
-                 initialPromptDebug: debugPromptString,
+                 initialPromptDebug: initialStoryData.initialPromptDebug || "Prompt de débogage non fourni par le serveur.", // Use server-provided debug prompt
             }));
 
             if (initialStoryData.generatedImagePrompt) {
@@ -250,7 +247,7 @@ export function useGameActions(
 
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
-            await logToFile({ level: 'error', message: '[INITIAL_STORY_ERROR]', payload: { error: errorMsg, input: {nameToUse, themeToUse, subThemeToUse, heroToUse, turns} } });
+            await logToFile({ level: 'error', message: '[INITIAL_STORY_ERROR]', payload: { error: errorMsg, input: {nameToUse, themeToUse, subThemeToUse, heroToUse, turns} } , excludeMedia: true});
             setGameState((prev) => ({
                 ...prev,
                 isLoading: false,
@@ -269,7 +266,7 @@ export function useGameActions(
             return;
         }
         if (!gameState.playerName || !gameState.theme || !gameState.selectedHero) {
-            await logToFile({ level: 'error', message: '[ACTION_ERROR_CRITICAL] Missing game state info', payload: { player: gameState.playerName, theme: gameState.theme, hero: gameState.selectedHero } });
+            await logToFile({ level: 'error', message: '[ACTION_ERROR_CRITICAL] Missing game state info', payload: { player: gameState.playerName, theme: gameState.theme, hero: gameState.selectedHero }, excludeMedia: true });
             toast({ title: 'Erreur', description: 'Erreur de jeu critique. Retour au menu principal.', variant: 'destructive' });
             setGameState(prev => ({ ...prev, currentView: 'menu' }));
             return;
@@ -279,7 +276,7 @@ export function useGameActions(
             return;
         }
 
-        await logToFile({ level: 'info', message: `[PLAYER_ACTION] Turn ${gameState.currentTurn}`, payload: { action: actionText, playerName: gameState.playerName } });
+        await logToFile({ level: 'info', message: `[PLAYER_ACTION] Turn ${gameState.currentTurn}`, payload: { action: actionText, playerName: gameState.playerName }, excludeMedia: true });
 
 
         const playerActionSegment: StorySegment = { id: Date.now(), text: actionText.trim(), speaker: 'player' };
@@ -301,7 +298,7 @@ export function useGameActions(
         const heroDetails = heroOptions.find(h => h.value === gameState.selectedHero);
         if (!heroDetails) {
              // This should ideally not happen if startNewGame validated correctly
-            await logToFile({ level: 'error', message: '[ACTION_ERROR_CRITICAL] Hero details not found during action', payload: { selectedHero: gameState.selectedHero } });
+            await logToFile({ level: 'error', message: '[ACTION_ERROR_CRITICAL] Hero details not found during action', payload: { selectedHero: gameState.selectedHero }, excludeMedia: true });
             toast({ title: 'Erreur Critique', description: 'Détails du héros introuvables. Veuillez recommencer.', variant: 'destructive' });
             setGameState(prev => ({ ...prev, isLoading: false, currentView: 'menu' }));
             return;
@@ -358,13 +355,13 @@ export function useGameActions(
             }
 
             if (isLastTurn) {
-                await logToFile({ level: 'info', message: '[GAME_END]', payload: { turns: nextTurn, maxTurns: gameState.maxTurns } });
+                await logToFile({ level: 'info', message: '[GAME_END]', payload: { turns: nextTurn, maxTurns: gameState.maxTurns } , excludeMedia: true});
                 toast({ title: "Fin de l'Aventure !", description: "Votre histoire est terminée. Merci d'avoir joué !", duration: 5000 });
             }
 
         } catch (err) {
             const errorMsg = err instanceof Error ? err.message : 'Une erreur inconnue est survenue.';
-            await logToFile({ level: 'error', message: '[STORY_CONTENT_ERROR]', payload: { error: errorMsg, input } });
+            await logToFile({ level: 'error', message: '[STORY_CONTENT_ERROR]', payload: { error: errorMsg, input }, excludeMedia: true });
             setGameState((prev) => ({
                 ...prev,
                 isLoading: false, error: `Impossible de continuer l'histoire: ${errorMsg}`,
@@ -386,3 +383,4 @@ export function useGameActions(
         setShouldFlashInventory,
     };
 }
+

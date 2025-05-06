@@ -29,6 +29,10 @@ interface LogEntry {
 
 // Helper function to safely stringify payload, excluding media if requested
 function safeStringifyPayload(payload: any, excludeMedia?: boolean): string {
+    if (typeof window !== 'undefined') { 
+        // This part should not be reached if logToFile is server-only
+        return '(Payload stringification skipped on client)';
+    }
     if (payload === undefined) return '';
     if (excludeMedia && payload && typeof payload === 'object') {
         const { media, photoDataUri, storyImageUrl, ...restOfPayload } = payload; // Destructure known media keys
@@ -99,10 +103,13 @@ export async function logToFile(logEntry: Omit<LogEntry, 'timestamp'>): Promise<
 export async function logAdventureStart(
     playerName: string,
     theme: string,
-    subTheme: string | null,
+    subTheme: string | null | undefined, // Allow undefined
     hero: string,
     maxTurns: number
 ): Promise<void> {
+    if (typeof window !== 'undefined') {
+        return; // Server-side only
+    }
     const separator = "==================================================";
     await logToFile({
         level: 'info',
