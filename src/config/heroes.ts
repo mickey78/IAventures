@@ -30,7 +30,7 @@ export const heroOptions: HeroOption[] = [
     description: 'Fort et courageux, excelle au combat rapproché avec force et défense.',
     icon: Swords,
     abilities: guerrierAbilities,
-    appearance: "Un guerrier ou une guerrière robuste, souvent équipé(e) d'une armure de plaques ou de mailles, portant une épée longue ou une hache, et un bouclier solide. Peut avoir des cicatrices de batailles passées. Coiffure simple et pratique, regard déterminé.",
+    appearance: "Un guerrier robuste aux cheveux bruns courts et yeux bleus perçants. Sa peau claire est souvent marquée de petites cicatrices de combat. Il porte une armure de plaques en acier brillant et un bouclier rond en bois orné d'un emblème de loup. Il manie une épée longue solide.",
   },
   {
     value: 'Magicien',
@@ -38,7 +38,7 @@ export const heroOptions: HeroOption[] = [
     description: 'Maîtrise les arcanes et lance des sorts élémentaires puissants.',
     icon: Wand2,
     abilities: magicienAbilities,
-    appearance: "Un magicien ou une magicienne portant souvent des robes amples et colorées, parfois avec un chapeau pointu. Tient un bâton ou une baguette magique. Peut avoir des symboles mystiques brodés sur ses vêtements. Regard perçant et sage.",
+    appearance: "Une magicienne aux longs cheveux noirs tressés, parsemés de quelques fils d'argent, et aux yeux verts émeraudes. Sa peau est mate. Elle est vêtue d'une robe ample de couleur bleu nuit, brodée d'étoiles argentées scintillantes. Elle tient un bâton en bois de chêne noueux, surmonté d'un cristal qui pulse d'une douce lumière.",
   },
   {
     value: 'Archer',
@@ -46,7 +46,7 @@ export const heroOptions: HeroOption[] = [
     description: 'Précis à distance, rapide et agile pour se déplacer.',
     icon: Crosshair,
     abilities: archerAbilities,
-    appearance: "Un archer ou une archère vêtu(e) de cuir léger et de couleurs de camouflage (vert, brun). Porte un arc long ou court et un carquois rempli de flèches. Coiffure souvent attachée pour ne pas gêner la visée. Agile et alerte.",
+    appearance: "Un archer agile aux cheveux blonds mi-longs, généralement attachés en queue de cheval pour ne pas gêner sa vision. Ses yeux noisette sont vifs et perçants. Sa peau est tannée par le soleil. Il porte une tunique en cuir souple de couleur vert forêt, un pantalon ajusté et des bottes robustes. Un carquois rempli de flèches à plumes blanches est sanglé dans son dos, et il tient un arc en if poli par l'usage.",
   },
   {
     value: 'Voleur',
@@ -54,6 +54,6 @@ export const heroOptions: HeroOption[] = [
     description: 'Maître de la discrétion, utilise la furtivité et des pièges astucieux.',
     icon: Hand,
     abilities: voleurAbilities,
-    appearance: "Un voleur ou une voleuse habillé(e) de vêtements sombres et ajustés pour faciliter le mouvement silencieux. Porte souvent une capuche ou un masque pour cacher son visage. Peut avoir des dagues ou des outils de crochetage à sa ceinture. Expression rusée.",
+    appearance: "Un voleur discret aux cheveux noirs corbeau, coupés courts et souvent en désordre, tombant sur son front. Ses yeux sombres sont furtifs et observateurs. Sa peau est olivâtre. Il est vêtu d'une cape à capuche sombre qui masque une partie de son visage, et d'une tenue en cuir noir ajustée pour faciliter les mouvements silencieux. Plusieurs dagues et outils de crochetage sont visibles à sa ceinture.",
   },
 ];
