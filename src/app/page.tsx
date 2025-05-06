@@ -23,8 +23,8 @@ import StoryDisplay from '@/components/game/StoryDisplay';
 import ActionInput from '@/components/game/ActionInput';
 import SaveDialog from '@/components/game/SaveDialog';
 import GameEndedDisplay from '@/components/game/GameEndedDisplay';
-import DebugInitialPrompt from '@/components/game/DebugInitialPrompt'; // Import Debug Component
-import ImageModal from '@/components/game/ImageModal'; // Import the new ImageModal component
+import DebugInitialPrompt from '@/components/game/DebugInitialPrompt';
+import ImageModal from '@/components/game/ImageModal';
 import { AlertCircle, Loader } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -44,6 +44,7 @@ export default function IAventuresGame() {
     subTheme: null,
     selectedHero: null,
     playerName: null,
+    playerGender: null, // Initialize playerGender
     isLoading: false,
     error: null,
     playerChoicesHistory: [],
@@ -51,7 +52,7 @@ export default function IAventuresGame() {
     maxTurns: 15,
     currentTurn: 1,
     generatingSegmentId: null,
-    initialPromptDebug: null, // Initialize debug info
+    initialPromptDebug: null,
   });
   const [playerNameInput, setPlayerNameInput] = useState('');
   const [maxTurnsInput, setMaxTurnsInput] = useState<number>(15);
@@ -59,29 +60,27 @@ export default function IAventuresGame() {
   const [isInventoryPopoverOpen, setIsInventoryPopoverOpen] = useState(false);
   const [isAbilitiesPopoverOpen, setIsAbilitiesPopoverOpen] = useState(false);
   const [isCustomInputVisible, setIsCustomInputVisible] = useState(false);
-  const [isImageModalOpen, setIsImageModalOpen] = useState(false); // State for image modal
-  const [modalContent, setModalContent] = useState<{ imageUrl: string | null | undefined; text: string }>({ imageUrl: null, text: '' }); // State for modal content
+  const [isImageModalOpen, setIsImageModalOpen] = useState(false);
+  const [modalContent, setModalContent] = useState<{ imageUrl: string | null | undefined; text: string }>({ imageUrl: null, text: '' });
 
 
   const { toast } = useToast();
   const viewportRef = useRef<HTMLDivElement>(null);
   const customInputRef = useRef<HTMLInputElement>(null);
 
-  // Use custom hook for game actions (AI interactions)
   const {
     startNewGame,
     handleAction,
     triggerImageGeneration,
-    retryImageGeneration, // Get retry function from hook
+    retryImageGeneration,
     handleManualImageGeneration,
     shouldFlashInventory,
     setShouldFlashInventory,
   } = useGameActions(gameState, setGameState, toast, viewportRef);
 
-  // Use custom hook for save/load functionality
   const {
     savedGames,
-    setSavedGames, // Expose setter if needed from hook
+    setSavedGames,
     saveNameInput,
     setSaveNameInput,
     isSaveDialogOpen,
@@ -92,8 +91,6 @@ export default function IAventuresGame() {
     handleDeleteGame,
   } = useSaveLoad(gameState, setGameState, toast);
 
-
-  // --- Scrolling Effect ---
   const scrollToBottom = useCallback(() => {
     requestAnimationFrame(() => {
       if (viewportRef.current) {
@@ -108,14 +105,12 @@ export default function IAventuresGame() {
     }
   }, [gameState.story, gameState.currentView, scrollToBottom]);
 
-  // --- Focus Custom Input Effect ---
   useEffect(() => {
     if (isCustomInputVisible && customInputRef.current) {
       customInputRef.current.focus();
     }
   }, [isCustomInputVisible]);
 
-   // --- Inventory Flash Effect ---
    useEffect(() => {
     if (shouldFlashInventory) {
       const timer = setTimeout(() => {
@@ -125,8 +120,6 @@ export default function IAventuresGame() {
     }
   }, [shouldFlashInventory, setShouldFlashInventory]);
 
-
-  // --- Navigation Handlers ---
   const showMainMenu = () => {
     setGameState(prev => ({
       ...prev,
@@ -144,6 +137,7 @@ export default function IAventuresGame() {
       subTheme: null,
       selectedHero: null,
       playerName: null,
+      playerGender: null, // Reset playerGender
       isLoading: false,
       error: null,
       playerChoicesHistory: [],
@@ -151,9 +145,9 @@ export default function IAventuresGame() {
       maxTurns: 15,
       currentTurn: 1,
       generatingSegmentId: null,
-      initialPromptDebug: null, // Reset debug info
+      initialPromptDebug: null,
     }));
-    setSavedGames(listSaveGames()); // Refresh saved games list via hook
+    setSavedGames(listSaveGames());
     setIsInventoryPopoverOpen(false);
     setIsAbilitiesPopoverOpen(false);
     setIsCustomInputVisible(false);
@@ -167,10 +161,11 @@ export default function IAventuresGame() {
       subTheme: null,
       selectedHero: null,
       playerName: null,
+      playerGender: null, // Reset playerGender
       currentTurn: 1,
       maxTurns: 15,
       currentGameState: { ...prev.currentGameState, location: 'Sélection du Thème', relationships: {}, emotions: [], events: [] },
-      initialPromptDebug: null, // Reset debug info
+      initialPromptDebug: null,
     }));
     setIsInventoryPopoverOpen(false);
      setIsAbilitiesPopoverOpen(false);
@@ -189,6 +184,7 @@ export default function IAventuresGame() {
        currentView: 'sub_theme_selection',
        subTheme: null,
        selectedHero: null,
+       playerGender: null, // Reset playerGender
        currentGameState: { ...prev.currentGameState, location: `Choix du Scénario: ${selectedThemeValue}` },
      }));
      setIsInventoryPopoverOpen(false);
@@ -201,7 +197,7 @@ export default function IAventuresGame() {
        toast({ title: 'Erreur', description: 'Veuillez choisir un thème avant de continuer.', variant: 'destructive' });
        return;
      }
-     setGameState(prev => ({ ...prev, currentView: 'hero_selection', selectedHero: null, currentGameState: { ...prev.currentGameState, location: 'Choix du Héros' } }));
+     setGameState(prev => ({ ...prev, currentView: 'hero_selection', selectedHero: null, playerGender: null, currentGameState: { ...prev.currentGameState, location: 'Choix du Héros' } }));
      setIsInventoryPopoverOpen(false);
       setIsAbilitiesPopoverOpen(false);
      setIsCustomInputVisible(false);
@@ -209,8 +205,8 @@ export default function IAventuresGame() {
 
 
   const showNameInput = () => {
-    if (!gameState.theme || !gameState.selectedHero) {
-      toast({ title: 'Erreur', description: 'Veuillez choisir un thème et un héros avant de continuer.', variant: 'destructive' });
+    if (!gameState.theme || !gameState.selectedHero || !gameState.playerGender) {
+      toast({ title: 'Erreur', description: 'Veuillez choisir un thème, un héros et un genre avant de continuer.', variant: 'destructive' });
       return;
     }
     setGameState(prev => ({ ...prev, currentView: 'name_input', currentGameState: { ...prev.currentGameState, location: 'Création du Personnage' } }));
@@ -220,24 +216,27 @@ export default function IAventuresGame() {
   }
 
   const showLoadGameView = () => {
-    setSavedGames(listSaveGames()); // Refresh saved games list via hook
+    setSavedGames(listSaveGames());
     setGameState(prev => ({ ...prev, currentView: 'loading_game', currentGameState: { ...prev.currentGameState, location: 'Chargement de Partie' } }));
     setIsInventoryPopoverOpen(false);
      setIsAbilitiesPopoverOpen(false);
      setIsCustomInputVisible(false);
   };
 
-  // --- Game Logic Handlers ---
   const handleThemeSelect = (themeValue: string) => {
-     setGameState((prev) => ({ ...prev, theme: themeValue, subTheme: null, selectedHero: null }));
+     setGameState((prev) => ({ ...prev, theme: themeValue, subTheme: null, selectedHero: null, playerGender: null }));
   };
 
   const handleSubThemeSelect = (subThemeValue: string | null) => {
-    setGameState((prev) => ({ ...prev, subTheme: subThemeValue, selectedHero: null }));
+    setGameState((prev) => ({ ...prev, subTheme: subThemeValue, selectedHero: null, playerGender: null }));
   };
 
-  const handleHeroSelect = (heroValue: string) => { // Changed type to string
+  const handleHeroSelect = (heroValue: string) => {
     setGameState((prev) => ({ ...prev, selectedHero: heroValue }));
+  };
+
+  const handleGenderSelect = (gender: 'male' | 'female') => {
+    setGameState((prev) => ({ ...prev, playerGender: gender }));
   };
 
 
@@ -246,22 +245,20 @@ export default function IAventuresGame() {
       toast({ title: 'Nom Invalide', description: 'Veuillez entrer votre nom.', variant: 'destructive' });
       return;
     }
-     if (!gameState.selectedHero) {
-      toast({ title: 'Héros Manquant', description: 'Veuillez sélectionner une classe de héros.', variant: 'destructive' });
+     if (!gameState.selectedHero || !gameState.playerGender) {
+      toast({ title: 'Héros/Genre Manquant', description: 'Veuillez sélectionner une classe de héros et un genre.', variant: 'destructive' });
       return;
     }
     const trimmedName = playerNameInput.trim();
-    // Call startNewGame from the hook
-    startNewGame(trimmedName, gameState.theme, gameState.subTheme, gameState.selectedHero, maxTurnsInput);
+    startNewGame(trimmedName, gameState.theme, gameState.subTheme, gameState.selectedHero, gameState.playerGender, maxTurnsInput);
   }
 
 
   const handleCustomChoiceSubmit = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    // Call handleAction from the hook
     handleAction(customChoiceInput);
-    setCustomChoiceInput(''); // Clear input after submission
-    setIsCustomInputVisible(false); // Hide custom input field
+    setCustomChoiceInput('');
+    setIsCustomInputVisible(false);
   };
 
   const handleInventoryActionClick = (actionPrefix: string, item: string) => {
@@ -298,9 +295,6 @@ export default function IAventuresGame() {
     toast({ title: "Action d'Habileté", description: `Prêt à '${fullActionText}'. Appuyez sur Envoyer.` });
   };
 
-  // --- Save/Load Handlers are now called directly from the useSaveLoad hook ---
-
-   // --- Image Modal Handlers ---
    const handleImageClick = useCallback((imageUrl: string | null | undefined, text: string) => {
     if (imageUrl) {
       setModalContent({ imageUrl, text });
@@ -312,11 +306,9 @@ export default function IAventuresGame() {
 
   const handleCloseImageModal = useCallback(() => {
     setIsImageModalOpen(false);
-    // Optional: Delay resetting content slightly for smoother animation
     setTimeout(() => setModalContent({ imageUrl: null, text: '' }), 300);
   }, []);
 
-  // --- Render Logic ---
   const renderCurrentView = () => {
     switch (gameState.currentView) {
       case 'menu':
@@ -344,6 +336,8 @@ export default function IAventuresGame() {
                     heroes={heroOptions}
                     selectedHero={gameState.selectedHero}
                     onHeroSelect={handleHeroSelect}
+                    selectedGender={gameState.playerGender} // Pass selected gender
+                    onGenderSelect={handleGenderSelect} // Pass gender select handler
                     onNext={showNameInput}
                     onBack={() => gameState.theme ? showSubThemeSelection(gameState.theme) : showThemeSelection()}
                 />;
@@ -367,7 +361,6 @@ export default function IAventuresGame() {
       case 'game_active':
         return (
           <>
-            {/* DebugPrompt handles its own visibility, just pass the prompt */}
             <DebugInitialPrompt prompt={gameState.initialPromptDebug} />
             <StoryDisplay
                 story={gameState.story}
@@ -376,8 +369,8 @@ export default function IAventuresGame() {
                 isLoading={gameState.isLoading}
                 generatingSegmentId={gameState.generatingSegmentId}
                 onManualImageGeneration={handleManualImageGeneration}
-                onRetryImageGeneration={retryImageGeneration} // Pass retry function
-                onImageClick={handleImageClick} // Pass image click handler
+                onRetryImageGeneration={retryImageGeneration}
+                onImageClick={handleImageClick}
             />
             {!gameState.isLoading && (
               <ActionInput
@@ -385,7 +378,7 @@ export default function IAventuresGame() {
                 customChoiceInput={customChoiceInput}
                 onCustomChoiceChange={setCustomChoiceInput}
                 onCustomChoiceSubmit={handleCustomChoiceSubmit}
-                onAction={handleAction} // Use handleAction from hook
+                onAction={handleAction}
                 isLoading={gameState.isLoading}
                 isCustomInputVisible={isCustomInputVisible}
                 onToggleCustomInput={() => setIsCustomInputVisible(!isCustomInputVisible)}
@@ -403,7 +396,6 @@ export default function IAventuresGame() {
        case 'game_ended':
          return (
            <>
-            {/* DebugPrompt handles its own visibility */}
             <DebugInitialPrompt prompt={gameState.initialPromptDebug} />
             <StoryDisplay
                 story={gameState.story}
@@ -412,8 +404,8 @@ export default function IAventuresGame() {
                 isLoading={false}
                 generatingSegmentId={gameState.generatingSegmentId}
                 onManualImageGeneration={handleManualImageGeneration}
-                onRetryImageGeneration={retryImageGeneration} // Pass retry function
-                onImageClick={handleImageClick} // Pass image click handler
+                onRetryImageGeneration={retryImageGeneration}
+                onImageClick={handleImageClick}
             />
             <GameEndedDisplay
                 maxTurns={gameState.maxTurns}
@@ -455,7 +447,7 @@ export default function IAventuresGame() {
             isAbilitiesOpen={isAbilitiesPopoverOpen}
             onAbilitiesToggle={setIsAbilitiesPopoverOpen}
             onAbilityAction={handleAbilityActionClick}
-            onSave={handleOpenSaveDialog} // Use handler from save/load hook
+            onSave={handleOpenSaveDialog}
             onMainMenu={showMainMenu}
             shouldFlashInventory={shouldFlashInventory}
         />
@@ -480,8 +472,8 @@ export default function IAventuresGame() {
         onOpenChange={setIsSaveDialogOpen}
         saveName={saveNameInput}
         onSaveNameChange={setSaveNameInput}
-        onSave={handleSaveGame} // Use handler from save/load hook
-        isGameActive={gameState.currentView === 'game_active' || gameState.currentView === 'game_ended'} // Allow saving on ended screen too
+        onSave={handleSaveGame}
+        isGameActive={gameState.currentView === 'game_active' || gameState.currentView === 'game_ended'}
       />
 
         <ImageModal
@@ -493,5 +485,3 @@ export default function IAventuresGame() {
     </div>
   );
 }
-
-    

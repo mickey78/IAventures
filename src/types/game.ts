@@ -33,6 +33,7 @@ export interface GameState {
   theme: string | null;
   subTheme: string | null; // Added subTheme field
   playerName: string | null;
+  playerGender: 'male' | 'female' | null; // Added playerGender field
   isLoading: boolean; // Overall loading state (e.g., waiting for AI)
   error: string | null;
   playerChoicesHistory: string[];
@@ -45,7 +46,7 @@ export interface GameState {
 }
 
 // Represents the different views/screens of the application
-export type GameView = 'menu' | 'theme_selection' | 'sub_theme_selection' | 'hero_selection' | 'name_input' | 'loading_game' | 'game_active' | 'game_ended'; // Added hero_selection view
+export type GameView = 'menu' | 'theme_selection' | 'sub_theme_selection' | 'hero_selection' | 'name_input' | 'loading_game' | 'game_active' | 'game_ended';
 
 // Represents a sub-theme option
 export interface SubTheme {
@@ -79,7 +80,9 @@ export interface HeroOption {
     description: string; // Short description of the hero class
     icon: LucideIcon; // Icon component from lucide-react
     abilities: HeroAbility[]; // Array of hero abilities
-    appearance?: string; // Detailed description of the hero's appearance
+    // Appearance can be a base string, and the AI will adapt it using playerGender.
+    // Or, you could have maleAppearance and femaleAppearance if more distinction is needed.
+    appearance?: string;
 }
 
 // Represents the selected hero class (could be extended with abilities)

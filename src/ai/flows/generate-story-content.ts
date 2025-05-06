@@ -1,7 +1,8 @@
+
 'use server';
 
 /**
- * @fileOverview Génère le contenu de l'histoire en fonction du thème choisi, des choix du joueur, de l'inventaire, du nom du joueur, du lieu, de la classe du héros et du numéro de tour. Il peut également suggérer un prompt d'image pour les moments visuels importants, en visant la cohérence. Inclut la gestion des relations, des émotions et des combats simples basés sur des choix et les capacités du héros.
+ * @fileOverview Génère le contenu de l'histoire en fonction du thème choisi, des choix du joueur, de l'inventaire, du nom du joueur, du genre du joueur, du lieu, de la classe du héros et du numéro de tour. Il peut également suggérer un prompt d'image pour les moments visuels importants, en visant la cohérence. Inclut la gestion des relations, des émotions et des combats simples basés sur des choix et les capacités du héros.
  *
  * - generateStoryContent - Fonction qui génère le contenu de l'histoire.
  * - GenerateStoryContentInput - Type d'entrée pour la fonction generateStoryContent.
@@ -9,13 +10,13 @@
  */
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
-import type { StorySegment, ParsedGameState } from '@/types/game'; // Importer les types partagés
-import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils'; // Importer l'aide
-import { heroOptions } from '@/config/heroes'; // Importer les options de héros pour obtenir la description et l'apparence
+import type { StorySegment, ParsedGameState } from '@/types/game'; 
+import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils'; 
+import { heroOptions } from '@/config/heroes'; 
 import { logToFile } from '@/services/loggingService'; 
 import { readPromptFile } from '@/lib/prompt-utils'; 
 
-const promptTemplatePromise = readPromptFile('generateStoryContentPrompt.prompt'); // Charger le template depuis le fichier
+const promptTemplatePromise = readPromptFile('generateStoryContentPrompt.prompt'); 
 
 const GenerateStoryContentInputSchema = z.object({
   theme: z
@@ -24,6 +25,7 @@ const GenerateStoryContentInputSchema = z.object({
       "Le thème de l'histoire (ex: Fantasy Médiévale, Exploration Spatiale, Pirates des Caraïbes, Western et Cowboys, Mystère et Enquête, École des Super-Héros, Histoire d'Amour, Piégé dans le Jeu, Survie Post-Apocalyptique)"
     ),
   playerName: z.string().describe('Le nom du joueur.'),
+  playerGender: z.enum(['male', 'female']).describe('Le genre choisi par le joueur (male ou female).'),
   selectedHeroValue: z.string().describe("La classe de héros choisie par le joueur (ex: 'Guerrier')."),
   heroDescription: z.string().describe("La description complète du héros, incluant ses capacités et son apparence."), 
   lastStorySegment: z.object({
@@ -44,10 +46,10 @@ const GenerateStoryContentInputSchema = z.object({
 export type GenerateStoryContentInput = z.infer<typeof GenerateStoryContentInputSchema>;
 
 const GenerateStoryContentOutputSchema = z.object({
-  storyContent: z.string().describe("Le contenu de l'histoire généré. Si c'est le dernier tour, ce devrait être la conclusion."),
+  storyContent: z.string().describe("Le contenu de l'histoire généré. Si c'est le dernier tour, ce devrait être la conclusion. Adapte les pronoms en fonction de playerGender."),
   nextChoices: z.array(z.string()).describe("2-3 choix pour la prochaine action. Tableau vide si c'est le dernier tour."),
   updatedGameState: z.string().describe("L'état du jeu mis à jour en JSON valide."),
-  generatedImagePrompt: z.string().optional().describe("Prompt d'image UNIQUEMENT si scène visuellement distincte. DOIT être cohérent avec les images précédentes (description et style du héros). Inclure thème, lieu, nom du joueur {{{playerName}}}, CLASSE du héros {{{selectedHeroValue}}}, et DESCRIPTION DÉTAILLÉE de l'apparence du héros ({{{heroDescription}}}). Style: Réaliste. Laisser vide sinon."),
+  generatedImagePrompt: z.string().optional().describe("Prompt d'image UNIQUEMENT si scène visuellement distincte. DOIT être cohérent avec les images précédentes (description et style du héros). Inclure thème, lieu, nom du joueur {{{playerName}}} ({{{playerGender}}}), CLASSE du héros {{{selectedHeroValue}}}, et DESCRIPTION DÉTAILLÉE de l'apparence du héros ({{{heroDescription}}}). Style: Réaliste. Pas de texte dans l'image. Laisser vide sinon."),
 });
 export type GenerateStoryContentOutput = z.infer<typeof GenerateStoryContentOutputSchema>;
 
@@ -108,7 +110,7 @@ const storyContentPrompt = ai.definePrompt({
   output: {
     schema: GenerateStoryContentOutputSchema,
   },
-  prompt: await promptTemplatePromise, // Utiliser le template chargé
+  prompt: await promptTemplatePromise, 
 });
 
 
@@ -120,9 +122,9 @@ const generateStoryContentFlow = ai.defineFlow(
 },
 async (flowInput) => {
 
-   if (!flowInput.theme || !flowInput.playerName || !flowInput.selectedHeroValue || !flowInput.heroDescription || !flowInput.gameState || flowInput.currentTurn === undefined || !flowInput.maxTurns) {
+   if (!flowInput.theme || !flowInput.playerName || !flowInput.playerGender || !flowInput.selectedHeroValue || !flowInput.heroDescription || !flowInput.gameState || flowInput.currentTurn === undefined || !flowInput.maxTurns) {
        await logToFile({ level: 'error', message: '[VALIDATION_ERROR] Story content generation - missing required fields', payload: flowInput, excludeMedia: true });
-       throw new Error("Theme, playerName, selectedHeroValue, heroDescription, gameState, et informations de tour sont requis.");
+       throw new Error("Theme, playerName, playerGender, selectedHeroValue, heroDescription, gameState, et informations de tour sont requis.");
    }
     const promptText = await promptTemplatePromise;
     if (!promptText || typeof promptText !== 'string' || promptText.trim() === '') {
@@ -150,7 +152,7 @@ async (flowInput) => {
         };
     }
 
-    const shouldGenerateEvent = Math.random() < 0.15; // 15% chance for a random event
+    const shouldGenerateEvent = Math.random() < 0.15; 
     if (shouldGenerateEvent && flowInput.currentTurn > 1 && !flowInput.isLastTurn) { 
         const events = [
             "Une pluie torrentielle s'abat soudainement, rendant le sol glissant.",
