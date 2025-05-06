@@ -1,42 +1,27 @@
 // src/services/loggingService.ts
-import fs from 'node:fs/promises'; // Use node:fs/promises for Next.js server environment
+import fs from 'node:fs/promises'; // Ensure using 'node:' prefix for server-side modules
 import path from 'path';
 import util from 'util';
 
 const LOG_FILE = 'adventure.log';
-const LOG_DIR = path.join(process.cwd()); // Log at the root of the project
+const LOG_DIR = path.join(process.cwd()); 
 const MAX_LOG_SIZE_BYTES = 5 * 1024 * 1024; // 5MB
-
-// Ensure log directory exists (optional, as logging to root directly)
-// async function ensureLogDirectoryExists() {
-//   try {
-//     await fs.mkdir(LOG_DIR, { recursive: true });
-//   } catch (error) {
-//     console.error('Error creating log directory:', error);
-//   }
-// }
-
-// Call once at the start if using a subdirectory
-// ensureLogDirectoryExists();
 
 interface LogEntry {
     timestamp: string;
     level: 'info' | 'warn' | 'error' | 'debug';
     message: string;
     payload?: any;
-    excludeMedia?: boolean; // New flag to exclude media data
+    excludeMedia?: boolean; 
 }
 
-// Helper function to safely stringify payload, excluding media if requested
 function safeStringifyPayload(payload: any, excludeMedia?: boolean): string {
     if (typeof window !== 'undefined') { 
-        // This part should not be reached if logToFile is server-only
         return '(Payload stringification skipped on client)';
     }
     if (payload === undefined) return '';
     if (excludeMedia && payload && typeof payload === 'object') {
-        const { media, photoDataUri, storyImageUrl, ...restOfPayload } = payload; // Destructure known media keys
-        // Check for other potential large base64 strings or media-like keys
+        const { media, photoDataUri, storyImageUrl, ...restOfPayload } = payload; 
         const cleanedPayload = Object.entries(restOfPayload).reduce((acc, [key, value]) => {
             if (typeof value === 'string' && value.startsWith('data:image')) {
                 // acc[key] = value.substring(0, 100) + "... (media data excluded)";
@@ -57,8 +42,6 @@ function safeStringifyPayload(payload: any, excludeMedia?: boolean): string {
 
 export async function logToFile(logEntry: Omit<LogEntry, 'timestamp'>): Promise<void> {
     if (typeof window !== 'undefined') {
-        // This function is intended for server-side logging only.
-        // console.warn('logToFile was called on the client side. Skipping.');
         return;
     }
 
@@ -78,7 +61,6 @@ export async function logToFile(logEntry: Omit<LogEntry, 'timestamp'>): Promise<
     }
 
     try {
-        // Check log file size
         try {
             const stats = await fs.stat(logFilePath);
             if (stats.size > MAX_LOG_SIZE_BYTES) {
@@ -86,7 +68,7 @@ export async function logToFile(logEntry: Omit<LogEntry, 'timestamp'>): Promise<
                 console.warn(`Log file ${LOG_FILE} was truncated due to size limit.`);
             }
         } catch (err: any) {
-            if (err.code !== 'ENOENT') { // Ignore if file doesn't exist yet
+            if (err.code !== 'ENOENT') { 
                 console.error('Error checking log file stats:', err);
             }
         }
@@ -94,7 +76,6 @@ export async function logToFile(logEntry: Omit<LogEntry, 'timestamp'>): Promise<
         await fs.appendFile(logFilePath, logString);
     } catch (error) {
         console.error('Error writing to log file:', error);
-        // Fallback to console if file logging fails
         console.log(logString.trim());
     }
 }
@@ -103,12 +84,12 @@ export async function logToFile(logEntry: Omit<LogEntry, 'timestamp'>): Promise<
 export async function logAdventureStart(
     playerName: string,
     theme: string,
-    subTheme: string | null | undefined, // Allow undefined
+    subTheme: string | null | undefined, 
     hero: string,
     maxTurns: number
 ): Promise<void> {
     if (typeof window !== 'undefined') {
-        return; // Server-side only
+        return; 
     }
     const separator = "==================================================";
     await logToFile({

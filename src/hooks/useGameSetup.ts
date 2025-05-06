@@ -4,7 +4,7 @@ import type { GameState, GameView, HeroAbility } from '@/types/game';
 import { themes } from '@/config/themes';
 import { heroOptions } from '@/config/heroes';
 import { listSaveGames } from '@/lib/saveLoadUtils';
-import { logToFile } from '@/services/loggingService'; // Assuming this is used for client-side logging if needed
+// Removed client-side import of logToFile
 
 export function useGameSetup(
     initialGameState: GameState,
@@ -41,8 +41,6 @@ export function useGameSetup(
           generatingSegmentId: null,
           initialPromptDebug: null,
         }));
-        // If listSaveGames becomes async or needs more complex state, adjust
-        // For now, assuming it's synchronous and its result is handled by useSaveLoad
     }, [setGameState]);
 
     const showThemeSelection = useCallback(() => {
@@ -77,7 +75,7 @@ export function useGameSetup(
     }, [setGameState, toast]);
 
     const showHeroSelection = useCallback(() => {
-         if (!initialGameState.theme) { // Use initialGameState or gameState depending on context
+         if (!initialGameState.theme) { 
            toast({ title: 'Erreur', description: 'Veuillez choisir un thème avant de continuer.', variant: 'destructive' });
            return;
          }
@@ -86,7 +84,6 @@ export function useGameSetup(
 
 
     const showNameInput = useCallback(() => {
-        // Use current gameState from the hook's scope directly
         if (!initialGameState.theme || !initialGameState.selectedHero) {
           toast({ title: 'Erreur', description: 'Veuillez choisir un thème et un héros avant de continuer.', variant: 'destructive' });
           return;
@@ -96,7 +93,6 @@ export function useGameSetup(
 
 
     const showLoadGameView = useCallback(() => {
-        // Saved games list is managed by useSaveLoad hook primarily
         setGameState(prev => ({ ...prev, currentView: 'loading_game', currentGameState: { ...prev.currentGameState, location: 'Chargement de Partie' } }));
     }, [setGameState]);
 
@@ -115,30 +111,20 @@ export function useGameSetup(
     }, [setGameState]);
 
 
-    // This function is called by NameInput's onSubmit, which in turn calls startNewGame from useGameActions
     const prepareAndStartNewGame = useCallback(() => {
         if (!playerNameInput.trim()) {
           toast({ title: 'Nom Invalide', description: 'Veuillez entrer votre nom.', variant: 'destructive' });
           return;
         }
-         if (!initialGameState.selectedHero) { // Check against current gameState
+         if (!initialGameState.selectedHero) { 
           toast({ title: 'Héros Manquant', description: 'Veuillez sélectionner une classe de héros.', variant: 'destructive' });
           return;
         }
         const trimmedName = playerNameInput.trim();
-        // The actual call to startNewGame (with AI interaction) is in useGameActions
-        // This function in useGameSetup is primarily for UI state changes leading up to that.
-        // For clarity, ensure that useGameActions.startNewGame is invoked from the main Page component.
-        // This hook mainly handles the UI flow *before* the game starts.
-        // So, this function might not directly call startNewGame from useGameActions,
-        // but rather set up the state for the Page component to do so.
-        // So, this function might not directly call startNewGame from useGameActions,
-        // but rather set up the state for the Page component to do so.
         setGameState(prev => ({
             ...prev,
             playerName: trimmedName,
             maxTurns: maxTurnsInput,
-            // currentView might be set to 'game_active' by useGameActions.startNewGame
         }));
 
     }, [playerNameInput, initialGameState.selectedHero, maxTurnsInput, toast, setGameState]);
@@ -158,6 +144,6 @@ export function useGameSetup(
         handleThemeSelect,
         handleSubThemeSelect,
         handleHeroSelect,
-        prepareAndStartNewGame, // This now mainly updates state for NameInput
+        prepareAndStartNewGame, 
     };
 }
