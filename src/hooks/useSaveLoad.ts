@@ -50,8 +50,8 @@ export function useSaveLoad(
             setIsSaveDialogOpen(false);
             return;
         }
-        if (!gameState.theme || !gameState.playerName || !gameState.selectedHero) {
-            toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes (thème, nom, ou héros).", variant: "destructive" });
+        if (!gameState.theme || !gameState.playerName || !gameState.selectedHero || !gameState.playerGender) { // Added check for playerGender
+            toast({ title: "Erreur", description: "Impossible de sauvegarder : informations de jeu manquantes (thème, nom, héros ou genre).", variant: "destructive" });
             return;
         }
 
@@ -61,6 +61,7 @@ export function useSaveLoad(
             subTheme: gameState.subTheme,
             selectedHero: gameState.selectedHero,
             playerName: gameState.playerName,
+            playerGender: gameState.playerGender, // Pass playerGender
             story: gameState.story, // Pass the full story array
             choices: gameState.choices,
             currentGameState: JSON.stringify(gameState.currentGameState), // Pass the stringified object
@@ -104,6 +105,13 @@ export function useSaveLoad(
                 setSavedGames(listSaveGames()); // Refresh list
                 return;
             }
+             // Validation: Ensure playerGender is valid
+            if (loadedState.playerGender !== 'male' && loadedState.playerGender !== 'female') {
+                toast({ title: "Erreur de Chargement", description: `Le genre du joueur sauvegardé ("${loadedState.playerGender || 'Aucun'}") est invalide. Impossible de charger.`, variant: "destructive" });
+                setSavedGames(listSaveGames()); // Refresh list
+                return;
+            }
+
 
             const parsedLoadedGameState = parseGameState(loadedState.currentGameState, loadedState.playerName);
             const loadedView: GameView = loadedState.currentTurn > loadedState.maxTurns ? 'game_ended' : 'game_active';
@@ -114,6 +122,7 @@ export function useSaveLoad(
                 subTheme: loadedState.subTheme,
                 selectedHero: loadedState.selectedHero,
                 playerName: loadedState.playerName,
+                playerGender: loadedState.playerGender, // Load playerGender
                 story: loadedState.story,
                 choices: loadedState.choices,
                 currentGameState: parsedLoadedGameState,

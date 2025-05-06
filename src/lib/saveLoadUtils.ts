@@ -4,6 +4,7 @@
 import type { StorySegment, ParsedGameState } from '@/types/game'; 
 import { themes } from '@/config/themes'; 
 import { heroOptions } from '@/config/heroes'; 
+import { logToFile } from '@/services/loggingService';
 
 export interface GameStateToSave {
   theme: string;
@@ -26,7 +27,7 @@ interface LoadedGameState extends Omit<GameStateToSave, 'story'> {
 }
 
 
-const SAVE_GAME_KEY = 'iaventuresSaves_v5'; // Incremented version for gender addition
+const SAVE_GAME_KEY = 'iaventuresSaves_v6'; // Incremented version for gender addition
 const LOCAL_STORAGE_LIMIT_WARN_BYTES = 4.5 * 1024 * 1024; 
 
 export function listSaveGames(): LoadedGameState[] {
@@ -40,7 +41,7 @@ export function listSaveGames(): LoadedGameState[] {
     }
     let savedGames = JSON.parse(savedGamesJson) as LoadedGameState[]; 
     if (!Array.isArray(savedGames)) {
-        console.error("Données de sauvegarde invalides trouvées dans localStorage. Attendu un tableau. Suppression des données invalides.");
+        logToFile({ level: "warn", message: "[SAVE_LOAD_VALIDATION] Invalid save data found in localStorage. Expected array. Deleting invalid data."});
         localStorage.removeItem(SAVE_GAME_KEY); 
         return [];
     }
@@ -52,50 +53,48 @@ export function listSaveGames(): LoadedGameState[] {
 
 
              if (typeof save.saveName !== 'string' || !save.saveName.trim()) {
-                 console.warn(`${saveIdentifier}: saveName invalide ou manquant. Ignorer.`);
+                 logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Skipping save: Invalid or missing saveName`, payload: {saveName: save?.saveName } });
                  isValid = false;
              }
              if (typeof save.theme !== 'string' || !save.theme.trim()) {
-                  console.warn(`${saveIdentifier}: thème manquant ou invalide. Ignorer.`);
+                  logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Skipping save: Invalid or missing theme`, payload: {saveName: save?.saveName, theme: save?.theme } });
                  isValid = false;
              }
              if (save.playerGender !== 'male' && save.playerGender !== 'female') {
-                 console.warn(`${saveIdentifier}: genre du joueur manquant ou invalide. Ignorer.`);
+                 logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Skipping save: Invalid or missing playerGender`, payload: {saveName: save?.saveName, playerGender: save?.playerGender } });
                  isValid = false;
              }
              if (save.subTheme !== null && (typeof save.subTheme !== 'string' || !save.subTheme.trim())) {
-                 console.warn(`${saveIdentifier}: sous-thème invalide (doit être une chaîne ou null). Ignorer.`);
+                 logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Skipping save: Invalid subTheme (must be string or null)`, payload: {saveName: save?.saveName, subTheme: save?.subTheme } });
                  isValid = false;
              } else if (save.subTheme) { 
                  const mainTheme = themes.find(t => t.value === save.theme);
                  const subThemeExists = mainTheme?.subThemes.some(st => st.value === save.subTheme);
                  if (!subThemeExists) {
-                     console.warn(`${saveIdentifier}: sous-thème "${save.subTheme}" n'existe pas pour le thème "${save.theme}". Ignorer.`);
+                     logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Skipping save: subTheme "${save.subTheme}" does not exist for theme "${save.theme}"`, payload: {saveName: save?.saveName, theme: save.theme, subTheme: save.subTheme } });
                      isValid = false;
                  }
-             } else if (save.subTheme === null && isValid) {
-                 console.warn(`${saveIdentifier} a subTheme=null.`);
              }
 
              if (typeof save.selectedHero !== 'string' || !save.selectedHero.trim() || !heroOptions.some(h => h.value === save.selectedHero)) {
-                 console.warn(`${saveIdentifier}: héros sélectionné manquant, invalide, ou n'existant plus. Ignorer.`);
+                 logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Skipping save: Invalid, missing, or non-existent selectedHero`, payload: {saveName: save?.saveName, selectedHero: save?.selectedHero } });
                  isValid = false;
              }
 
 
              if (typeof save.playerName !== 'string' || !save.playerName.trim()) {
-                console.warn(`${saveIdentifier}: nom de joueur manquant ou invalide. Attribution par défaut.`);
+                logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Invalid or missing playerName. Defaulting.`, payload: {saveName: save?.saveName, playerName: save?.playerName } });
                 save.playerName = 'Joueur Inconnu'; 
             }
              if (typeof save.timestamp !== 'number' || save.timestamp <= 0) {
-                 console.warn(`${saveIdentifier}: timestamp manquant ou invalide. Ignorer.`);
+                 logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Skipping save: Invalid or missing timestamp`, payload: {saveName: save?.saveName, timestamp: save?.timestamp } });
                  isValid = false;
              }
 
             try { 
-                if (typeof save.currentGameState !== 'string') throw new Error("currentGameState n'est pas une chaîne.");
+                if (typeof save.currentGameState !== 'string') throw new Error("currentGameState is not a string.");
                 currentGameStateObj = JSON.parse(save.currentGameState);
-                if (typeof currentGameStateObj !== 'object' || currentGameStateObj === null) throw new Error("gameState analysé n'est pas un objet.");
+                if (typeof currentGameStateObj !== 'object' || currentGameStateObj === null) throw new Error("Parsed gameState is not an object.");
                  if (!currentGameStateObj.playerName || typeof currentGameStateObj.playerName !== 'string') currentGameStateObj.playerName = save.playerName;
                  if (typeof currentGameStateObj.location !== 'string' || !currentGameStateObj.location.trim()) currentGameStateObj.location = 'Lieu Indéterminé';
                  if (!Array.isArray(currentGameStateObj.inventory)) currentGameStateObj.inventory = [];
@@ -108,31 +107,31 @@ export function listSaveGames(): LoadedGameState[] {
 
 
             } catch (e: any) {
-                console.warn(`${saveIdentifier} a un JSON ou une structure invalide dans currentGameState: ${e.message}. Ignorer.`);
+                logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Skipping save: Invalid JSON or structure in currentGameState: ${e.message}`, payload: {saveName: save?.saveName, currentGameState: save?.currentGameState } });
                 isValid = false;
             }
 
             if (typeof save.maxTurns !== 'number' || save.maxTurns <= 0) {
-                console.warn(`${saveIdentifier}: maxTurns manquant ou invalide. Par défaut à 15.`);
+                logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Invalid or missing maxTurns. Defaulting to 15.`, payload: {saveName: save?.saveName, maxTurns: save?.maxTurns } });
                 save.maxTurns = 15; 
             }
             if (typeof save.currentTurn !== 'number' || save.currentTurn <= 0) {
-                console.warn(`${saveIdentifier}: currentTurn manquant ou invalide. Par défaut à 1.`);
+                logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Invalid or missing currentTurn. Defaulting to 1.`, payload: {saveName: save?.saveName, currentTurn: save?.currentTurn } });
                 save.currentTurn = 1; 
             }
             if (save.currentTurn > save.maxTurns + 1) {
-                console.warn(`${saveIdentifier} a currentTurn (${save.currentTurn}) dépassant maxTurns (${save.maxTurns}). Limitation.`);
+                logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] currentTurn (${save.currentTurn}) exceeds maxTurns (${save.maxTurns}). Clamping.`, payload: {saveName: save?.saveName, currentTurn: save.currentTurn, maxTurns: save.maxTurns } });
                 save.currentTurn = save.maxTurns + 1;
             }
 
              if (!Array.isArray(save.story)) {
-                console.warn(`${saveIdentifier}: format d'histoire invalide. Réinitialisation de l'histoire.`);
+                logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Invalid story format. Resetting story.`, payload: {saveName: save?.saveName } });
                 save.story = []; 
              } else {
                 save.story = save.story.map(seg => {
                     const { storyImageUrl, imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg as any;
                     if (typeof rest.id !== 'number' || typeof rest.text !== 'string' || (rest.speaker !== 'player' && rest.speaker !== 'narrator')) {
-                        console.warn(`Structure de segment d'histoire invalide trouvée dans ${saveIdentifier}. Retour minimal.`);
+                        logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Invalid story segment structure found. Minimal fallback.`, payload: {saveName: save?.saveName, segment: rest } });
                         return { id: rest.id || 0, text: rest.text || '?', speaker: rest.speaker || 'narrator' };
                     }
                     return rest; 
@@ -140,14 +139,14 @@ export function listSaveGames(): LoadedGameState[] {
              }
 
               if (!Array.isArray(save.choices)) {
-                  console.warn(`${saveIdentifier}: tableau de choices manquant ou invalide. Réinitialisation.`);
+                  logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Missing or invalid choices array. Resetting.`, payload: {saveName: save?.saveName } });
                   save.choices = [];
               } else {
                   save.choices = save.choices.filter(choice => typeof choice === 'string');
               }
 
              if (!Array.isArray(save.playerChoicesHistory)) {
-                 console.warn(`${saveIdentifier}: tableau playerChoicesHistory manquant ou invalide. Réinitialisation.`);
+                 logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Missing or invalid playerChoicesHistory array. Resetting.`, payload: {saveName: save?.saveName } });
                  save.playerChoicesHistory = [];
              } else {
                  save.playerChoicesHistory = save.playerChoicesHistory.filter(hist => typeof hist === 'string');
@@ -159,7 +158,7 @@ export function listSaveGames(): LoadedGameState[] {
                 acc.push(save); 
             }
         } catch (error) { 
-            console.error(`Erreur inattendue lors de la validation de la sauvegarde "${save?.saveName || 'INCONNU'}". Ignorer.`, error);
+            logToFile({ level: "error", message: `[SAVE_LOAD_VALIDATION] Unexpected error while validating save "${save?.saveName || 'INCONNU'}". Skipping.`, payload: {error} });
         }
         return acc; 
      }, []); 
@@ -167,71 +166,71 @@ export function listSaveGames(): LoadedGameState[] {
 
     return validatedSaves.sort((a, b) => b.timestamp - a.timestamp);
   } catch (error) {
-    console.error('Erreur lors du chargement des parties sauvegardées depuis localStorage:', error);
+    logToFile({ level: "error", message: '[SAVE_LOAD_ERROR] Error loading saved games from localStorage', payload: { error } });
     return [];
   }
 }
 
 export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'timestamp' | 'saveName'> & { story: StorySegment[] }): boolean { 
    if (typeof window === 'undefined') {
-    console.error('Impossible de sauvegarder la partie côté serveur.');
+    logToFile({ level: "error", message: '[SAVE_GAME_ERROR] Cannot save game server-side.' });
     return false;
   }
   if (!gameState.playerName || typeof gameState.playerName !== 'string' || !gameState.playerName.trim()) {
-      console.error('Impossible de sauvegarder la partie sans un nom de joueur valide.');
+      logToFile({ level: "error", message: '[SAVE_GAME_ERROR] Cannot save game without a valid player name.', payload: { playerName: gameState.playerName } });
       return false;
   }
    if (!gameState.theme || typeof gameState.theme !== 'string' || !gameState.theme.trim()) {
-      console.error('Impossible de sauvegarder la partie sans un thème valide.');
+      logToFile({ level: "error", message: '[SAVE_GAME_ERROR] Cannot save game without a valid theme.', payload: { theme: gameState.theme } });
       return false;
   }
-   if (gameState.playerGender !== 'male' && gameState.playerGender !== 'female') {
-       console.error('Erreur sauvegarde: Genre du joueur invalide ou manquant.');
+   if (gameState.playerGender !== 'male' && gameState.playerGender !== 'female') { // Check for playerGender
+       logToFile({ level: "error", message: '[SAVE_GAME_ERROR] Invalid or missing player gender.', payload: { playerGender: gameState.playerGender } });
        return false;
    }
    if (gameState.subTheme !== null && (typeof gameState.subTheme !== 'string' || !gameState.subTheme.trim())) {
-       console.error('Erreur sauvegarde: Sous-thème invalide fourni. Doit être une chaîne ou null.', gameState.subTheme);
+       logToFile({ level: "error", message: '[SAVE_GAME_ERROR] Invalid subTheme provided. Must be a string or null.', payload: { subTheme: gameState.subTheme } });
        return false;
    }
     if (!gameState.selectedHero || typeof gameState.selectedHero !== 'string' || !gameState.selectedHero.trim() || !heroOptions.some(h => h.value === gameState.selectedHero)) {
-        console.error('Erreur sauvegarde: Héros sélectionné invalide ou manquant.', gameState.selectedHero);
+        logToFile({ level: "error", message: '[SAVE_GAME_ERROR] Invalid or missing selectedHero.', payload: { selectedHero: gameState.selectedHero } });
         return false;
     }
    if (typeof gameState.maxTurns !== 'number' || gameState.maxTurns <= 0 || typeof gameState.currentTurn !== 'number' || gameState.currentTurn <= 0) {
-        console.error('Erreur sauvegarde: Données de tour invalides fournies.', { maxTurns: gameState.maxTurns, currentTurn: gameState.currentTurn });
+        logToFile({ level: "error", message: '[SAVE_GAME_ERROR] Invalid turn data provided.', payload: { maxTurns: gameState.maxTurns, currentTurn: gameState.currentTurn } });
         return false;
     }
     if (!Array.isArray(gameState.story)) {
-        console.error('Erreur sauvegarde: gameState.story n\'est pas un tableau.');
+        logToFile({ level: "error", message: '[SAVE_GAME_ERROR] gameState.story is not an array.' });
         return false;
     }
     if (!Array.isArray(gameState.choices)) {
-        console.error('Erreur sauvegarde: gameState.choices n\'est pas un tableau.');
+        logToFile({ level: "error", message: '[SAVE_GAME_ERROR] gameState.choices is not an array.' });
         return false;
     }
      if (!Array.isArray(gameState.playerChoicesHistory)) {
-        console.error('Erreur sauvegarde: gameState.playerChoicesHistory n\'est pas un tableau.');
+        logToFile({ level: "error", message: '[SAVE_GAME_ERROR] gameState.playerChoicesHistory is not an array.' });
         return false;
     }
 
     let parsedStateForSave: ParsedGameState;
     try {
         if (typeof gameState.currentGameState !== 'string') {
-            throw new Error("currentGameState n'est pas une chaîne.");
+            throw new Error("currentGameState is not a string.");
         }
         parsedStateForSave = JSON.parse(gameState.currentGameState);
         if (typeof parsedStateForSave !== 'object' || parsedStateForSave === null) {
-            throw new Error("currentGameState analysé n'est pas un objet.");
+            throw new Error("Parsed currentGameState is not an object.");
         }
         if (typeof parsedStateForSave.playerName !== 'string' || !parsedStateForSave.playerName.trim()) {
-            console.warn("Nom du joueur manquant dans le JSON currentGameState, ajout depuis le niveau supérieur.");
+            logToFile({ level: "warn", message: "[SAVE_GAME_WARN] Player name missing in currentGameState JSON, adding from top level.", payload: { playerNameFromGameState: parsedStateForSave.playerName, playerNameFromTop: gameState.playerName } });
             parsedStateForSave.playerName = gameState.playerName;
         }
         if (!Array.isArray(parsedStateForSave.inventory)) {
-            throw new Error("Tableau 'inventory' manquant ou invalide dans le JSON currentGameState.");
+            throw new Error("'inventory' array missing or invalid in currentGameState JSON.");
         }
         if (typeof parsedStateForSave.location !== 'string' || !parsedStateForSave.location.trim()) {
-            throw new Error("Chaîne 'location' manquante ou invalide dans le JSON currentGameState.");
+            throw new Error("'location' string missing or invalid in currentGameState JSON.");
         }
         parsedStateForSave.inventory = parsedStateForSave.inventory.filter((item: any) => typeof item === 'string');
         if (typeof parsedStateForSave.relationships !== 'object' || parsedStateForSave.relationships === null) parsedStateForSave.relationships = {};
@@ -242,7 +241,7 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
 
 
     } catch (e: any) {
-        console.error('Erreur sauvegarde: JSON ou structure invalide dans la chaîne currentGameState.', e.message, gameState.currentGameState);
+        logToFile({ level: "error", message: '[SAVE_GAME_ERROR] Invalid JSON or structure in currentGameState string.', payload: { error: e.message, currentGameStateString: gameState.currentGameState } });
         return false; 
     }
     const validatedGameStateString = JSON.stringify(parsedStateForSave);
@@ -261,7 +260,7 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
               } = seg;
 
         if (typeof rest.id !== 'number' || typeof rest.text !== 'string' || (rest.speaker !== 'player' && rest.speaker !== 'narrator')) {
-            console.warn("Structure de segment d'histoire invalide trouvée lors de la préparation de la sauvegarde:", rest);
+            logToFile({ level: "warn", message: "[SAVE_GAME_WARN] Invalid story segment structure found during save preparation.", payload: { segment: rest } });
             return { id: rest.id || 0, text: rest.text || '?', speaker: rest.speaker || 'narrator' };
         }
         return rest; 
@@ -297,19 +296,19 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
 
     const saveDataString = JSON.stringify(updatedSaves);
     const saveDataSize = new Blob([saveDataString]).size;
-    console.log(`Taille estimée des données de sauvegarde (images exclues): ${(saveDataSize / 1024 / 1024).toFixed(2)} Mo`);
+    logToFile({ level: "info", message: `[SAVE_GAME_INFO] Estimated save data size (excluding images): ${(saveDataSize / 1024 / 1024).toFixed(2)} MB` });
     if (saveDataSize > LOCAL_STORAGE_LIMIT_WARN_BYTES) {
-        console.warn(`La taille des données de sauvegarde localStorage approche les limites (${(saveDataSize / 1024 / 1024).toFixed(2)} Mo). Les sauvegardes les plus anciennes pourraient être élaguées ou la sauvegarde pourrait échouer.`);
+        logToFile({ level: "warn", message: `[SAVE_GAME_WARN] localStorage save data size approaching limits (${(saveDataSize / 1024 / 1024).toFixed(2)} MB). Oldest saves might be pruned or save might fail.` });
     }
 
     localStorage.setItem(SAVE_GAME_KEY, saveDataString);
-    console.log(`Partie sauvegardée sous "${saveName}" pour le joueur "${gameState.playerName}" (${gameState.selectedHero}, ${gameState.playerGender}) (Thème: ${gameState.theme}, Scénario: ${gameState.subTheme || 'N/A'}) au tour ${gameState.currentTurn}/${gameState.maxTurns} au lieu "${parsedStateForSave.location}".`);
+    logToFile({ level: "info", message: `[SAVE_GAME_SUCCESS] Game saved as "${saveName}" for player "${gameState.playerName}" (${gameState.selectedHero}, ${gameState.playerGender}) (Theme: ${gameState.theme}, Scenario: ${gameState.subTheme || 'N/A'}) at turn ${gameState.currentTurn}/${gameState.maxTurns} in location "${parsedStateForSave.location}".` });
     return true;
 
   } catch (error: any) {
-    console.error('Erreur lors de la sauvegarde de la partie dans localStorage:', error);
+    logToFile({ level: "error", message: '[SAVE_GAME_CRITICAL_ERROR] Error saving game to localStorage', payload: { error } });
     if (error.name === 'QuotaExceededError') {
-         console.error("Quota localStorage dépassé ! Impossible de sauvegarder la partie. Cela se produit généralement si les données de sauvegarde sont trop volumineuses.");
+         logToFile({ level: "error", message: "[SAVE_GAME_CRITICAL_ERROR] localStorage quota exceeded! Cannot save game. This usually happens if save data is too large." });
          alert("Erreur de Sauvegarde : L'espace de stockage est plein ! Impossible de sauvegarder la partie. Les images ne sont pas sauvegardées pour économiser de l'espace.");
     } else {
          alert(`Erreur de Sauvegarde : Impossible de sauvegarder la partie. Détails : ${error.message}`);
@@ -326,7 +325,7 @@ export function loadGame(saveName: string): (LoadedGameState & { story: StorySeg
     const saves = listSaveGames(); 
     const save = saves.find(s => s.saveName === saveName);
     if (!save) {
-        console.warn(`Sauvegarde "${saveName}" non trouvée.`);
+        logToFile({ level: "warn", message: `[LOAD_GAME_WARN] Save file "${saveName}" not found.` });
         return null;
     }
 
@@ -336,7 +335,7 @@ export function loadGame(saveName: string): (LoadedGameState & { story: StorySeg
          parsedState = JSON.parse(save.currentGameState); 
          locationInfo = parsedState?.location || locationInfo;
      } catch (e) {
-         console.warn(`Impossible d'analyser le gameState depuis la partie sauvegardée "${saveName}".`);
+         logToFile({ level: "warn", message: `[LOAD_GAME_WARN] Could not parse gameState from saved game "${saveName}".`, payload: { error: e } });
      }
 
      const storyWithTransientState: StorySegment[] = save.story.map(seg => ({
@@ -348,17 +347,17 @@ export function loadGame(saveName: string): (LoadedGameState & { story: StorySeg
      }));
 
 
-    console.log(`Partie "${saveName}" chargée pour le joueur "${save.playerName}" (${save.selectedHero}, ${save.playerGender}) (Thème: ${save.theme}, Scénario: ${save.subTheme || 'N/A'}) au tour ${save.currentTurn}/${save.maxTurns} au lieu "${locationInfo}". Relations: ${JSON.stringify(parsedState?.relationships)}, Émotions: ${JSON.stringify(parsedState?.emotions)}`);
+    logToFile({ level: "info", message: `[LOAD_GAME_SUCCESS] Game "${saveName}" loaded for player "${save.playerName}" (${save.selectedHero}, ${save.playerGender}) (Theme: ${save.theme}, Scenario: ${save.subTheme || 'N/A'}) at turn ${save.currentTurn}/${save.maxTurns} in location "${locationInfo}". Relationships: ${JSON.stringify(parsedState?.relationships)}, Emotions: ${JSON.stringify(parsedState?.emotions)}` });
     return { ...save, story: storyWithTransientState } as (LoadedGameState & { story: StorySegment[] });
   } catch (error) {
-    console.error(`Erreur lors du chargement de la partie "${saveName}" depuis localStorage:`, error);
+    logToFile({ level: "error", message: `[LOAD_GAME_ERROR] Error loading game "${saveName}" from localStorage`, payload: { error } });
     return null;
   }
 }
 
 export function deleteSaveGame(saveName: string): boolean {
    if (typeof window === 'undefined') {
-    console.error('Impossible de supprimer la partie côté serveur.');
+    logToFile({ level: "error", message: '[DELETE_GAME_ERROR] Cannot delete game server-side.' });
     return false;
   }
   try {
@@ -367,7 +366,7 @@ export function deleteSaveGame(saveName: string): boolean {
     saves = saves.filter(s => s.saveName !== saveName);
 
     if (saves.length === initialLength) {
-        console.warn(`Sauvegarde "${saveName}" non trouvée pour suppression.`);
+        logToFile({ level: "warn", message: `[DELETE_GAME_WARN] Save file "${saveName}" not found for deletion.` });
         return true;
     }
 
@@ -376,10 +375,10 @@ export function deleteSaveGame(saveName: string): boolean {
     } else {
         localStorage.setItem(SAVE_GAME_KEY, JSON.stringify(saves));
     }
-    console.log(`Sauvegarde "${saveName}" supprimée.`);
+    logToFile({ level: "info", message: `[DELETE_GAME_SUCCESS] Save file "${saveName}" deleted.` });
     return true;
   } catch (error) {
-    console.error(`Erreur lors de la suppression de la partie "${saveName}" de localStorage:`, error);
+    logToFile({ level: "error", message: `[DELETE_GAME_ERROR] Error deleting game "${saveName}" from localStorage`, payload: { error } });
     return false;
   }
 }
