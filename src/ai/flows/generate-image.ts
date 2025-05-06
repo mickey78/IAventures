@@ -9,6 +9,7 @@
 
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
+import { logToFile } from '@/services/loggingService'; // Corrected import path
 
 const GenerateImageInputSchema = z.object({
   prompt: z.string().describe("L'invite textuelle à partir de laquelle générer une image."),
@@ -35,7 +36,7 @@ const generateImageFlow = ai.defineFlow<
   },
   async (input) => {
      try {
-        console.log(`Génération d'image avec le prompt : "${input.prompt}"`);
+        await logToFile({ level: 'info', message: `[IMAGE_GEN_FLOW_START] Generating image with prompt: "${input.prompt}"` });
         const { media } = await ai.generate({
           // IMPORTANT: SEUL le modèle googleai/gemini-2.0-flash-exp peut générer des images.
           model: 'googleai/gemini-2.0-flash-exp',
@@ -46,16 +47,17 @@ const generateImageFlow = ai.defineFlow<
         });
 
         if (!media?.url) {
+            await logToFile({ level: 'error', message: "[IMAGE_GEN_FLOW_ERROR] Image generation failed: No media URL returned.", payload: { prompt: input.prompt } });
             throw new Error("Échec de la génération d'image : Aucune URL de média retournée.");
         }
 
-        console.log("Image générée avec succès (URI de données) :", media.url.substring(0, 50) + "..."); // Log début de l'URI de données
+        await logToFile({ level: 'info', message: "[IMAGE_GEN_FLOW_SUCCESS] Image generated successfully (data URI):", payload: { prompt: input.prompt, imageUrlStart: media.url.substring(0, 50) + "..." } });
 
         return { imageUrl: media.url };
       } catch (error) {
-        console.error("Erreur pendant le flux de génération d'image :", error);
-        // Selon l'erreur, vous pourriez vouloir retourner une URL d'image par défaut ou relancer l'erreur
-        throw new Error(`Échec de la génération de l'image : ${error instanceof Error ? error.message : String(error)}`);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        await logToFile({ level: 'error', message: `[IMAGE_GEN_FLOW_CRITICAL_ERROR] During image generation flow: ${errorMessage}`, payload: { prompt: input.prompt, errorDetails: error } });
+        throw new Error(`Échec de la génération de l'image : ${errorMessage}`);
      }
   }
 );

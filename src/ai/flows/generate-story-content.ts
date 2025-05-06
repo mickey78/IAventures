@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -12,7 +13,7 @@ import { z } from 'genkit';
 import type { StorySegment, ParsedGameState } from '@/types/game'; // Importer les types partagés
 import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils'; // Importer l'aide
 import { heroOptions } from '@/config/heroes'; // Importer les options de héros pour obtenir la description et l'apparence
-import { logToFile } from '@/services/loggingService'; // Import server-side logging function
+import { logToFile } from '@/services/loggingService'; // Corrected import path
 import { readPromptFile } from '@/lib/prompt-utils'; // Corrected import path
 
 const promptTemplatePromise = readPromptFile('generateStoryContentPrompt.prompt'); // Charger le template depuis le fichier
@@ -64,7 +65,7 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
         inventory: [],
         relationships: {},
         emotions: [],
-        events: []
+        events: [],
     };
   }
 

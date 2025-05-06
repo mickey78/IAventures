@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -11,7 +12,7 @@
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
 import { heroOptions } from '@/config/heroes'; // Import hero options to get hero label and description
-import { logToFile } from '@/services/loggingService'; // Import server-side logging function
+import { logToFile } from '@/services/loggingService'; // Corrected import path
 import { readPromptFile } from '@/lib/prompt-utils'; // Corrected import path
 
 const promptTemplatePromise = readPromptFile('initialStoryPrompt.prompt'); // Charger le template depuis le fichier
@@ -114,6 +115,6 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
       output.generatedImagePrompt = undefined;
     }
 
-    return output;
+    return output!;
   }
 );
