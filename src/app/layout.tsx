@@ -25,12 +25,11 @@ export default function RootLayout({
       {/* Apply font variables directly to the body or html tag */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <ThemeProvider
-          attribute="class" // Use class for light/dark mode
-          defaultTheme="system" // Default to system preference
+          attribute="class" // Use class for light/dark mode (managed by next-themes)
+          defaultTheme="system" // Default to system preference for light/dark
           enableSystem
           disableTransitionOnChange
-          // Keep the primary color themes for the .dark class specifically
-          // The ThemeSwitcher will still work on data-theme-primary attribute on the html tag
+          // ThemeSwitcher will manage data-theme-primary attribute on <html>
         >
           {children}
           <Toaster />
