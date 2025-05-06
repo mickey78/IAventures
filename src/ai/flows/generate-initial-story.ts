@@ -1,4 +1,3 @@
-
 'use server';
 
 /**
@@ -61,9 +60,9 @@ export async function generateInitialStory(input: GenerateInitialStoryInput): Pr
     heroDescription: heroFullDescription, 
   };
 
-  await logToFile({ level: 'info', message: '[AI_REQUEST] generateInitialStoryFlow - Input', payload: flowInput, excludeMedia: true });
+  await logToFile({ level: 'info', message: '[AI_REQUEST_INIT_STORY] Input to generateInitialStoryFlow', payload: flowInput, excludeMedia: true });
   const result = await generateInitialStoryFlow(flowInput);
-  await logToFile({ level: 'info', message: '[AI_RESPONSE] generateInitialStoryFlow - Output', payload: result, excludeMedia: true });
+  await logToFile({ level: 'info', message: '[AI_RESPONSE_INIT_STORY] Output from generateInitialStoryFlow', payload: result, excludeMedia: true });
   return result;
 }
 
@@ -99,12 +98,25 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
     }
 
     // Construct the debug prompt string using the resolved template and current input
-    const debugPromptString = promptText
-        .replace(/{{{theme}}}/g, flowInput.theme)
-        .replace(/{{{subThemePrompt}}}/g, flowInput.subThemePrompt || 'N/A (aucun scénario spécifique choisi)')
-        .replace(/{{{playerName}}}/g, flowInput.playerName)
-        .replace(/{{{selectedHeroValue}}}/g, flowInput.selectedHeroValue)
-        .replace(/{{{heroDescription}}}/g, flowInput.heroDescription);
+    // This replaces placeholders in the prompt template with actual values from flowInput
+    let debugPromptString = promptText;
+    const placeholders: Record<keyof GenerateInitialStoryInput, string | number | undefined | null> = {
+        theme: flowInput.theme,
+        subThemePrompt: flowInput.subThemePrompt || 'N/A (aucun scénario spécifique choisi)',
+        playerName: flowInput.playerName,
+        selectedHeroValue: flowInput.selectedHeroValue,
+        heroDescription: flowInput.heroDescription,
+        maxTurns: flowInput.maxTurns,
+    };
+
+    for (const key in placeholders) {
+        const placeholderKey = key as keyof GenerateInitialStoryInput;
+        const value = placeholders[placeholderKey];
+        // Ensure value is a string for replacement, handle number for maxTurns specifically
+        const replacementValue = typeof value === 'number' ? String(value) : (value || '');
+        debugPromptString = debugPromptString.replace(new RegExp(`{{{${placeholderKey}}}}`, 'g'), replacementValue);
+    }
+
 
     const { output } = await initialStoryPrompt(flowInput);
 
@@ -134,4 +146,3 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
     };
   }
 );
-

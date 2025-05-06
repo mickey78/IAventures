@@ -94,9 +94,9 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
     current_date: new Date().toLocaleDateString('fr-FR'), 
   };
 
-  await logToFile({ level: 'info', message: '[AI_REQUEST] generateStoryContentFlow - Input', payload: safeInput, excludeMedia: true });
+  await logToFile({ level: 'info', message: '[AI_REQUEST_STORY_CONTENT] Input to generateStoryContentFlow', payload: safeInput, excludeMedia: true });
   const result = await generateStoryContentFlow(safeInput);
-  await logToFile({ level: 'info', message: '[AI_RESPONSE] generateStoryContentFlow - Output', payload: result, excludeMedia: true });
+  await logToFile({ level: 'info', message: '[AI_RESPONSE_STORY_CONTENT] Output from generateStoryContentFlow', payload: result, excludeMedia: true });
   return result;
 }
 
