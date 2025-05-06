@@ -1,18 +1,17 @@
 
 import type { Metadata } from 'next';
-import { GeistSans } from 'geist/font/sans'; // Import GeistSans
-import { GeistMono } from 'geist/font/mono'; // Import GeistMono
+import { GeistSans } from 'geist/font/sans';
+import { GeistMono } from 'geist/font/mono';
 import './globals.css';
-import { Toaster } from "@/components/ui/toaster"; // Import Toaster
-import { ThemeProvider } from '@/components/theme-provider'; // Import ThemeProvider
-// Removed ThemeSwitcher import
+import { Toaster } from "@/components/ui/toaster";
+import { ThemeProvider } from '@/components/theme-provider';
 
-const geistSans = GeistSans; // Use imported GeistSans directly
-const geistMono = GeistMono; // Use imported GeistMono directly
+const geistSans = GeistSans;
+const geistMono = GeistMono;
 
 export const metadata: Metadata = {
-  title: 'IAventures', // Updated title
-  description: 'An interactive text adventure game powered by AI.', // Updated description
+  title: 'IAventures',
+  description: 'An interactive text adventure game powered by AI.',
 };
 
 export default function RootLayout({
@@ -26,13 +25,15 @@ export default function RootLayout({
       {/* Apply font variables directly to the body or html tag */}
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased font-sans`}>
         <ThemeProvider
-          attribute="data-theme-primary" // Use data-theme-primary for ShadCN theme integration
-          defaultTheme="red" // Default primary color theme
-          themes={['red', 'blue', 'green', 'purple', 'orange', 'pink', 'cyan', 'yellow']} // Available primary color themes + new ones
+          attribute="data-theme-primary"
+          defaultTheme="red"
+          themes={[
+            'red', 'blue', 'green', 'purple', 'orange', 'pink', 'cyan', 'yellow',
+            'teal', 'indigo', 'lime', 'amber', 'fuchsia', 'sky', 'emerald', 'crimson', 'gold', 'slate'
+          ]}
         >
-           {/* ThemeSwitcher removed from here, managed within GameHeader/settings */}
           {children}
-          <Toaster /> {/* Add Toaster here */}
+          <Toaster />
         </ThemeProvider>
       </body>
     </html>

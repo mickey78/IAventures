@@ -20,9 +20,19 @@ const themeColors = [
   { name: 'green', label: 'Vert Forêt', colorClass: 'bg-[hsl(140,60%,35%)]' },
   { name: 'purple', label: 'Violet Ombre', colorClass: 'bg-[hsl(270,50%,50%)]' },
   { name: 'orange', label: 'Orange Braise', colorClass: 'bg-[hsl(30,70%,45%)]' },
-  { name: 'pink', label: 'Rose Bonbon', colorClass: 'bg-[hsl(340,70%,55%)]' }, // Added Pink
-  { name: 'cyan', label: 'Cyan Glacé', colorClass: 'bg-[hsl(180,70%,50%)]' }, // Added Cyan
-  { name: 'yellow', label: 'Jaune Soleil', colorClass: 'bg-[hsl(50,70%,50%)]' }, // Added Yellow
+  { name: 'pink', label: 'Rose Bonbon', colorClass: 'bg-[hsl(340,70%,55%)]' },
+  { name: 'cyan', label: 'Cyan Glacé', colorClass: 'bg-[hsl(180,70%,50%)]' },
+  { name: 'yellow', label: 'Jaune Soleil', colorClass: 'bg-[hsl(50,70%,50%)]' },
+  { name: 'teal', label: 'Turquoise Profond', colorClass: 'bg-[hsl(160,60%,40%)]' },
+  { name: 'indigo', label: 'Indigo Mystique', colorClass: 'bg-[hsl(250,60%,50%)]' },
+  { name: 'lime', label: 'Vert Citron', colorClass: 'bg-[hsl(90,60%,45%)]' },
+  { name: 'amber', label: 'Ambre Doré', colorClass: 'bg-[hsl(40,70%,50%)]' },
+  { name: 'fuchsia', label: 'Fuchsia Éclatant', colorClass: 'bg-[hsl(300,70%,50%)]' },
+  { name: 'sky', label: 'Bleu Ciel', colorClass: 'bg-[hsl(195,70%,50%)]' },
+  { name: 'emerald', label: 'Émeraude Sombre', colorClass: 'bg-[hsl(150,60%,35%)]' },
+  { name: 'crimson', label: 'Cramoisi Intense', colorClass: 'bg-[hsl(350,70%,45%)]' },
+  { name: 'gold', label: 'Or Scintillant', colorClass: 'bg-[hsl(50,70%,45%)]' },
+  { name: 'slate', label: 'Ardoise Sombre', colorClass: 'bg-[hsl(220,20%,40%)]' },
 ]
 
 export function ThemeSwitcher() {
