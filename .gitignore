@@ -44,3 +44,7 @@ next-env.d.ts
 *.log
 logs/
 adventure.log
+
+# vscode
+.vscode/
+.idx/
