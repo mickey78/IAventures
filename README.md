@@ -6,18 +6,23 @@ IAventures est un jeu d'aventure textuel interactif propulsé par une intelligen
 
 Dans IAventures, vous êtes le héros de votre propre histoire. Le jeu vous permet de :
 
-*   **Choisir un Thème Principal** : Sélectionnez parmi plusieurs univers passionnants comme la Fantasy Médiévale, l'Exploration Spatiale, les Pirates, le Western, et bien d'autres.
-*   **Choisir un Scénario (Optionnel)** : Affinez votre aventure en choisissant un scénario de départ spécifique lié au thème principal, ou laissez l'IA vous surprendre avec un début générique.
-*   **Choisir votre Héros** : Incarnez un Guerrier, Magicien, Archer ou Voleur, chacun avec ses propres habiletés spéciales qui influencent la narration et les options disponibles.
+*   **Choisir un Thème Principal** : Sélectionnez parmi plusieurs univers passionnants comme la Fantasy Médiévale, l'Exploration Spatiale, les Pirates, le Western, et bien d'autres, présentés sous forme de cartes illustrées.
+*   **Choisir un Scénario (Optionnel)** : Affinez votre aventure en choisissant un scénario de départ spécifique (parmi 6 options par thème principal) lié au thème principal, présenté sous forme de cartes illustrées, ou laissez l'IA vous surprendre avec un début générique en cliquant sur un bouton "Commencer sans scénario spécifique".
+*   **Choisir votre Héros et son Genre** : Incarnez un Guerrier, Magicien, Archer ou Voleur. Chaque héros est présenté avec une description, une icône et ses habiletés spécifiques. Vous devez également choisir le genre de votre héros (Garçon ou Fille), ce qui influencera la narration et l'apparence du personnage dans les images générées.
 *   **Nommer votre Personnage** : Donnez vie à votre aventurier en lui choisissant un nom. Le narrateur IA s'adressera directement à vous par ce nom.
-*   **Vivre une Aventure Unique** : L'IA génère une histoire initiale et adapte la suite en fonction de vos choix, du thème, du scénario, et des capacités de votre héros.
-*   **Interagir avec l'Histoire** : Faites progresser l'aventure en sélectionnant des choix proposés ou en tapant vos propres actions.
-*   **Utiliser des Habiletés** : Mettez à profit les habiletés uniques de votre héros pour surmonter les obstacles et résoudre les défis.
-*   **Gérer un Inventaire** : Trouvez et utilisez des objets qui vous aideront dans votre quête via un inventaire interactif.
-*   **Définir la Durée** : Choisissez le nombre de tours (entre 10 et 25) que durera votre aventure pour des parties rapides ou plus longues. Un compteur de tour est visible.
-*   **Immersion Visuelle** : Des images générées par IA illustrent les moments clés de l'histoire pour une meilleure immersion. Vous pouvez aussi demander la génération d'une image pour un passage spécifique.
-*   **Sauvegarder et Charger** : Ne perdez jamais votre progression grâce au système de sauvegarde locale. Chargez une partie précédente ou supprimez les anciennes sauvegardes.
-*   **Personnaliser l'Interface** : Choisissez parmi plusieurs thèmes de couleurs primaires (rouge, bleu, vert, violet, orange) pour adapter l'apparence du jeu. L'interface utilise un thème sombre par défaut.
+*   **Vivre une Aventure Unique** : L'IA génère une histoire initiale et adapte la suite en fonction de vos choix, du thème, du scénario, du genre du héros, et des capacités de votre héros. L'IA est conçue pour créer des rebondissements et des surprises pour une expérience engageante.
+*   **Interagir avec l'Histoire** : Faites progresser l'aventure en sélectionnant des choix proposés ou en tapant vos propres actions via un champ de texte qui peut être affiché/masqué.
+*   **Utiliser des Habiletés** : Mettez à profit les habiletés uniques de votre héros (2 par classe) pour surmonter les obstacles et résoudre les défis. Un bouton "Habiletés" (situé sous le bouton "Inventaire") ouvre un popover listant les habiletés, permettant de les sélectionner pour les utiliser.
+*   **Gérer un Inventaire** : Trouvez et utilisez des objets qui vous aideront dans votre quête via un inventaire interactif. Un bouton "Inventaire" (en haut à gauche) ouvre un popover listant les objets. Vous pouvez "Inspecter", "Utiliser", "Lancer", ou "Se débarrasser" des objets. L'ajout d'un item à l'inventaire est signalé par une animation sur le bouton.
+*   **Définir la Durée** : Choisissez le nombre de tours (entre 10 et 25 via un slider) que durera votre aventure pour des parties rapides ou plus longues. Un compteur de tour est visible en haut à droite.
+*   **Immersion Visuelle** : Des images générées par IA (style réaliste) illustrent les moments clés de l'histoire pour une meilleure immersion. Une image est générée au début de l'aventure, et l'IA peut en générer d'autres aux moments importants. Vous pouvez aussi demander la génération d'une image pour un passage spécifique via un bouton sur la bulle de narration. Si une image ne se génère pas correctement, un bouton permet de réessayer. En cliquant sur une image, celle-ci s'affiche en plein écran avec le texte de narration correspondant.
+*   **Narration Immersive** : L'histoire est présentée sous forme de bulles de conversation, distinguant les interventions du Narrateur IA et celles du joueur. La localisation actuelle du joueur est affichée dans l'en-tête.
+*   **Sauvegarder et Charger** : Ne perdez jamais votre progression grâce au système de sauvegarde locale. Chargez une partie précédente ou supprimez les anciennes sauvegardes. Les boutons de sauvegarde et de retour au menu principal sont accessibles via des icônes en haut à droite.
+*   **Personnaliser l'Interface** :
+    *   **Couleurs Primaires** : Choisissez parmi une large palette de couleurs primaires (rouge, bleu, vert, violet, orange, cyan, rose, etc.) pour adapter l'apparence du jeu via un sélecteur dans l'en-tête.
+    *   **Mode Clair/Sombre** : Basculez entre un thème clair et un thème sombre (par défaut) pour un confort visuel optimal, via un sélecteur dans l'en-tête.
+*   **Débogage (Optionnel)** : Pour les développeurs, le prompt initial envoyé à l'IA peut être affiché et inspecté.
+*   **Journalisation** : Toutes les interactions (prompts envoyés, réponses reçues) sont enregistrées dans un fichier `adventure.log` pour analyse.
 
 ## Installation et Lancement
 
@@ -95,5 +100,4 @@ Vous avez deux options pour lancer IAventures : en utilisant Node.js directement
     docker rm iaventures-app
     ```
 
-Amusez-vous bien dans vos aventures !
-```
+Amusez-vous bien dans vos aventures!
