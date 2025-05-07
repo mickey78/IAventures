@@ -170,23 +170,22 @@ export function useGameActions(
         
         let initialPromptDebugText = "Erreur: Impossible de charger le template de prompt initial.";
         try {
-            const promptTemplate = await readPromptFile('initialStoryPrompt.prompt');
+            const promptTemplate = await readPromptFile('initialStoryPrompt.prompt'); // Assuming this fetches the template content
             if (promptTemplate) {
-                 initialPromptDebugText = promptTemplate
-                    .replace(/{{{theme}}}/g, themeToUse)
-                    .replace(/{{{subThemePrompt}}}/g, initialScenarioPrompt)
-                    .replace(/{{{playerName}}}/g, nameToUse)
-                    .replace(/{{{playerGender}}}/g, genderToUse)
-                    .replace(/{{{selectedHeroValue}}}/g, heroToUse)
-                    .replace(/{{{heroDescription}}}/g, heroFullDescription)
-                    .replace(/{{{maxTurns}}}/g, String(turns));
-            } else {
+                initialPromptDebugText = promptTemplate
+ .replace(/{{{theme}}}/g, themeToUse)
+ .replace(/{{{subThemePrompt}}}/g, initialScenarioPrompt)
+ .replace(/{{{playerName}}}/g, nameToUse)
+ .replace(/{{{playerGender}}}/g, genderToUse)
+ .replace(/{{{selectedHeroValue}}}/g, heroToUse)
+ .replace(/{{{heroDescription}}}/g, heroFullDescription)
+ .replace(/{{{maxTurns}}}/g, String(turns));
+            } else { // If readPromptFile returns falsy, keep the default error message
                 console.warn("Prompt template was not loaded on the client. Debug display might be incomplete if AI doesn't provide it.");
             }
         } catch (e) {
             console.warn("Failed to load initialStoryPrompt.prompt on client for debugging. Debug display might be incomplete if AI doesn't provide its own debug prompt.", e);
         }
-
 
         setGameState((prev) => ({
             ...prev,
