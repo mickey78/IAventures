@@ -11,9 +11,10 @@
 
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
-import { heroOptions } from '@/config/heroes'; 
-import { logToFile, logAdventureStart } from '@/services/loggingService'; 
-import { readPromptFile } from '@/lib/prompt-utils'; 
+import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes';
+import type { ThemeValue } from '@/types/game'; // Ajout de l'import pour ThemeValue
+import { logToFile, logAdventureStart } from '@/services/loggingService';
+import { readPromptFile } from '@/lib/prompt-utils';
 
 const promptTemplatePromise = readPromptFile('initial-story.prompt'); 
 
@@ -46,9 +47,13 @@ export type GenerateInitialStoryOutput = z.infer<typeof GenerateInitialStoryOutp
 export async function generateInitialStory(input: GenerateInitialStoryInput): Promise<GenerateInitialStoryOutput> {
   await logAdventureStart(input.playerName, input.theme, input.subThemePrompt, input.selectedHeroValue, input.maxTurns);
 
-  const heroDetails = heroOptions.find(h => h.value === input.selectedHeroValue);
+  let heroDetails = themedHeroOptions[input.theme as ThemeValue]?.find(h => h.value === input.selectedHeroValue);
   if (!heroDetails) {
-    throw new Error(`Détails du héros non trouvés pour la valeur: ${input.selectedHeroValue}`);
+      heroDetails = defaultHeroOptions.find(h => h.value === input.selectedHeroValue);
+  }
+
+  if (!heroDetails) {
+    throw new Error(`Détails du héros non trouvés pour la valeur: ${input.selectedHeroValue} dans le thème ${input.theme} ou par défaut.`);
   }
   // The heroDetails.appearance string (from heroes.ts) is included in heroFullDescription.
   // The AI is later instructed (in GenerateInitialStoryOutputSchema for generatedImagePrompt)

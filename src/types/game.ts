@@ -1,89 +1,140 @@
-
-
 import type { LucideIcon } from 'lucide-react';
 
-// Represents a single segment in the story conversation
+export type ThemeValue = string;
+export type HeroClass = string;
+
+export type GameView =
+  | 'menu'
+  | 'theme_selection'
+  | 'sub_theme_selection'
+  | 'hero_selection'
+  | 'name_input'
+  | 'loading_game'
+  | 'game_active'
+  | 'game_ended';
+
+export type Choice = string; // Utilisé par ActionInput comme string[]
+
 export interface StorySegment {
-  id: number;
-  text: string;
-  speaker: 'player' | 'narrator'; // Identify the speaker
-  storyImageUrl?: string | null; // Optional URL for the generated image
-  imageIsLoading?: boolean | null; // Flag to indicate image is being generated
-  imageError?: boolean | null; // Flag to indicate image generation failed
-  imageGenerationPrompt?: string | null; // Store the prompt used for generation (for debugging/consistency)
+  id: number; // Modifié en number pour correspondre à generatingSegmentId
+  type: 'text' | 'image' | 'actionResult' | 'narration' | 'dialogue' | 'event';
+  speaker?: 'player' | 'narrator'; // Type plus spécifique
+  content: string;
+  imageUrl?: string | null;
+  imagePrompt?: string;
+  isGeneratingImage?: boolean;
+  imageError?: boolean;
+  choices?: Choice[]; // Peut être utilisé si les choix sont liés au segment
+  timestamp?: string; // Ajouté pour potentiellement trier ou afficher l'heure
 }
 
-// Represents the structured game state *after* parsing the JSON string from the AI
+export interface Theme {
+  value: ThemeValue;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  subThemes: SubTheme[];
+}
+
+export interface SubTheme {
+  value: string;
+  label: string;
+  prompt: string;
+  icon: LucideIcon;
+}
+
+export interface HeroAbility {
+  label: string;
+  icon: LucideIcon;
+}
+
+export interface HeroOption {
+  value: HeroClass;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  abilities: HeroAbility[];
+  appearance: string;
+}
+
+export type ThemedHeroOptions = {
+  [themeValue in ThemeValue]?: HeroOption[];
+};
+
+// Structure pour currentGameState utilisé dans page.tsx
+export interface InventoryItem {
+  name: string;
+  quantity: number;
+  description?: string;
+  icon?: LucideIcon;
+}
+
+export interface CurrentGameState {
+  playerName: string | null;
+  location: string;
+  inventory: InventoryItem[]; // Utilisation de InventoryItem[]
+  relationships: Record<string, any>; // Peut être affiné plus tard
+  emotions: string[]; // Peut être un type plus spécifique
+  events: string[]; // Peut être un type plus spécifique
+}
+
+// Type pour l'état du jeu après analyse JSON, utilisé dans gameStateUtils et flows
 export interface ParsedGameState {
-    inventory: string[];
-    playerName: string | null; // Can be null initially
-    location?: string; // Current location
-    relationships?: Record<string, string>; // Example: { "Gobelin": "ennemi", "Marchand": "neutre" }
-    emotions?: string[]; // Example: ["curieux", "prudent", "effrayé"]
-    events?: string[]; // Example: ["trouvé clé", "échappé grotte", "rencontré gobelin"]
-    [key: string]: any; // Allow for other dynamic properties
+  playerName: string | null;
+  location: string;
+  inventory: InventoryItem[];
+  relationships: Record<string, any>;
+  emotions: string[];
+  events: string[];
+  [key: string]: any; // Permet des champs supplémentaires potentiels venant de l'IA
 }
 
 
-// Represents the main application state
+// GameState aligné avec l'utilisation dans page.tsx
 export interface GameState {
   story: StorySegment[];
-  choices: string[];
-  currentGameState: ParsedGameState; // Use the parsed object, not the string
-  theme: string | null;
-  subTheme: string | null; // Added subTheme field
-  playerName: string | null;
-  playerGender: 'male' | 'female' | null; // Added playerGender field
-  isLoading: boolean; // Overall loading state (e.g., waiting for AI)
+  choices: Choice[];
+  currentGameState: CurrentGameState;
+  theme: ThemeValue | null;
+  subTheme: string | null; // La valeur du sous-thème
+  selectedHero: HeroClass | null;
+  playerName: string | null; // Présent à la racine et dans currentGameState.playerName dans page.tsx
+  playerGender: 'male' | 'female' | null;
+  isLoading: boolean;
   error: string | null;
-  playerChoicesHistory: string[];
+  playerChoicesHistory: string[]; // Historique des actions/choix du joueur
   currentView: GameView;
   maxTurns: number;
   currentTurn: number;
-  generatingSegmentId: number | null; // ID of segment currently generating image, or null
-  selectedHero: string | null; // Added selectedHero field
-  initialPromptDebug: string | null; // Store the initial prompt string for debugging
+  generatingSegmentId: number | null; // Modifié en number | null
+  initialPromptDebug: string | null; // Pour le débogage du prompt initial
+
+  // Champs optionnels qui étaient dans ma version précédente de GameState,
+  // et qui pourraient être utiles. Pour l'instant, je les garde commentés
+  // pour éviter des erreurs si page.tsx ne les initialise pas.
+  // heroAppearance?: string | null;
+  // isGeneratingImage?: boolean; // différent de isLoading, spécifique à l'image
+  // currentImage?: string | null; // URL de l'image actuellement affichée en grand format par exemple
+  // playerHealth?: number;
+  // playerMaxHealth?: number;
+  // playerEnergy?: number; // Ou mana, endurance, etc.
+  // playerMaxEnergy?: number;
+  // activeEffects?: Array<{ name:string; duration: number; description?: string }>;
+  // npcs?: Array<{name: string; relationship: string; description?: string}>;
+  // quests?: Array<{title: string; description: string; status: 'active' | 'completed' | 'failed'; objectives: Array<{text: string; completed: boolean}> }>;
+  // worldState?: Record<string, any>; // Pour les changements dynamiques dans le monde du jeu
+  // lastPlayerAction?: string | null; // Pour donner plus de contexte à l'IA
+  // gameId?: string | null; // Pour la sauvegarde et le chargement
+  // createdAt?: Date | null; // Date de création de la partie
+  // updatedAt?: Date | null; // Date de la dernière sauvegarde
 }
 
-// Represents the different views/screens of the application
-export type GameView = 'menu' | 'theme_selection' | 'sub_theme_selection' | 'hero_selection' | 'name_input' | 'loading_game' | 'game_active' | 'game_ended';
-
-// Represents a sub-theme option
-export interface SubTheme {
-    value: string; // Unique value for the sub-theme (can be same as label)
-    label: string; // Display name for the sub-theme
-    prompt: string; // Specific starting scenario prompt for the AI
-    icon: LucideIcon; // Icon for the sub-theme card
-    image?: string; // Optional: path to a background image for the card
+export interface SaveSlot {
+  id: string;
+  name: string;
+  timestamp: number;
+  heroName?: string;
+  heroClass?: string;
+  themeLabel?: string;
+  previewImage?: string;
 }
-
-// Represents a theme option for the game
-export interface Theme {
-    value: string; // The value sent to the AI (main theme identifier)
-    label: string; // Display name for the user
-    description: string; // Short general description of the theme
-    icon: LucideIcon; // Icon component from lucide-react
-    subThemes: SubTheme[]; // Array of specific sub-themes/scenarios
-    image?: string; // Optional: path to a background image for the card
-}
-
-// Represents a hero's ability
-export interface HeroAbility {
-    label: string; // Description of the ability
-    icon: LucideIcon; // Icon for the ability
-}
-
-// Represents a hero option
-export interface HeroOption {
-    value: string; // Unique value for the hero class (e.g., 'Warrior')
-    label: string; // Display name for the user (e.g., 'Warrior')
-    description: string; // Short description of the hero class
-    icon: LucideIcon; // Icon component from lucide-react
-    abilities: HeroAbility[]; // Array of hero abilities
-    // Appearance can be a base string, and the AI will adapt it using playerGender.
-    // Or, you could have maleAppearance and femaleAppearance if more distinction is needed.
-    appearance?: string;
-}
-
-// Represents the selected hero class (could be extended with abilities)
-export type HeroClass = string;

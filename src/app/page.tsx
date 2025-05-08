@@ -4,8 +4,10 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { listSaveGames, type GameStateToSave } from '@/lib/saveLoadUtils';
-import type { StorySegment, GameState, GameView, HeroAbility } from '@/types/game'; // Import shared types
-import { heroOptions } from '@/config/heroes'; // Import hero config
+// StorySegment et GameView seront traités ensuite si l'erreur persiste après correction des imports React.
+// Pour l'instant, je vais les retirer pour voir si les autres erreurs disparaissent.
+import type { GameState, HeroAbility, HeroOption, ThemeValue } from '@/types/game'; // Import shared types
+import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Import hero config
 import { themes } from '@/config/themes'; // Import themes config
 import { useGameActions } from '@/hooks/useGameActions'; // Import the new hook
 import { useSaveLoad } from '@/hooks/useSaveLoad'; // Import the new hook
@@ -330,9 +332,14 @@ export default function IAventuresGame() {
                   onBack={showThemeSelection}
               />;
         }
-      case 'hero_selection':
+      case 'hero_selection': {
+        const currentThemeValue = gameState.theme as ThemeValue | null;
+        let heroesForTheme: HeroOption[] = defaultHeroOptions; // Fallback to default
+        if (currentThemeValue && themedHeroOptions[currentThemeValue]) {
+          heroesForTheme = themedHeroOptions[currentThemeValue]!;
+        }
         return <HeroSelection
-                    heroes={heroOptions}
+                    heroes={heroesForTheme}
                     selectedHero={gameState.selectedHero}
                     onHeroSelect={handleHeroSelect}
                     selectedGender={gameState.playerGender} // Pass selected gender
@@ -340,6 +347,7 @@ export default function IAventuresGame() {
                     onNext={showNameInput}
                     onBack={() => gameState.theme ? showSubThemeSelection(gameState.theme) : showThemeSelection()}
                 />;
+      }
       case 'name_input':
         return <NameInput
                     playerName={playerNameInput}
@@ -420,8 +428,8 @@ export default function IAventuresGame() {
 
   const shouldCenterContent = ['menu', 'theme_selection', 'sub_theme_selection', 'hero_selection', 'name_input', 'loading_game'].includes(gameState.currentView);
 
-    const currentHeroAbilities = gameState.selectedHero
-      ? heroOptions.find(h => h.value === gameState.selectedHero)?.abilities || []
+    const currentHeroAbilities = gameState.selectedHero && gameState.theme
+      ? themedHeroOptions[gameState.theme as ThemeValue]?.find(h => h.value === gameState.selectedHero)?.abilities || defaultHeroOptions.find(h => h.value === gameState.selectedHero)?.abilities || []
       : [];
 
 

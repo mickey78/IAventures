@@ -10,7 +10,8 @@ import { generateImage } from '@/ai/flows/generate-image';
 import type { GenerateImageOutput } from '@/ai/flows/generate-image';
 import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils';
 import { themes } from '@/config/themes';
-import { heroOptions } from '@/config/heroes';
+import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Changement ici
+import type { ThemeValue } from '@/types/game'; // Ajout de ThemeValue
 // import { readPromptFile } from '@/lib/prompt-utils'; // Supprimé pour éviter l'erreur de build Docker
 
 
@@ -36,7 +37,8 @@ export function useGameActions(
             setGameState((prev) => ({
                 ...prev,
                 story: prev.story.map(seg =>
-                    seg.id === segmentId ? { ...seg, imageIsLoading: false, imageError: false } : seg
+                    // Correction: utiliser isGeneratingImage
+                    seg.id === segmentId ? { ...seg, isGeneratingImage: false, imageError: false } : seg
                 ),
                 generatingSegmentId: prev.generatingSegmentId === segmentId ? null : prev.generatingSegmentId,
             }));
@@ -47,7 +49,8 @@ export function useGameActions(
             ...prev,
             story: prev.story.map(seg =>
                 seg.id === segmentId
-                    ? { ...seg, imageIsLoading: true, imageError: false, imageGenerationPrompt: prompt }
+                    // Correction: utiliser isGeneratingImage et imagePrompt
+                    ? { ...seg, isGeneratingImage: true, imageError: false, imagePrompt: prompt }
                     : seg
             ),
             generatingSegmentId: segmentId,
@@ -59,7 +62,8 @@ export function useGameActions(
                 ...prev,
                 story: prev.story.map(seg =>
                     seg.id === segmentId
-                        ? { ...seg, storyImageUrl: imageData.imageUrl, imageIsLoading: false }
+                        // Correction: utiliser imageUrl et isGeneratingImage
+                        ? { ...seg, imageUrl: imageData.imageUrl, isGeneratingImage: false }
                         : seg
                 ),
                 generatingSegmentId: null,
@@ -72,7 +76,8 @@ export function useGameActions(
                 ...prev,
                 story: prev.story.map(seg =>
                     seg.id === segmentId
-                        ? { ...seg, storyImageUrl: null, imageIsLoading: false, imageError: true }
+                        // Correction: utiliser imageUrl et isGeneratingImage
+                        ? { ...seg, imageUrl: null, isGeneratingImage: false, imageError: true }
                         : seg
                 ),
                 generatingSegmentId: null,
@@ -88,7 +93,8 @@ export function useGameActions(
             return;
         }
 
-        if (!segmentToRetry.imageGenerationPrompt) {
+        // Utiliser imagePrompt au lieu de imageGenerationPrompt
+        if (!segmentToRetry.imagePrompt) {
             toast({ title: 'Erreur', description: 'Aucun prompt disponible pour regénérer cette image.', variant: 'destructive' });
              setGameState(prev => ({
                  ...prev,
@@ -101,10 +107,12 @@ export function useGameActions(
         setGameState(prev => ({
             ...prev,
             story: prev.story.map(seg =>
-                seg.id === segmentId ? { ...seg, imageError: false, imageIsLoading: true } : seg
+                // Note: imageIsLoading a été renommé en isGeneratingImage dans StorySegment
+                seg.id === segmentId ? { ...seg, imageError: false, isGeneratingImage: true } : seg
             ),
         }));
-        await triggerImageGeneration(segmentId, segmentToRetry.imageGenerationPrompt);
+        // Utiliser imagePrompt au lieu de imageGenerationPrompt
+        await triggerImageGeneration(segmentId, segmentToRetry.imagePrompt);
     }, [gameState.story, setGameState, toast, triggerImageGeneration]);
 
     const handleManualImageGeneration = useCallback(async (segmentId: number, segmentText: string) => {
@@ -112,9 +120,18 @@ export function useGameActions(
             toast({ title: 'Erreur', description: 'Impossible de générer une image sans thème, lieu, héros, genre ou nom de joueur définis.', variant: 'destructive' });
             return;
         }
-        const heroDetails = heroOptions.find(h => h.value === gameState.selectedHero);
+
+        const currentThemeValue = gameState.theme as ThemeValue | null;
+        let heroDetails = null;
+        if (currentThemeValue) {
+            heroDetails = themedHeroOptions[currentThemeValue]?.find(h => h.value === gameState.selectedHero);
+        }
         if (!heroDetails) {
-            toast({ title: 'Erreur', description: 'Détails du héros non trouvés.', variant: 'destructive' });
+            heroDetails = defaultHeroOptions.find(h => h.value === gameState.selectedHero);
+        }
+
+        if (!heroDetails) {
+            toast({ title: 'Erreur', description: 'Détails du héros non trouvés pour ce thème.', variant: 'destructive' });
             return;
         }
         
@@ -123,9 +140,12 @@ export function useGameActions(
         const lastNarratorSegmentWithPrompt = gameState.story
             .slice()
             .reverse()
-            .find(seg => seg.speaker === 'narrator' && seg.imageGenerationPrompt);
-        const previousPromptContext = lastNarratorSegmentWithPrompt?.imageGenerationPrompt ? ` Inspiré de : "${lastNarratorSegmentWithPrompt.imageGenerationPrompt.substring(0,100)}...".` : '';
+            // Utiliser imagePrompt au lieu de imageGenerationPrompt
+            .find(seg => seg.speaker === 'narrator' && seg.imagePrompt);
+        // Utiliser imagePrompt au lieu de imageGenerationPrompt
+        const previousPromptContext = lastNarratorSegmentWithPrompt?.imagePrompt ? ` Inspiré de : "${lastNarratorSegmentWithPrompt.imagePrompt.substring(0,100)}...".` : '';
 
+        // Utiliser segmentText (qui est le content)
         const prompt = `Une illustration de "${gameState.playerName}" (${gameState.playerGender === 'male' ? 'garçon' : 'fille'}), le/la ${heroDetails.label} (${heroAppearanceDescription}). Scène: "${segmentText.substring(0, 150)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} ${previousPromptContext} Style: Réaliste. Pas de texte dans l'image.`;
         
         triggerImageGeneration(segmentId, prompt);
@@ -149,9 +169,17 @@ export function useGameActions(
             return;
         }
 
-        const heroDetails = heroOptions.find(h => h.value === heroToUse);
+        const currentThemeValue = themeToUse as ThemeValue | null;
+        let heroDetails = null;
+        if (currentThemeValue) {
+            heroDetails = themedHeroOptions[currentThemeValue]?.find(h => h.value === heroToUse);
+        }
         if (!heroDetails) {
-            toast({ title: 'Erreur', description: 'Détails du héros non trouvés.', variant: 'destructive' });
+            heroDetails = defaultHeroOptions.find(h => h.value === heroToUse);
+        }
+
+        if (!heroDetails) {
+            toast({ title: 'Erreur', description: 'Détails du héros non trouvés pour ce thème.', variant: 'destructive' });
             setGameState(prev => ({ ...prev, currentView: 'hero_selection' }));
             return;
         }
@@ -216,12 +244,13 @@ export function useGameActions(
             const initialSegmentId = Date.now();
             const initialStorySegment: StorySegment = {
                 id: initialSegmentId,
-                text: initialStoryData.story,
+                type: 'narration', // Ajouter le type
+                content: initialStoryData.story, // text -> content
                 speaker: 'narrator',
-                storyImageUrl: null,
-                imageIsLoading: !!initialStoryData.generatedImagePrompt,
+                imageUrl: null, // storyImageUrl -> imageUrl
+                isGeneratingImage: !!initialStoryData.generatedImagePrompt, // imageIsLoading -> isGeneratingImage
                 imageError: false,
-                imageGenerationPrompt: initialStoryData.generatedImagePrompt,
+                imagePrompt: initialStoryData.generatedImagePrompt, // imageGenerationPrompt -> imagePrompt
             };
 
             setGameState((prev) => ({
@@ -272,7 +301,12 @@ export function useGameActions(
             return;
         }
 
-        const playerActionSegment: StorySegment = { id: Date.now(), text: actionText.trim(), speaker: 'player' };
+        const playerActionSegment: StorySegment = {
+            id: Date.now(),
+            type: 'text', // Ajouter le type
+            content: actionText.trim(), // text -> content
+            speaker: 'player'
+        };
         const nextPlayerChoicesHistory = [...gameState.playerChoicesHistory, actionText.trim()];
         const previousStory = [...gameState.story];
         const previousChoices = [...gameState.choices];
@@ -288,9 +322,17 @@ export function useGameActions(
 
         const isLastTurn = nextTurn > gameState.maxTurns;
 
-        const heroDetails = heroOptions.find(h => h.value === gameState.selectedHero);
+        const currentThemeValue = gameState.theme as ThemeValue | null;
+        let heroDetails = null;
+        if (currentThemeValue) {
+            heroDetails = themedHeroOptions[currentThemeValue]?.find(h => h.value === gameState.selectedHero);
+        }
         if (!heroDetails) {
-            toast({ title: 'Erreur Critique', description: 'Détails du héros non trouvables. Veuillez recommencer.', variant: 'destructive' });
+            heroDetails = defaultHeroOptions.find(h => h.value === gameState.selectedHero);
+        }
+
+        if (!heroDetails) {
+            toast({ title: 'Erreur Critique', description: 'Détails du héros non trouvables pour ce thème. Veuillez recommencer.', variant: 'destructive' });
             setGameState(prev => ({ ...prev, isLoading: false, currentView: 'menu' }));
             return;
         }
@@ -310,7 +352,8 @@ export function useGameActions(
             maxTurns: gameState.maxTurns,
             isLastTurn: isLastTurn,
             current_date: new Date().toLocaleDateString('fr-FR'),
-            previousImagePrompt: lastSegmentBeforeAction?.imageGenerationPrompt || null,
+            // Utiliser imagePrompt au lieu de imageGenerationPrompt
+            previousImagePrompt: lastSegmentBeforeAction?.imagePrompt || null,
         };
 
         try {
@@ -319,12 +362,13 @@ export function useGameActions(
             const narratorResponseSegmentId = Date.now() + 1;
             const narratorResponseSegment: StorySegment = {
                 id: narratorResponseSegmentId,
-                text: nextStoryData.storyContent,
+                type: 'narration', // Ajouter le type
+                content: nextStoryData.storyContent, // text -> content
                 speaker: 'narrator',
-                storyImageUrl: null,
-                imageIsLoading: !!nextStoryData.generatedImagePrompt,
+                imageUrl: null, // storyImageUrl -> imageUrl
+                isGeneratingImage: !!nextStoryData.generatedImagePrompt, // imageIsLoading -> isGeneratingImage
                 imageError: false,
-                imageGenerationPrompt: nextStoryData.generatedImagePrompt,
+                imagePrompt: nextStoryData.generatedImagePrompt, // imageGenerationPrompt -> imagePrompt
             };
             const updatedParsedGameState = parseGameState(nextStoryData.updatedGameState, gameState.playerName);
 

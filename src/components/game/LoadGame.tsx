@@ -6,13 +6,14 @@ import { Button } from "@/components/ui/button";
 import { Trash2 } from 'lucide-react';
 import type { GameStateToSave } from '@/lib/saveLoadUtils'; // Keep this import
 import { themes } from '@/config/themes'; // Import themes to get subtheme labels
-import { heroOptions } from '@/config/heroes'; // Import heroes to get hero labels
+import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Import themed heroes
+import type { ThemeValue } from '@/types/game'; // Import ThemeValue
 
 // Define the type for saved games list locally or import if shared
 interface SavedGameInfo extends Omit<GameStateToSave, 'story' | 'choices' | 'currentGameState' | 'playerChoicesHistory'> {
     // Only need fields relevant for display in the list
     saveName: string;
-    playerName?: string; // Optional if playerName is part of GameStateToSave
+    playerName: string; // Made mandatory to match GameStateToSave
     theme: string;      // Keep theme mandatory for display
     subTheme: string | null; // Include subTheme
     selectedHero: string; // Include selectedHero
@@ -39,8 +40,26 @@ const LoadGame: React.FC<LoadGameProps> = ({ savedGames, onLoadGame, onDeleteGam
     };
 
     // Helper function to get hero label
-    const getHeroLabel = (heroValue: string): string => {
-        const hero = heroOptions.find(h => h.value === heroValue);
+    const getHeroLabel = (heroValue: string, themeValue: ThemeValue | null): string => {
+        let hero = null;
+        // Prioritize finding the hero within the specific theme of the save
+        if (themeValue) {
+            hero = themedHeroOptions[themeValue as ThemeValue]?.find(h => h.value === heroValue);
+        }
+        // Fallback 1: Check default heroes (Fantasy)
+        if (!hero) {
+            hero = defaultHeroOptions.find(h => h.value === heroValue);
+        }
+        // Fallback 2: Check all themes if still not found (less likely needed if saves are valid)
+        if (!hero) {
+             for (const themeKey in themedHeroOptions) {
+                 const heroesInTheme = themedHeroOptions[themeKey as keyof typeof themedHeroOptions];
+                 if (heroesInTheme) {
+                     hero = heroesInTheme.find(h => h.value === heroValue);
+                     if (hero) break;
+                 }
+             }
+        }
         return hero?.label || heroValue; // Fallback to value if label not found
     }
 
@@ -58,7 +77,7 @@ const LoadGame: React.FC<LoadGameProps> = ({ savedGames, onLoadGame, onDeleteGam
                                         <p className="font-medium truncate">{save.saveName}</p>
                                         <p className="text-xs text-muted-foreground truncate"> {/* Added truncate here too */}
                                             {save.playerName ? `${save.playerName} ` : ''}
-                                            ({getHeroLabel(save.selectedHero)}) - {/* Display Hero */}
+                                            ({getHeroLabel(save.selectedHero, save.theme)}) - {/* Pass theme to getHeroLabel */}
                                             {getSubThemeLabel(save.theme, save.subTheme)} - T{save.currentTurn}/{save.maxTurns} - {new Date(save.timestamp).toLocaleString('fr-FR')}
                                         </p>
                                     </div>

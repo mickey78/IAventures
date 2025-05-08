@@ -1,20 +1,21 @@
 
 'use client'; 
 
-import type { StorySegment, ParsedGameState } from '@/types/game'; 
-import { themes } from '@/config/themes'; 
-import { heroOptions } from '@/config/heroes'; 
+import type { StorySegment, ParsedGameState, ThemeValue } from '@/types/game'; // Ajout de ThemeValue
+import { themes } from '@/config/themes';
+import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Changement ici
 import { logToFile } from '@/services/loggingService';
 
 export interface GameStateToSave {
   theme: string;
   subTheme: string | null; 
-  selectedHero: string; 
-  playerName: string; 
+  selectedHero: string;
+  playerName: string;
   playerGender: 'male' | 'female'; // Added playerGender
-  story: Omit<StorySegment, 'imageIsLoading' | 'imageError' | 'imageGenerationPrompt' | 'storyImageUrl'>[]; 
+  // Omettre les propriétés transitoires ou renommées
+  story: Omit<StorySegment, 'isGeneratingImage' | 'imageError' | 'imagePrompt' | 'imageUrl'>[];
   choices: string[];
-  currentGameState: string; 
+  currentGameState: string;
   playerChoicesHistory: string[];
   timestamp: number;
   saveName: string;
@@ -23,7 +24,8 @@ export interface GameStateToSave {
 }
 
 interface LoadedGameState extends Omit<GameStateToSave, 'story'> {
-    story: Omit<StorySegment, 'imageIsLoading' | 'imageError' | 'imageGenerationPrompt'>[]; 
+    // Omettre les propriétés transitoires ou renommées
+    story: Omit<StorySegment, 'isGeneratingImage' | 'imageError' | 'imagePrompt'>[];
 }
 
 
@@ -76,8 +78,27 @@ export function listSaveGames(): LoadedGameState[] {
                  }
              }
 
-             if (typeof save.selectedHero !== 'string' || !save.selectedHero.trim() || !heroOptions.some(h => h.value === save.selectedHero)) {
-                 logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Skipping save: Invalid, missing, or non-existent selectedHero`, payload: {saveName: save?.saveName, selectedHero: save?.selectedHero } });
+             // Validation du héros en fonction du thème
+             let heroExists = false;
+             const loadedThemeValue = save.theme as ThemeValue | null; // Assumer que save.theme est déjà validé comme string
+             if (loadedThemeValue) {
+                 heroExists = themedHeroOptions[loadedThemeValue]?.some(h => h.value === save.selectedHero) ?? false;
+             }
+             if (!heroExists) {
+                 heroExists = defaultHeroOptions.some(h => h.value === save.selectedHero);
+             }
+             // Optionnel : chercher dans tous les thèmes si toujours pas trouvé
+             if (!heroExists) {
+                 for (const themeKey in themedHeroOptions) {
+                     const heroesInTheme = themedHeroOptions[themeKey as keyof typeof themedHeroOptions];
+                     if (heroesInTheme?.some(h => h.value === save.selectedHero)) {
+                         heroExists = true;
+                         break;
+                     }
+                 }
+             }
+             if (typeof save.selectedHero !== 'string' || !save.selectedHero.trim() || !heroExists) {
+                 logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Skipping save: Invalid, missing, or non-existent selectedHero for theme "${save.theme}"`, payload: {saveName: save?.saveName, selectedHero: save?.selectedHero, theme: save.theme } });
                  isValid = false;
              }
 
@@ -127,15 +148,19 @@ export function listSaveGames(): LoadedGameState[] {
              if (!Array.isArray(save.story)) {
                 logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Invalid story format. Resetting story.`, payload: {saveName: save?.saveName } });
                 save.story = []; 
-             } else {
-                save.story = save.story.map(seg => {
-                    const { storyImageUrl, imageIsLoading, imageError, imageGenerationPrompt, ...rest } = seg as any;
-                    if (typeof rest.id !== 'number' || typeof rest.text !== 'string' || (rest.speaker !== 'player' && rest.speaker !== 'narrator')) {
-                        logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Invalid story segment structure found. Minimal fallback.`, payload: {saveName: save?.saveName, segment: rest } });
-                        return { id: rest.id || 0, text: rest.text || '?', speaker: rest.speaker || 'narrator' };
-                    }
-                    return rest; 
-                });
+              } else {
+                 // Valider les segments existants (qui sont déjà Omit<...>)
+                 save.story = save.story.map(seg => {
+                     const currentSeg = seg as any; // Cast pour accès simplifié, mais valider les types
+                     // Valider les champs qui DOIVENT être présents dans Omit<...>
+                     if (typeof currentSeg.id !== 'number' || typeof currentSeg.content !== 'string' || (currentSeg.speaker !== undefined && currentSeg.speaker !== 'player' && currentSeg.speaker !== 'narrator') || typeof currentSeg.type !== 'string' ) {
+                         logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Invalid story segment structure found in loaded save. Minimal fallback.`, payload: {saveName: save?.saveName, segment: currentSeg } });
+                         // Retourner un objet minimal conforme à Omit<StorySegment,...>
+                         return { id: currentSeg.id ?? 0, type: currentSeg.type ?? 'narration', content: currentSeg.content ?? '?', speaker: currentSeg.speaker ?? 'narrator' };
+                     }
+                     // Retourner le segment validé (qui est déjà Omit<...>)
+                     return currentSeg as Omit<StorySegment, 'isGeneratingImage' | 'imageError' | 'imagePrompt' | 'imageUrl'>;
+                 });
              }
 
               if (!Array.isArray(save.choices)) {
@@ -192,8 +217,27 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
        logToFile({ level: "error", message: '[SAVE_GAME_ERROR] Invalid subTheme provided. Must be a string or null.', payload: { subTheme: gameState.subTheme } });
        return false;
    }
-    if (!gameState.selectedHero || typeof gameState.selectedHero !== 'string' || !gameState.selectedHero.trim() || !heroOptions.some(h => h.value === gameState.selectedHero)) {
-        logToFile({ level: "error", message: '[SAVE_GAME_ERROR] Invalid or missing selectedHero.', payload: { selectedHero: gameState.selectedHero } });
+    // Validation du héros en fonction du thème
+    let heroExists = false;
+    const currentThemeValue = gameState.theme as ThemeValue | null; // Assumer que gameState.theme est déjà validé comme string
+    if (currentThemeValue) {
+        heroExists = themedHeroOptions[currentThemeValue]?.some(h => h.value === gameState.selectedHero) ?? false;
+    }
+    if (!heroExists) {
+        heroExists = defaultHeroOptions.some(h => h.value === gameState.selectedHero);
+    }
+    // Optionnel : chercher dans tous les thèmes si toujours pas trouvé
+    if (!heroExists) {
+        for (const themeKey in themedHeroOptions) {
+            const heroesInTheme = themedHeroOptions[themeKey as keyof typeof themedHeroOptions];
+            if (heroesInTheme?.some(h => h.value === gameState.selectedHero)) {
+                heroExists = true;
+                break;
+            }
+        }
+    }
+    if (!gameState.selectedHero || typeof gameState.selectedHero !== 'string' || !gameState.selectedHero.trim() || !heroExists) {
+        logToFile({ level: "error", message: `[SAVE_GAME_ERROR] Invalid or missing selectedHero for theme "${gameState.theme}".`, payload: { selectedHero: gameState.selectedHero, theme: gameState.theme } });
         return false;
     }
    if (typeof gameState.maxTurns !== 'number' || gameState.maxTurns <= 0 || typeof gameState.currentTurn !== 'number' || gameState.currentTurn <= 0) {
@@ -249,22 +293,22 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
 
   try {
     const saves = listSaveGames(); 
-    const now = Date.now();
+     const now = Date.now();
 
-    const storyToSave = gameState.story.map(seg => {
-        const { storyImageUrl, 
-                imageIsLoading,
-                imageError,
-                imageGenerationPrompt,
-                ...rest 
-              } = seg;
+     // Créer storyToSave en sélectionnant explicitement les champs à conserver
+     const storyToSave = gameState.story.map(seg => {
+         const { id, type, speaker, content, choices, timestamp } = seg; // Champs à conserver
+         const segmentToSave = { id, type, speaker, content, choices, timestamp }; // Reconstruire
 
-        if (typeof rest.id !== 'number' || typeof rest.text !== 'string' || (rest.speaker !== 'player' && rest.speaker !== 'narrator')) {
-            logToFile({ level: "warn", message: "[SAVE_GAME_WARN] Invalid story segment structure found during save preparation.", payload: { segment: rest } });
-            return { id: rest.id || 0, text: rest.text || '?', speaker: rest.speaker || 'narrator' };
-        }
-        return rest; 
-    });
+         // Valider les champs essentiels
+         if (typeof segmentToSave.id !== 'number' || typeof segmentToSave.content !== 'string' || (segmentToSave.speaker !== undefined && segmentToSave.speaker !== 'player' && segmentToSave.speaker !== 'narrator') || typeof segmentToSave.type !== 'string') {
+             logToFile({ level: "warn", message: "[SAVE_GAME_WARN] Invalid story segment structure found during save preparation. Using fallback.", payload: { segment: segmentToSave } });
+             // Retourner un objet minimal conforme à Omit<StorySegment,...>
+             return { id: segmentToSave.id ?? 0, type: segmentToSave.type ?? 'narration', content: segmentToSave.content ?? '?', speaker: segmentToSave.speaker ?? 'narrator' };
+         }
+         // Retourner l'objet reconstruit qui correspond à Omit<...>
+         return segmentToSave;
+     });
 
 
     const newState: GameStateToSave = {
@@ -336,15 +380,16 @@ export function loadGame(saveName: string): (LoadedGameState & { story: StorySeg
          locationInfo = parsedState?.location || locationInfo;
      } catch (e) {
          logToFile({ level: "warn", message: `[LOAD_GAME_WARN] Could not parse gameState from saved game "${saveName}".`, payload: { error: e } });
-     }
+      }
 
-     const storyWithTransientState: StorySegment[] = save.story.map(seg => ({
-        ...seg,
-        storyImageUrl: null, 
-        imageIsLoading: false,
-        imageError: false,
-        imageGenerationPrompt: undefined, 
-     }));
+      // Recréer les objets StorySegment complets avec les valeurs par défaut pour les champs transitoires
+      const storyWithTransientState: StorySegment[] = save.story.map(seg => ({
+         ...(seg as Omit<StorySegment, 'isGeneratingImage' | 'imageError' | 'imagePrompt' | 'imageUrl'>), // Cast pour aider TS
+         imageUrl: null,
+         isGeneratingImage: false,
+         imageError: false,
+         imagePrompt: undefined,
+      }));
 
 
     logToFile({ level: "info", message: `[LOAD_GAME_SUCCESS] Game "${saveName}" loaded for player "${save.playerName}" (${save.selectedHero}, ${save.playerGender}) (Theme: ${save.theme}, Scenario: ${save.subTheme || 'N/A'}) at turn ${save.currentTurn}/${save.maxTurns} in location "${locationInfo}". Relationships: ${JSON.stringify(parsedState?.relationships)}, Emotions: ${JSON.stringify(parsedState?.emotions)}` });

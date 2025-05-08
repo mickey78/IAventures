@@ -1,29 +1,35 @@
-import { Swords, Wand2, Crosshair, Hand, Shield, Hammer, Zap, Footprints, EyeOff, Bomb } from 'lucide-react';
-import type { HeroOption, HeroAbility } from '@/types/game'; // Import HeroAbility type
+import {
+    Swords, Wand2, Crosshair, Hand, Shield, Hammer, Zap, Footprints, EyeOff, Bomb,
+    Rocket, BrainCircuit, Wrench, Telescope, Gem, // Exploration Spatiale (Gem ajoutée ici)
+    Ship, Compass, Anchor, Skull, // Pirates
+    Lasso, Target, Star, Pickaxe, // Western (Gun -> Target, SheriffBadge -> Star)
+    Search, Key, Puzzle, Fingerprint, // Mystère (utilisé Fingerprint)
+    Sparkles, ShieldCheck, Zap as SuperZap, BookOpen, // Super-Héros (SuperZap est un alias pour Zap)
+    Heart, Users, MessageSquare, Gift, // Amour
+    Gamepad2, Code, Bug, Brain, // Piégé dans le Jeu
+    Home, Axe, Radio, MapPinned // Survie (utilisé MapPinned)
+} from 'lucide-react';
+import type { ThemedHeroOptions, HeroOption, HeroAbility, HeroClass, ThemeValue } from '@/types/game';
 
-// Define abilities with icons
+// --- FANTASY MÉDIÉVALE ---
 const guerrierAbilities: HeroAbility[] = [
     { label: 'Force Extrême', icon: Hammer },
     { label: 'Maîtrise Épée/Bouclier', icon: Shield },
 ];
-
 const magicienAbilities: HeroAbility[] = [
     { label: 'Sorts d\'Arcane', icon: Wand2 },
     { label: 'Contrôle Élémentaire', icon: Zap },
 ];
-
 const archerAbilities: HeroAbility[] = [
     { label: 'Attaques à Distance', icon: Crosshair },
     { label: 'Rapidité et Agilité', icon: Footprints },
 ];
-
 const voleurAbilities: HeroAbility[] = [
     { label: 'Discrétion et Furtivité', icon: EyeOff },
     { label: 'Création de Pièges', icon: Bomb },
 ];
 
-
-export const heroOptions: HeroOption[] = [
+const fantasyHeroes: HeroOption[] = [
   {
     value: 'Guerrier/Guerrière',
     label: 'Guerrier/Guerrière',
@@ -52,8 +58,129 @@ export const heroOptions: HeroOption[] = [
     value: 'Voleur/Voleuse',
     label: 'Voleur/Voleuse',
     description: 'Maître de la discrétion, utilise la furtivité et des pièges astucieux.',
-    icon: Hand,
+    icon: Hand, // Note: l'icône principale était Hand, je la conserve.
     abilities: voleurAbilities,
     appearance: "Un voleur discret aux cheveux noirs corbeau, coupés courts et souvent en désordre, tombant sur son front. Ses yeux sombres sont furtifs et observateurs. Sa peau est olivâtre. Il est vêtu d'une cape à capuche sombre qui masque une partie de son visage, et d'une tenue en cuir noir ajustée pour faciliter les mouvements silencieux. Plusieurs dagues et outils de crochetage sont visibles à sa ceinture.",
   },
 ];
+
+// --- EXPLORATION SPATIALE ---
+const piloteAbilities: HeroAbility[] = [ { label: 'Manœuvres Évasives', icon: Zap }, { label: 'Canons Laser Améliorés', icon: Crosshair } ];
+const xenoAbilities: HeroAbility[] = [ { label: 'Analyse Biologique', icon: BrainCircuit }, { label: 'Communication Interspécifique', icon: MessageSquare } ];
+const ingenieurAbilities: HeroAbility[] = [ { label: 'Réparation d\'Urgence', icon: Wrench }, { label: 'Optimisation des Boucliers', icon: Shield } ];
+const explorateurAbilities: HeroAbility[] = [ { label: 'Survie Planétaire', icon: Telescope }, { label: 'Découverte d\'Artefacts', icon: Gem } ]; // Gem était déjà importé
+
+const spatialHeroes: HeroOption[] = [
+    { value: 'PiloteStellaire', label: 'Pilote de Chasse Stellaire', description: 'As du pilotage, capable de manœuvres audacieuses et de tirs précis.', icon: Rocket, abilities: piloteAbilities, appearance: 'Combinaison de vol high-tech, casque avec visière réfléchissante, allure confiante.' },
+    { value: 'XenoBiologiste', label: 'Xéno-biologiste', description: 'Scientifique spécialisé dans l\'étude des formes de vie extraterrestres.', icon: BrainCircuit, abilities: xenoAbilities, appearance: 'Blouse de laboratoire avec des outils d\'analyse, regard curieux, porte souvent un PADD.' },
+    { value: 'IngenieurVaisseau', label: 'Ingénieur/Ingénieure de Vaisseau', description: 'Génie mécanique capable de réparer et d\'améliorer n\'importe quel système.', icon: Wrench, abilities: ingenieurAbilities, appearance: 'Tenue de travail couverte de taches d\'huile, outils à la ceinture, air pragmatique.' },
+    { value: 'ExplorateurGalactique', label: 'Explorateur/Exploratrice Galactique', description: 'Aventurier intrépide, cartographe des mondes inconnus.', icon: Telescope, abilities: explorateurAbilities, appearance: 'Équipement d\'exploration robuste, boussole stellaire, sac à dos rempli de matériel.' },
+];
+
+// --- PIRATES DES CARAÏBES ---
+const capitaineAbilities: HeroAbility[] = [ { label: 'Commandement Naval', icon: Anchor }, { label: 'Duel à l\'Épée', icon: Swords } ];
+const cartographeAbilities: HeroAbility[] = [ { label: 'Navigation Experte', icon: Compass }, { label: 'Découverte de Criques Secrètes', icon: MapPinned } ];
+const canonnierAbilities: HeroAbility[] = [ { label: 'Tir de Canon Précis', icon: Bomb }, { label: 'Rechargement Rapide', icon: Zap } ];
+const filibustierAbilities: HeroAbility[] = [ { label: 'Abordage Furtif', icon: Footprints }, { label: 'Pillage Effréné', icon: Skull } ];
+
+const pirateHeroes: HeroOption[] = [
+    { value: 'CapitainePirate', label: 'Capitaine Pirate', description: 'Meneur charismatique, expert en combat naval et en duel.', icon: Ship, abilities: capitaineAbilities, appearance: 'Long manteau de capitaine, tricorne à plumes, regard perçant et un crochet poli à la place d\'une main.' },
+    { value: 'CartographeMysterieux', label: 'Cartographe Mystérieux/Mystérieuse', description: 'Connaît les cartes des trésors et les routes maritimes secrètes.', icon: Compass, abilities: cartographeAbilities, appearance: 'Vêtements simples, rouleaux de cartes sous le bras, un air savant et des yeux qui ont vu l\'horizon.' },
+    { value: 'CanonnierExperimente', label: 'Canonnier/Canonnière Expérimenté(e)', description: 'Maître des canons, capable de semer la destruction à distance.', icon: Bomb, abilities: canonnierAbilities, appearance: 'Musculature développée, bandeau sur un œil, toujours une mèche à la main.' },
+    { value: 'FilibustierAudacieux', label: 'Filibustier/Filibustière Audacieux/Audacieuse', description: 'Spécialiste des abordages rapides et du pillage.', icon: Skull, abilities: filibustierAbilities, appearance: 'Tenue légère pour l\'agilité, un coutelas à la ceinture et un sourire malicieux.' },
+];
+
+// --- WESTERN ET COWBOYS ---
+const cowboyAbilities: HeroAbility[] = [ { label: 'Tir Rapide au Revolver', icon: Target }, { label: 'Dressage de Chevaux', icon: Lasso } ]; // Lasso était déjà importé
+const sherifAbilities: HeroAbility[] = [ { label: 'Maintien de l\'Ordre', icon: Star }, { label: 'Pistage de Bandits', icon: Footprints } ];
+const chercheurOrAbilities: HeroAbility[] = [ { label: 'Prospection Minière', icon: Pickaxe }, { label: 'Chance du Débutant', icon: Gem } ];
+const horsLaLoiAbilities: HeroAbility[] = [ { label: 'Attaque de Diligence', icon: Bomb }, { label: 'Discrétion dans le Désert', icon: EyeOff } ];
+
+const westernHeroes: HeroOption[] = [
+    { value: 'CowboySolitaire', label: 'Cowboy Solitaire', description: 'As de la gâchette, habile cavalier et survivant du désert.', icon: Lasso, abilities: cowboyAbilities, appearance: 'Chapeau de cowboy usé, poncho, bottes à éperons, regard déterminé.' },
+    { value: 'SherifIntegre', label: 'Shérif Intègre', description: 'Gardien de la loi, déterminé à protéger les innocents.', icon: Star, abilities: sherifAbilities, appearance: 'Étoile de shérif brillante, moustache soignée, attitude calme mais ferme.' },
+    { value: 'ChercheurOrReveur', label: 'Chercheur/Chercheuse d\'Or Rêveur/Rêveuse', description: 'À la poursuite de la fortune, espérant trouver la pépite légendaire.', icon: Pickaxe, abilities: chercheurOrAbilities, appearance: 'Vêtements sales, pioche sur l\'épaule, un air optimiste malgré les difficultés.' },
+    { value: 'HorsLaLoiMysterieux', label: 'Hors-la-Loi Mystérieux/Mystérieuse', description: 'Insaisissable et rusé, vit en marge de la société.', icon: Target, abilities: horsLaLoiAbilities, appearance: 'Foulard sur le visage, vêtements sombres, se déplace comme une ombre.' },
+];
+
+// --- MYSTÈRE ET ENQUÊTE ---
+const detectiveAbilities: HeroAbility[] = [ { label: 'Analyse d\'Indices', icon: Search }, { label: 'Interrogatoire Persuasif', icon: Users } ];
+const journalisteAbilities: HeroAbility[] = [ { label: 'Recherche d\'Informations', icon: BookOpen }, { label: 'Publication Révélatrice', icon: MessageSquare } ];
+const profilerAbilities: HeroAbility[] = [ { label: 'Psychologie Criminelle', icon: Brain }, { label: 'Anticipation des Actions', icon: Fingerprint } ];
+const enigmatologueAbilities: HeroAbility[] = [ { label: 'Résolution de Puzzles Complexes', icon: Puzzle }, { label: 'Déchiffrage de Codes', icon: Key } ];
+
+const mystereHeroes: HeroOption[] = [
+    { value: 'DetectivePrive', label: 'Détective Privé(e)', description: 'Observe les détails que personne ne voit et résout les affaires complexes.', icon: Search, abilities: detectiveAbilities, appearance: 'Trench-coat, chapeau fedora, loupe à la main, air pensif.' },
+    { value: 'JournalisteInvestigateur', label: 'Journaliste d\'Investigation', description: 'Cherche la vérité et n\'hésite pas à poser les questions difficiles.', icon: BookOpen, abilities: journalisteAbilities, appearance: 'Carnet et stylo toujours prêts, appareil photo en bandoulière, regard curieux.' },
+    { value: 'ProfilerIntuitif', label: 'Profiler/Profileuse Intuitif/Intuitive', description: 'Comprend l\'esprit des criminels pour anticiper leurs mouvements.', icon: Brain, abilities: profilerAbilities, appearance: 'Tenue sobre, regard intense, capable de lire entre les lignes.' },
+    { value: 'EnigmatologueAstucieux', label: 'Énigmatologue Astucieux/Astucieuse', description: 'Adore les énigmes, les codes et les mystères à déchiffrer.', icon: Puzzle, abilities: enigmatologueAbilities, appearance: 'Lunettes rondes, cheveux en désordre, toujours un livre de casse-têtes à portée de main.' },
+];
+
+// --- ÉCOLE DES SUPER-HÉROS ---
+const prodigeAbilities: HeroAbility[] = [ { label: 'Contrôle de l\'Énergie', icon: SuperZap }, { label: 'Vol Supersonique', icon: Rocket } ];
+const protecteurAbilities: HeroAbility[] = [ { label: 'Champ de Force', icon: ShieldCheck }, { label: 'Force Surhumaine', icon: Hammer } ];
+const telepateAbilities: HeroAbility[] = [ { label: 'Lecture des Pensées', icon: BrainCircuit }, { label: 'Manipulation Mentale', icon: EyeOff } ];
+const inventeurAbilities: HeroAbility[] = [ { label: 'Gadgets High-Tech', icon: Wrench }, { label: 'Armure Technologique', icon: Sparkles } ];
+
+const superHeroes: HeroOption[] = [
+    { value: 'ProdigeEnergetique', label: 'Prodige Énergétique', description: 'Manipule de puissantes énergies et peut voler à grande vitesse.', icon: SuperZap, abilities: prodigeAbilities, appearance: 'Costume moulant aux couleurs vives, cheveux flottants d\'énergie, yeux brillants.' },
+    { value: 'ProtecteurInvincible', label: 'Protecteur/Protectrice Invincible', description: 'Doté(e) d\'une force incroyable et capable de créer des boucliers.', icon: ShieldCheck, abilities: protecteurAbilities, appearance: 'Cape flottante, symbole d\'espoir sur la poitrine, posture héroïque.' },
+    { value: 'TelepatheDiscret', label: 'Télépathe Discret/Discrète', description: 'Peut lire dans les esprits et influencer subtilement les autres.', icon: BrainCircuit, abilities: telepateAbilities, appearance: 'Vêtements sombres, regard pénétrant, se fond dans la foule.' },
+    { value: 'InventeurGenial', label: 'Inventeur/Inventrice Génial(e)', description: 'Crée des gadgets et des armures à la pointe de la technologie.', icon: Sparkles, abilities: inventeurAbilities, appearance: 'Lunettes de protection, blouse de laboratoire, toujours en train de bricoler quelque chose.' },
+];
+
+// --- HISTOIRE D'AMOUR ---
+const romantiqueAbilities: HeroAbility[] = [ { label: 'Charme Naturel', icon: Heart }, { label: 'Grands Gestes Romantiques', icon: Gift } ];
+const confidentAbilities: HeroAbility[] = [ { label: 'Écoute Attentive', icon: Users }, { label: 'Conseils Avisés', icon: MessageSquare } ];
+const artisteAbilities: HeroAbility[] = [ { label: 'Expression Créative', icon: Wand2 }, { label: 'Sensibilité Émotionnelle', icon: Brain } ]; // Wand2 pour la créativité
+const entremetteurAbilities: HeroAbility[] = [ { label: 'Connexions Sociales', icon: Users }, { label: 'Organisation d\'Événements', icon: Sparkles } ];
+
+const amourHeroes: HeroOption[] = [
+    { value: 'RomantiqueImpulsif', label: 'Romantique Impulsif/Impulsive', description: 'Croit au coup de foudre et n\'hésite pas à déclarer sa flamme.', icon: Heart, abilities: romantiqueAbilities, appearance: 'Sourire charmeur, des fleurs à la main, toujours prêt(e) pour une sérénade.' },
+    { value: 'ConfidentSincere', label: 'Confident/Confidente Sincère', description: 'L\'ami(e) idéal(e) à qui l\'on peut tout dire, toujours de bon conseil.', icon: Users, abilities: confidentAbilities, appearance: 'Regard doux, attitude bienveillante, une épaule sur laquelle se reposer.' },
+    { value: 'ArtistePassionne', label: 'Artiste Passionné(e)', description: 'Exprime ses sentiments à travers l\'art, que ce soit la musique, la peinture ou l\'écriture.', icon: Wand2, abilities: artisteAbilities, appearance: 'Vêtements bohèmes, carnet de croquis ou instrument de musique, inspiration dans les yeux.' },
+    { value: 'EntremetteurSocial', label: 'Entremetteur/Entremetteuse Social(e)', description: 'Adore connecter les gens et créer des couples heureux.', icon: Gift, abilities: entremetteurAbilities, appearance: 'Toujours au courant des derniers potins, agenda rempli, expert(e) en organisation de fêtes.' },
+];
+
+// --- PIÉGÉ DANS LE JEU ---
+const joueurAbilities: HeroAbility[] = [ { label: 'Maîtrise des Mécaniques de Jeu', icon: Gamepad2 }, { label: 'Adaptabilité Rapide', icon: Zap } ];
+const codeurAbilities: HeroAbility[] = [ { label: 'Manipulation du Code Source', icon: Code }, { label: 'Détection de Failles', icon: Bug } ];
+const stratègeAbilities: HeroAbility[] = [ { label: 'Planification de Quêtes', icon: MapPinned }, { label: 'Gestion d\'Équipe Virtuelle', icon: Users } ];
+const explorateurVirtuelAbilities: HeroAbility[] = [ { label: 'Découverte de Zones Secrètes', icon: Key }, { label: 'Interaction avec les PNJ', icon: MessageSquare } ];
+
+const piegeJeuHeroes: HeroOption[] = [
+    { value: 'JoueurPolyvalent', label: 'Joueur/Joueuse Polyvalent(e)', description: 'S\'adapte à tous les types de jeux et apprend vite les règles.', icon: Gamepad2, abilities: joueurAbilities, appearance: 'Casque VR, manette à la main, regard concentré sur l\'écran (imaginaire).' },
+    { value: 'CodeurRebelle', label: 'Codeur/Codeuse Rebelle', description: 'Cherche à exploiter les bugs et à modifier le jeu de l\'intérieur.', icon: Code, abilities: codeurAbilities, appearance: 'Sweat à capuche, lunettes anti-lumière bleue, lignes de code défilant dans ses yeux.' },
+    { value: 'StrategeMethodique', label: 'Stratège Méthodique', description: 'Analyse chaque situation et planifie les actions pour optimiser les chances de succès.', icon: Brain, abilities: stratègeAbilities, appearance: 'Tablette avec des plans, air sérieux, calcule toutes les possibilités.' },
+    { value: 'ExplorateurVirtuelCurieux', label: 'Explorateur/Exploratrice Virtuel(le) Curieux/Curieuse', description: 'Fouille chaque recoin du jeu à la recherche de secrets et d\'easter eggs.', icon: Search, abilities: explorateurVirtuelAbilities, appearance: 'Sac à dos virtuel rempli d\'objets, carte du monde ouverte, toujours en quête de nouveauté.' },
+];
+
+// --- SURVIE POST-APOCALYPTIQUE ---
+const survivantAbilities: HeroAbility[] = [ { label: 'Fabrication d\'Outils', icon: Axe }, { label: 'Pistage et Chasse', icon: Footprints } ];
+const medecinAbilities: HeroAbility[] = [ { label: 'Soins d\'Urgence', icon: Heart }, { label: 'Connaissance des Plantes Médicinales', icon: Sparkles } ]; // Sparkles pour la découverte
+const ingenieurRecupAbilities: HeroAbility[] = [ { label: 'Récupération et Recyclage', icon: Wrench }, { label: 'Fortification d\'Abri', icon: Home } ];
+const éclaireurAbilities: HeroAbility[] = [ { label: 'Reconnaissance Discrète', icon: EyeOff }, { label: 'Communication Radio', icon: Radio } ];
+
+const survieHeroes: HeroOption[] = [
+    { value: 'SurvivantDebrouillard', label: 'Survivant/Survivante Débrouillard(e)', description: 'Capable de trouver des ressources et de se défendre avec presque rien.', icon: Axe, abilities: survivantAbilities, appearance: 'Vêtements rapiécés, couteau de survie à la ceinture, regard alerte.' },
+    { value: 'MedecinDeTerrain', label: 'Médecin de Terrain', description: 'Soigne les blessures et les maladies avec les moyens du bord.', icon: Heart, abilities: medecinAbilities, appearance: 'Sacoche médicale usée, air calme et rassurant, mains habiles.' },
+    { value: 'IngenieurRecuperateur', label: 'Ingénieur/Ingénieure Récupérateur/Récupératrice', description: 'Transforme les débris en objets utiles et construit des abris sûrs.', icon: Wrench, abilities: ingenieurRecupAbilities, appearance: 'Boîte à outils improvisée, lunettes de protection, toujours à la recherche de matériaux.' },
+    { value: 'EclaireurSilencieux', label: 'Éclaireur/Éclaireuse Silencieux/Silencieuse', description: 'Explore les environs dangereux pour trouver des passages sûrs et des informations.', icon: Radio, abilities: éclaireurAbilities, appearance: 'Tenue de camouflage, jumelles, se déplace sans un bruit.' },
+];
+
+
+export const themedHeroOptions: ThemedHeroOptions = {
+  'Fantasy Médiévale': fantasyHeroes,
+  'Exploration Spatiale': spatialHeroes,
+  'Pirates des Caraïbes': pirateHeroes,
+  'Western et Cowboys': westernHeroes,
+  'Mystère et Enquête': mystereHeroes,
+  'École des Super-Héros': superHeroes,
+  'Histoire d\'Amour': amourHeroes,
+  'Piégé dans le Jeu': piegeJeuHeroes,
+  'Survie Post-Apocalyptique': survieHeroes,
+};
+
+// Pourrait être utile si un thème n'a pas de héros spécifiques,
+// ou pour une option "générique" si jamais c'est nécessaire.
+export const defaultHeroOptions: HeroOption[] = fantasyHeroes;

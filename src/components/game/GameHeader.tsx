@@ -6,20 +6,20 @@ import AbilitiesPopover from './AbilitiesPopover'; // Import AbilitiesPopover
 import TurnCounter from './TurnCounter'; // Assuming TurnCounter is refactored
 import HeaderActions from './HeaderActions'; // Assuming HeaderActions is refactored
 import { BookOpenText, MapPin } from 'lucide-react';
-import type { ParsedGameState, GameView, HeroAbility } from '@/types/game'; // Import shared types, add HeroAbility
+import type { GameView, HeroAbility, InventoryItem, ThemeValue } from '@/types/game'; // Import shared types, add HeroAbility, InventoryItem
 import { themes } from '@/config/themes'; // Import themes to get labels
-import { heroOptions } from '@/config/heroes'; // Import heroes to get labels
+import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Import themed heroes
 import { ThemeSwitcher } from '@/components/theme-switcher'; // Import ThemeSwitcher for primary colors
 import { ThemeToggle } from '@/components/ThemeToggle'; // Import ThemeToggle for light/dark mode
 
 interface GameHeaderProps {
     currentView: GameView;
-    theme: string | null;
+    theme: ThemeValue | null;
     subTheme: string | null; // Added subTheme prop
     selectedHero: string | null; // Added selectedHero prop
     playerName: string | null;
     location: string | undefined;
-    inventory: string[];
+    inventory: InventoryItem[]; // Changed to InventoryItem[]
     abilities: HeroAbility[]; // Added abilities prop
     currentTurn: number;
     maxTurns: number;
@@ -63,8 +63,13 @@ const GameHeader: React.FC<GameHeaderProps> = ({
         let subTitle = "";
 
         const mainThemeLabel = themes.find(t => t.value === theme)?.label;
-        const subThemeLabel = themes.find(t => t.value === theme)?.subThemes.find(st => st.value === subTheme)?.label;
-        const heroLabel = heroOptions.find(h => h.value === selectedHero)?.label; // Get hero label
+        const subThemeLabel = theme ? themes.find(t => t.value === theme)?.subThemes.find(st => st.value === subTheme)?.label : undefined;
+        
+        let heroLabel: string | undefined = undefined;
+        if (theme && selectedHero) {
+            const heroesForTheme = themedHeroOptions[theme as ThemeValue] || defaultHeroOptions;
+            heroLabel = heroesForTheme.find(h => h.value === selectedHero)?.label;
+        }
 
 
         switch (currentView) {

@@ -1,15 +1,15 @@
-
 import React from 'react';
 import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area";
 import { ScrollBar } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Button } from '@/components/ui/button';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Briefcase, Eye, Wand2, MoveUpRight, Trash2 } from 'lucide-react';
+import { Briefcase, Eye, Wand2, MoveUpRight, Trash2, Info } from 'lucide-react'; // Added Info
 import { cn } from '@/lib/utils'; // Import cn
+import type { InventoryItem } from '@/types/game'; // Import InventoryItem
 
 interface InventoryPopoverProps {
-    inventory: string[];
+    inventory: InventoryItem[]; // Changed to InventoryItem[]
     isOpen: boolean;
     onOpenChange: (isOpen: boolean) => void;
     onActionClick: (actionPrefix: string, item: string) => void;
@@ -53,11 +53,19 @@ const InventoryPopover: React.FC<InventoryPopoverProps> = ({
                             <ScrollAreaPrimitive.Root className="max-h-60 w-full">
                                 <ScrollAreaPrimitive.Viewport className="h-full w-full rounded-[inherit] p-1">
                                     <ul className="text-sm space-y-2">
-                                        {inventory.map((item, index) => (
+                                        {inventory.map((item, index) => {
+                                            const ItemIcon = item.icon || Info; // Default to Info icon if none provided
+                                            return (
                                             <li key={index} className="flex items-center justify-between gap-1 border-b border-border pb-1 last:border-b-0 last:pb-0">
-                                                <span className="flex-1 font-medium truncate" title={item}>
-                                                    {item}
-                                                </span>
+                                                <div className="flex items-center gap-2 flex-1 min-w-0">
+                                                    <ItemIcon className="h-4 w-4 text-muted-foreground shrink-0" />
+                                                    <span className="font-medium truncate" title={item.name}>
+                                                        {item.name}
+                                                    </span>
+                                                    {item.quantity > 1 && (
+                                                        <span className="text-xs text-muted-foreground"> (x{item.quantity})</span>
+                                                    )}
+                                                </div>
                                                 <div className="flex gap-1 shrink-0">
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
@@ -65,14 +73,14 @@ const InventoryPopover: React.FC<InventoryPopoverProps> = ({
                                                                 variant="ghost"
                                                                 size="icon-sm"
                                                                 className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => onActionClick('Inspecter', item)}
+                                                                onClick={() => onActionClick('Inspecter', item.name)}
                                                                 disabled={isDisabled}
                                                             >
                                                                 <Eye className="h-4 w-4" />
-                                                                <span className="sr-only">Inspecter {item}</span>
+                                                                <span className="sr-only">Inspecter {item.name}</span>
                                                             </Button>
                                                         </TooltipTrigger>
-                                                        <TooltipContent side="top">Inspecter</TooltipContent>
+                                                        <TooltipContent side="top">{item.description || 'Inspecter'}</TooltipContent>
                                                     </Tooltip>
                                                     <Tooltip>
                                                         <TooltipTrigger asChild>
@@ -80,11 +88,11 @@ const InventoryPopover: React.FC<InventoryPopoverProps> = ({
                                                                 variant="ghost"
                                                                 size="icon-sm"
                                                                 className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => onActionClick('Utiliser', item)}
+                                                                onClick={() => onActionClick('Utiliser', item.name)}
                                                                 disabled={isDisabled}
                                                             >
                                                                 <Wand2 className="h-4 w-4" />
-                                                                <span className="sr-only">Utiliser {item}</span>
+                                                                <span className="sr-only">Utiliser {item.name}</span>
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent side="top">Utiliser</TooltipContent>
@@ -95,11 +103,11 @@ const InventoryPopover: React.FC<InventoryPopoverProps> = ({
                                                                 variant="ghost"
                                                                 size="icon-sm"
                                                                 className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => onActionClick('Lancer', item)}
+                                                                onClick={() => onActionClick('Lancer', item.name)}
                                                                 disabled={isDisabled}
                                                             >
                                                                 <MoveUpRight className="h-4 w-4" />
-                                                                <span className="sr-only">Lancer {item}</span>
+                                                                <span className="sr-only">Lancer {item.name}</span>
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent side="top">Lancer</TooltipContent>
@@ -110,18 +118,19 @@ const InventoryPopover: React.FC<InventoryPopoverProps> = ({
                                                                 variant="ghost"
                                                                 size="icon-sm"
                                                                 className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                                                                onClick={() => onActionClick('Se débarrasser de', item)}
+                                                                onClick={() => onActionClick('Se débarrasser de', item.name)}
                                                                 disabled={isDisabled}
                                                             >
                                                                 <Trash2 className="h-4 w-4" />
-                                                                <span className="sr-only">Se débarrasser de {item}</span>
+                                                                <span className="sr-only">Se débarrasser de {item.name}</span>
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent side="top">Se débarrasser</TooltipContent>
                                                     </Tooltip>
                                                 </div>
                                             </li>
-                                        ))}
+                                        );
+                                        })}
                                     </ul>
                                 </ScrollAreaPrimitive.Viewport>
                                 <ScrollBar />

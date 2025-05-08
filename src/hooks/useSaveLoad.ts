@@ -5,7 +5,8 @@ import { listSaveGames, saveGame, loadGame, deleteSaveGame, type GameStateToSave
 import type { GameState, GameView } from '@/types/game';
 import { parseGameState } from '@/lib/gameStateUtils';
 import { themes } from '@/config/themes';
-import { heroOptions } from '@/config/heroes';
+import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Changement ici
+import type { ThemeValue } from '@/types/game'; // Ajout de ThemeValue
 
 export function useSaveLoad(
     gameState: GameState,
@@ -31,7 +32,17 @@ export function useSaveLoad(
         const subThemeLabel = gameState.subTheme
             ? themes.find(t => t.value === gameState.theme)?.subThemes.find(st => st.value === gameState.subTheme)?.label || gameState.subTheme
             : 'Sans Scénario Spécifique';
-        const heroLabel = heroOptions.find(h => h.value === gameState.selectedHero)?.label || 'Héros Inconnu';
+
+        // Nouvelle logique pour trouver heroLabel
+        const currentThemeValue = gameState.theme as ThemeValue | null;
+        let heroLabel = 'Héros Inconnu';
+        if (currentThemeValue && gameState.selectedHero) {
+            const heroesForTheme = themedHeroOptions[currentThemeValue] || defaultHeroOptions;
+            heroLabel = heroesForTheme.find(h => h.value === gameState.selectedHero)?.label || heroLabel;
+        } else if (gameState.selectedHero) { // Fallback if theme is somehow null but hero isn't
+             heroLabel = defaultHeroOptions.find(h => h.value === gameState.selectedHero)?.label || heroLabel;
+        }
+
         const suggestedName = gameState.theme && gameState.playerName && gameState.selectedHero
             ? `${gameState.playerName} (${heroLabel}) - ${subThemeLabel} (T${gameState.currentTurn}/${gameState.maxTurns}) - ${dateStr}`
             : `Sauvegarde ${dateStr}`;
@@ -99,17 +110,29 @@ export function useSaveLoad(
                     return;
                 }
             }
-            // Validation: Ensure selectedHero still exists
-            if (!loadedState.selectedHero || !heroOptions.some(h => h.value === loadedState.selectedHero)) {
-                toast({ title: "Erreur de Chargement", description: `Le héros sauvegardé ("${loadedState.selectedHero || 'Aucun'}") n'existe plus ou est invalide. Impossible de charger.`, variant: "destructive" });
-                setSavedGames(listSaveGames()); // Refresh list
-                return;
+            // Validation: Ensure selectedHero still exists for the theme or default
+            let heroExists = false;
+            const loadedThemeValue = loadedState.theme as ThemeValue | null;
+            if (loadedThemeValue) {
+                heroExists = themedHeroOptions[loadedThemeValue]?.some(h => h.value === loadedState.selectedHero) ?? false;
             }
-             // Validation: Ensure playerGender is valid
-            if (loadedState.playerGender !== 'male' && loadedState.playerGender !== 'female') {
-                toast({ title: "Erreur de Chargement", description: `Le genre du joueur sauvegardé ("${loadedState.playerGender || 'Aucun'}") est invalide. Impossible de charger.`, variant: "destructive" });
-                setSavedGames(listSaveGames()); // Refresh list
-                return;
+            if (!heroExists) {
+                heroExists = defaultHeroOptions.some(h => h.value === loadedState.selectedHero);
+            }
+            // Optionnel : chercher dans tous les thèmes si toujours pas trouvé
+            if (!heroExists) {
+                for (const themeKey in themedHeroOptions) {
+                    const heroesInTheme = themedHeroOptions[themeKey as keyof typeof themedHeroOptions];
+                    if (heroesInTheme?.some(h => h.value === loadedState.selectedHero)) {
+                        heroExists = true;
+                        break;
+                    }
+                }
+            }
+            if (!loadedState.selectedHero || !heroExists) {
+                 toast({ title: "Erreur de Chargement", description: `Le héros sauvegardé ("${loadedState.selectedHero || 'Aucun'}") n'existe plus ou est invalide pour le thème "${loadedState.theme}". Impossible de charger.`, variant: "destructive" });
+                 setSavedGames(listSaveGames()); // Refresh list
+                 return;
             }
 
 

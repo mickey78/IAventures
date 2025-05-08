@@ -83,16 +83,17 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
                             </span>
                         </div>
 
-                         {/* Manual Image Generation Button */}
-                         {segment.speaker === 'narrator' && !segment.storyImageUrl && !segment.imageIsLoading && !segment.imageError && (
-                             <Button
-                                 variant="ghost"
-                                 size="icon-sm"
-                                 className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
-                                 onClick={() => onManualImageGeneration(segment.id, segment.text)}
-                                 aria-label="Générer une image pour ce passage"
-                                 disabled={isGeneratingImage(segment.id)} // Disable if already generating for this segment
-                             >
+                          {/* Manual Image Generation Button */}
+                          {/* Remplacer segment.text par segment.content */}
+                          {segment.speaker === 'narrator' && !segment.imageUrl && !segment.isGeneratingImage && !segment.imageError && (
+                              <Button
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-foreground"
+                                  onClick={() => onManualImageGeneration(segment.id, segment.content)}
+                                  aria-label="Générer une image pour ce passage"
+                                  disabled={isGeneratingImage(segment.id)} // Disable if already generating for this segment
+                              >
                                  {isGeneratingImage(segment.id) ? (
                                      <Loader className="h-4 w-4 animate-spin" />
                                  ) : (
@@ -104,10 +105,11 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
 
 
                         {/* Image Display */}
-                        {segment.speaker === 'narrator' && segment.imageIsLoading && (
-                             <div className="mt-2 flex justify-center items-center h-48 bg-muted/50 rounded-md">
-                                 <Skeleton className="h-full w-full rounded-md" />
-                             </div>
+                        {/* Remplacer imageIsLoading par isGeneratingImage */}
+                        {segment.speaker === 'narrator' && segment.isGeneratingImage && (
+                              <div className="mt-2 flex justify-center items-center h-48 bg-muted/50 rounded-md">
+                                  <Skeleton className="h-full w-full rounded-md" />
+                              </div>
                         )}
                         {segment.speaker === 'narrator' && segment.imageError && (
                              <div className="mt-2 flex flex-col justify-center items-center h-48 bg-destructive/10 rounded-md text-destructive p-2 text-center relative">
@@ -123,43 +125,46 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
                                  >
                                      <RefreshCw className="h-3 w-3 mr-1" />
                                      Réessayer
-                                 </Button>
-                             </div>
-                        )}
-                        {segment.speaker === 'narrator' && segment.storyImageUrl && !segment.imageIsLoading && !segment.imageError && (
-                            <div
-                                className="mt-2 relative aspect-video rounded-md overflow-hidden border border-border cursor-pointer"
-                                onClick={() => onImageClick(segment.storyImageUrl, segment.text)} // Add onClick handler
-                            >
-                                <Image
-                                    src={segment.storyImageUrl}
-                                    alt={`Image générée: ${segment.text.substring(0, 50)}...`}
-                                    fill
-                                    sizes="(max-width: 768px) 90vw, 85vw"
+                                  </Button>
+                              </div>
+                         )}
+                         {/* Remplacer storyImageUrl par imageUrl, imageIsLoading par isGeneratingImage, segment.text par segment.content */}
+                        {segment.speaker === 'narrator' && segment.imageUrl && !segment.isGeneratingImage && !segment.imageError && (
+                             <div
+                                 className="mt-2 relative aspect-video rounded-md overflow-hidden border border-border cursor-pointer"
+                                 onClick={() => onImageClick(segment.imageUrl, segment.content)} // Add onClick handler
+                             >
+                                 <Image
+                                     src={segment.imageUrl}
+                                     alt={`Image générée: ${segment.content.substring(0, 50)}...`}
+                                     fill
+                                     sizes="(max-width: 768px) 90vw, 85vw"
                                     style={{ objectFit: 'cover' }}
                                     priority={story.length > 0 && story[story.length - 1].id === segment.id}
                                     unoptimized // Added to potentially help with very large Base64 strings if needed
-                                />
-                            </div>
-                        )}
-                         {/* Image Generation Prompt (Debugging/Info) */}
-                         {segment.speaker === 'narrator' && segment.imageGenerationPrompt && (
-                             <div className="mt-2 p-1.5 bg-blue-900/20 border border-blue-800/30 rounded-md text-xs text-blue-400 flex items-start gap-1.5">
-                                 <Info className="h-3 w-3 mt-0.5 shrink-0" />
-                                 <p className="font-mono break-words text-[10px] leading-tight">
-                                    <span className='font-semibold'>Prompt (Debug):</span> {segment.imageGenerationPrompt}
-                                 </p>
+                                 />
                              </div>
                          )}
+                          {/* Image Generation Prompt (Debugging/Info) */}
+                          {/* Remplacer imageGenerationPrompt par imagePrompt */}
+                          {segment.speaker === 'narrator' && segment.imagePrompt && (
+                              <div className="mt-2 p-1.5 bg-blue-900/20 border border-blue-800/30 rounded-md text-xs text-blue-400 flex items-start gap-1.5">
+                                  <Info className="h-3 w-3 mt-0.5 shrink-0" />
+                                  <p className="font-mono break-words text-[10px] leading-tight">
+                                     <span className='font-semibold'>Prompt (Debug):</span> {segment.imagePrompt}
+                                  </p>
+                              </div>
+                          )}
 
-                        {/* Text Content */}
-                        <p className={cn(
-                            "whitespace-pre-wrap mt-1",
-                            segment.speaker === 'narrator' ? 'text-base' : 'text-sm'
-                        )}>
-                           {segment.speaker === 'narrator' ? formatStoryText(segment.text) : segment.text}
-                        </p>
-                    </div>
+                         {/* Text Content */}
+                         {/* Remplacer segment.text par segment.content */}
+                         <p className={cn(
+                             "whitespace-pre-wrap mt-1",
+                             segment.speaker === 'narrator' ? 'text-base' : 'text-sm'
+                         )}>
+                            {segment.speaker === 'narrator' ? formatStoryText(segment.content) : segment.content}
+                         </p>
+                     </div>
                 ))}
                  {/* Global Loading indicator removed from here, handled in parent */}
 

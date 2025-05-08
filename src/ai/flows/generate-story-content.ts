@@ -10,11 +10,11 @@
  */
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
-import type { StorySegment, ParsedGameState } from '@/types/game'; 
-import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils'; 
-import { heroOptions } from '@/config/heroes'; 
-import { logToFile } from '@/services/loggingService'; 
-import { readPromptFile } from '@/lib/prompt-utils'; 
+import type { StorySegment, ParsedGameState, ThemeValue } from '@/types/game'; // Ajout de ThemeValue
+import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils';
+import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Changement ici
+import { logToFile } from '@/services/loggingService';
+import { readPromptFile } from '@/lib/prompt-utils';
 
 const promptTemplatePromise = readPromptFile('story-content.prompt'); 
 
@@ -27,13 +27,17 @@ const GenerateStoryContentInputSchema = z.object({
   playerName: z.string().describe('Le nom du joueur.'),
   playerGender: z.enum(['male', 'female']).describe('Le genre choisi par le joueur (male ou female).'),
   selectedHeroValue: z.string().describe("La classe de héros choisie par le joueur (ex: 'Guerrier')."),
-  heroDescription: z.string().describe("La description complète du héros, incluant ses capacités et son apparence."), 
+  heroDescription: z.string().describe("La description complète du héros, incluant ses capacités et son apparence."),
+  // Mise à jour pour correspondre à l'interface StorySegment
   lastStorySegment: z.object({
       id: z.number(),
-      text: z.string(),
-      speaker: z.enum(['player', 'narrator']),
-      storyImageUrl: z.string().url().optional().nullable(),
-      imageGenerationPrompt: z.string().optional().nullable(),
+      type: z.enum(['text', 'image', 'actionResult', 'narration', 'dialogue', 'event']), // Ajout de type
+      content: z.string(), // text -> content
+      speaker: z.enum(['player', 'narrator']).optional(), // Rendu optionnel comme dans StorySegment
+      imageUrl: z.string().url().optional().nullable(), // storyImageUrl -> imageUrl
+      imagePrompt: z.string().optional().nullable(), // imageGenerationPrompt -> imagePrompt
+      // isGeneratingImage et imageError ne sont probablement pas nécessaires ici
+      // choices et timestamp non plus
   }).optional().describe("Le tout dernier segment de l'histoire pour un contexte immédiat et une cohérence potentielle de l'image."),
   playerChoicesHistory: z.array(z.string()).optional().describe("L'historique des choix du joueur. Le TOUT DERNIER élément est le choix le plus récent auquel l'IA doit réagir."),
   gameState: z.string().optional().describe('Une chaîne JSON représentant l\'état actuel du jeu. Commencez avec une chaîne d\'objet vide si non défini.'),
@@ -78,9 +82,13 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
   if (!Array.isArray(initialGameState.events)) initialGameState.events = [];
 
 
-  const heroDetails = heroOptions.find(h => h.value === input.selectedHeroValue);
+  let heroDetails = themedHeroOptions[input.theme as ThemeValue]?.find(h => h.value === input.selectedHeroValue);
   if (!heroDetails) {
-      await logToFile({ level: 'error', message: `[CONFIG_ERROR] Hero details not found for value: ${input.selectedHeroValue}`, excludeMedia: true });
+      heroDetails = defaultHeroOptions.find(h => h.value === input.selectedHeroValue);
+  }
+
+  if (!heroDetails) {
+      await logToFile({ level: 'error', message: `[CONFIG_ERROR] Hero details not found for value: ${input.selectedHeroValue} in theme ${input.theme} or default`, excludeMedia: true });
       throw new Error(`Invalid hero selected: ${input.selectedHeroValue}`);
   }
 
@@ -90,10 +98,11 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
     ...input,
     gameState: safeJsonStringify(initialGameState),
     playerChoicesHistory: input.playerChoicesHistory || [],
-    lastStorySegmentText: input.lastStorySegment?.text || "C'est le début de l'aventure.",
-    previousImagePrompt: input.lastStorySegment?.imageGenerationPrompt || null,
+    // Utiliser content au lieu de text, et imagePrompt au lieu de imageGenerationPrompt
+    lastStorySegmentText: input.lastStorySegment?.content || "C'est le début de l'aventure.",
+    previousImagePrompt: input.lastStorySegment?.imagePrompt || null,
     heroDescription: heroFullDescription,
-    current_date: new Date().toLocaleDateString('fr-FR'), 
+    current_date: new Date().toLocaleDateString('fr-FR'),
   };
 
   await logToFile({ level: 'info', message: '[AI_REQUEST_STORY_CONTENT] Input to generateStoryContentFlow', payload: safeInput, excludeMedia: true });
@@ -133,7 +142,8 @@ async (flowInput) => {
     }
 
    const safePlayerChoicesHistory = flowInput.playerChoicesHistory || [];
-   if (safePlayerChoicesHistory.length === 0 && !flowInput.lastStorySegment?.text?.includes("début") && flowInput.currentTurn > 1) {
+   // Remplacer text par content ici
+   if (safePlayerChoicesHistory.length === 0 && !flowInput.lastStorySegment?.content?.includes("début") && flowInput.currentTurn > 1) {
        await logToFile({ level: 'warn', message: '[INPUT_WARN] generateStoryContent appelé avec un historique de choix vide en milieu de partie.', payload: { currentTurn: flowInput.currentTurn }, excludeMedia: true });
    }
 
@@ -189,7 +199,8 @@ async (flowInput) => {
       ...flowInput,
       playerChoicesHistory: safePlayerChoicesHistory,
       gameState: validatedInputGameStateString,
-      lastStorySegmentText: flowInput.lastStorySegment?.text || (safePlayerChoicesHistory.length > 0 ? safePlayerChoicesHistory[safePlayerChoicesHistory.length - 1] : "C'est le début de l'aventure."),
+      // Utiliser content au lieu de text
+      lastStorySegmentText: flowInput.lastStorySegment?.content || (safePlayerChoicesHistory.length > 0 ? safePlayerChoicesHistory[safePlayerChoicesHistory.length - 1] : "C'est le début de l'aventure."),
     };
 
   const { output } = await storyContentPrompt(promptPayload);
