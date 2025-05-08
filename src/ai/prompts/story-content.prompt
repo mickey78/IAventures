@@ -36,7 +36,7 @@ Ta mission est de continuer l'histoire de manière amusante, logique, pleine de 
 
 5. **Propose de Nouveaux Choix (si PAS le dernier tour)** : Si l'indicateur {{isLastTurn}} est FAUX, offre 2 ou 3 options claires, simples, pertinentes pour la situation actuelle, le lieu actuel ({{{gameState.location}}}), et le thème. **Inclus potentiellement un choix qui utilise une habileté du héros.** PAS d'actions d'inventaire directes dans `nextChoices`. Le joueur utilise l'interface d'inventaire pour ça.
 
-**Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant : 'storyContent' (string), 'nextChoices' (array de strings, vide si {{isLastTurn}} est vrai), 'updatedGameState' (string JSON valide), et 'generatedImagePrompt' (string optionnel). RIEN d'autre.
+**Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant : 'storyContent' (string), 'nextChoices' (array de strings, vide si {{isLastTurn}} est vrai), 'updatedGameState' (string JSON valide), et 'generatedImagePrompt' (string optionnel, qui doit être formulé en utilisant le style artistique **{{#if imageStyle}}{{{imageStyle}}}{{else}}réaliste{{/if}}** si un prompt est généré). RIEN d'autre.
 
 ---
 Génère maintenant la suite de l'histoire pour {{{playerName}}} (genre: {{{playerGender}}}), le/la {{{selectedHeroValue}}}, en te basant sur son DERNIER choix (le dernier élément de {{{playerChoicesHistory}}}), l'état du jeu `{{{gameState}}}`, le thème `{{{theme}}}`, et les règles ci-dessus. C'est le tour {{{currentTurn}}} sur {{{maxTurns}}}.

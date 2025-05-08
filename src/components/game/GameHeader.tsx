@@ -5,12 +5,14 @@ import InventoryPopover from './InventoryPopover'; // Assuming InventoryPopover 
 import AbilitiesPopover from './AbilitiesPopover'; // Import AbilitiesPopover
 import TurnCounter from './TurnCounter'; // Assuming TurnCounter is refactored
 import HeaderActions from './HeaderActions'; // Assuming HeaderActions is refactored
-import { BookOpenText, MapPin } from 'lucide-react';
+import { BookOpenText, MapPin, Image as ImageIcon } from 'lucide-react'; // Added ImageIcon
 import type { GameView, HeroAbility, InventoryItem, ThemeValue } from '@/types/game'; // Import shared types, add HeroAbility, InventoryItem
 import { themes } from '@/config/themes'; // Import themes to get labels
 import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Import themed heroes
 import { ThemeSwitcher } from '@/components/theme-switcher'; // Import ThemeSwitcher for primary colors
 import { ThemeToggle } from '@/components/ThemeToggle'; // Import ThemeToggle for light/dark mode
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"; // Added Select components
+import { imageStyles, defaultImageStyle, type ImageStyle } from '@/config/imageStyles'; // Added image styles config
 
 interface GameHeaderProps {
     currentView: GameView;
@@ -33,6 +35,8 @@ interface GameHeaderProps {
     onSave: () => void;
     onMainMenu: () => void;
     shouldFlashInventory: boolean; // Added prop for flashing effect
+    selectedImageStyle: string | null | undefined;
+    onImageStyleChange: (style: string) => void;
 }
 
 const GameHeader: React.FC<GameHeaderProps> = ({
@@ -56,6 +60,8 @@ const GameHeader: React.FC<GameHeaderProps> = ({
     onSave,
     onMainMenu,
     shouldFlashInventory, // Destructure flashing prop
+    selectedImageStyle,
+    onImageStyleChange,
 }) => {
 
     const getHeaderText = () => {
@@ -166,6 +172,19 @@ const GameHeader: React.FC<GameHeaderProps> = ({
                         <TurnCounter currentTurn={currentTurn} maxTurns={maxTurns} />
                          <div className="flex items-center gap-2">
                             <HeaderActions onSave={onSave} onMainMenu={onMainMenu} isLoading={isLoading || currentView === 'game_ended'} />
+                            <Select value={selectedImageStyle ?? defaultImageStyle} onValueChange={onImageStyleChange}>
+                                <SelectTrigger className="w-[150px] h-9" aria-label="Style d'image">
+                                    <ImageIcon className="h-4 w-4 mr-2" />
+                                    <SelectValue placeholder="Style d'image" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {imageStyles.map((style: ImageStyle) => (
+                                        <SelectItem key={style.value} value={style.value}>
+                                            {style.label}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
                             <ThemeSwitcher /> {/* Primary color theme switcher */}
                             <ThemeToggle /> {/* Light/Dark/System theme toggle */}
                         </div>
@@ -174,12 +193,38 @@ const GameHeader: React.FC<GameHeaderProps> = ({
                  {/* Fallback ThemeSwitchers for non-game views */}
                  {currentView !== 'game_active' && currentView !== 'game_ended' && currentView !== 'menu' && (
                      <div className="flex items-center gap-2">
+                        <Select value={selectedImageStyle ?? defaultImageStyle} onValueChange={onImageStyleChange}>
+                            <SelectTrigger className="w-[150px] h-9" aria-label="Style d'image">
+                                <ImageIcon className="h-4 w-4 mr-2" />
+                                <SelectValue placeholder="Style d'image" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {imageStyles.map((style: ImageStyle) => (
+                                    <SelectItem key={style.value} value={style.value}>
+                                        {style.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <ThemeSwitcher />
                         <ThemeToggle />
                      </div>
                  )}
                  {currentView === 'menu' && (
                     <div className="flex items-center gap-2">
+                        <Select value={selectedImageStyle ?? defaultImageStyle} onValueChange={onImageStyleChange}>
+                            <SelectTrigger className="w-[150px] h-9" aria-label="Style d'image">
+                                <ImageIcon className="h-4 w-4 mr-2" />
+                                <SelectValue placeholder="Style d'image" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                {imageStyles.map((style: ImageStyle) => (
+                                    <SelectItem key={style.value} value={style.value}>
+                                        {style.label}
+                                    </SelectItem>
+                                ))}
+                            </SelectContent>
+                        </Select>
                         <ThemeSwitcher />
                         <ThemeToggle />
                     </div>

@@ -19,8 +19,9 @@ export interface GameStateToSave {
   playerChoicesHistory: string[];
   timestamp: number;
   saveName: string;
-  maxTurns: number; 
-  currentTurn: number; 
+  maxTurns: number;
+  currentTurn: number;
+  selectedImageStyle?: string | null; // Ajout pour le style d'image
 }
 
 interface LoadedGameState extends Omit<GameStateToSave, 'story'> {
@@ -175,11 +176,17 @@ export function listSaveGames(): LoadedGameState[] {
                  save.playerChoicesHistory = [];
              } else {
                  save.playerChoicesHistory = save.playerChoicesHistory.filter(hist => typeof hist === 'string');
-             }
-
-            save.currentGameState = JSON.stringify(currentGameStateObj);
-
-            if (isValid) {
+                            }
+               
+                           // Valider selectedImageStyle si présent
+                           if (save.selectedImageStyle !== undefined && save.selectedImageStyle !== null && typeof save.selectedImageStyle !== 'string') {
+                               logToFile({ level: "warn", message: `[SAVE_LOAD_VALIDATION] Invalid selectedImageStyle. Resetting to null.`, payload: {saveName: save?.saveName, selectedImageStyle: save?.selectedImageStyle } });
+                               save.selectedImageStyle = null;
+                           }
+               
+                           save.currentGameState = JSON.stringify(currentGameStateObj);
+               
+                           if (isValid) {
                 acc.push(save); 
             }
         } catch (error) { 
@@ -325,6 +332,7 @@ export function saveGame(saveName: string, gameState: Omit<GameStateToSave, 'tim
         currentTurn: gameState.currentTurn,
         saveName: saveName,
         timestamp: now,
+        selectedImageStyle: gameState.selectedImageStyle, // Sauvegarder le style d'image
     }
 
     const existingIndex = saves.findIndex(s => s.saveName === saveName);

@@ -44,8 +44,9 @@ const GenerateStoryContentInputSchema = z.object({
   currentTurn: z.number().int().positive().describe('Le numéro du tour actuel (commence à 1).'),
   maxTurns: z.number().int().positive().describe("Le nombre maximum de tours pour cette aventure."),
   isLastTurn: z.boolean().describe('Indique si c\'est le dernier tour de l\'aventure.'),
-  current_date: z.string().optional().describe('Date actuelle, injectée pour des éléments potentiels de l\'histoire.'), 
-  previousImagePrompt: z.string().nullable().optional().describe("Le prompt utilisé pour l'image générée précédemment, le cas échéant, pour la cohérence visuelle."), 
+  current_date: z.string().optional().describe('Date actuelle, injectée pour des éléments potentiels de l\'histoire.'),
+  previousImagePrompt: z.string().nullable().optional().describe("Le prompt utilisé pour l'image générée précédemment, le cas échéant, pour la cohérence visuelle."),
+  imageStyle: z.string().optional().describe("Le style artistique souhaité pour l'image (ex: realistic, cartoon)."),
 });
 export type GenerateStoryContentInput = z.infer<typeof GenerateStoryContentInputSchema>;
 
@@ -68,6 +69,7 @@ export async function generateStoryContent(input: GenerateStoryContentInput): Pr
         playerName: input.playerName || 'Unknown Player',
         location: 'Unknown Location',
         inventory: [],
+        heroAbilities: [], // Ajout de l'initialisation manquante
         relationships: {},
         emotions: [],
         events: [],
@@ -156,6 +158,7 @@ async (flowInput) => {
             playerName: flowInput.playerName || 'Unknown Player',
             location: 'Unknown Location',
             inventory: [],
+            heroAbilities: [], // Ajout de l'initialisation manquante
             relationships: {},
             emotions: [],
             events: []

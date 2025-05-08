@@ -9,6 +9,7 @@ import { listSaveGames, type GameStateToSave } from '@/lib/saveLoadUtils';
 import type { GameState, HeroAbility, HeroOption, ThemeValue } from '@/types/game'; // Import shared types
 import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Import hero config
 import { themes } from '@/config/themes'; // Import themes config
+import { defaultImageStyle } from '@/config/imageStyles'; // Import default image style
 import { useGameActions } from '@/hooks/useGameActions'; // Import the new hook
 import { useSaveLoad } from '@/hooks/useSaveLoad'; // Import the new hook
 
@@ -46,6 +47,7 @@ export default function IAventuresGame() {
     selectedHero: null,
     playerName: null,
     playerGender: null, // Initialize playerGender
+    selectedImageStyle: defaultImageStyle, // Initialize selectedImageStyle
     isLoading: false,
     error: null,
     playerChoicesHistory: [],
@@ -148,6 +150,7 @@ export default function IAventuresGame() {
       currentTurn: 1,
       generatingSegmentId: null,
       initialPromptDebug: null,
+      selectedImageStyle: defaultImageStyle, // Reset image style on main menu
     }));
     setSavedGames(listSaveGames());
     setIsInventoryPopoverOpen(false);
@@ -166,6 +169,7 @@ export default function IAventuresGame() {
       playerGender: null, // Reset playerGender
       currentTurn: 1,
       maxTurns: 15,
+      selectedImageStyle: prev.selectedImageStyle, // Persist image style or reset if needed: defaultImageStyle,
       currentGameState: { ...prev.currentGameState, location: 'Sélection du Thème', relationships: {}, emotions: [], events: [] },
       initialPromptDebug: null,
     }));
@@ -239,6 +243,10 @@ export default function IAventuresGame() {
 
   const handleGenderSelect = (gender: 'male' | 'female') => {
     setGameState((prev) => ({ ...prev, playerGender: gender }));
+  };
+
+  const handleImageStyleChange = (style: string) => {
+    setGameState((prev) => ({ ...prev, selectedImageStyle: style }));
   };
 
 
@@ -459,6 +467,8 @@ export default function IAventuresGame() {
             onSave={handleOpenSaveDialog}
             onMainMenu={showMainMenu}
             shouldFlashInventory={shouldFlashInventory}
+            selectedImageStyle={gameState.selectedImageStyle}
+            onImageStyleChange={handleImageStyleChange}
         />
 
         <div className={cn(

@@ -12,6 +12,7 @@ import { parseGameState, safeJsonStringify } from '@/lib/gameStateUtils';
 import { themes } from '@/config/themes';
 import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Changement ici
 import type { ThemeValue } from '@/types/game'; // Ajout de ThemeValue
+import { defaultImageStyle } from '@/config/imageStyles'; // Import default image style
 // import { readPromptFile } from '@/lib/prompt-utils'; // Supprimé pour éviter l'erreur de build Docker
 
 
@@ -144,9 +145,10 @@ export function useGameActions(
             .find(seg => seg.speaker === 'narrator' && seg.imagePrompt);
         // Utiliser imagePrompt au lieu de imageGenerationPrompt
         const previousPromptContext = lastNarratorSegmentWithPrompt?.imagePrompt ? ` Inspiré de : "${lastNarratorSegmentWithPrompt.imagePrompt.substring(0,100)}...".` : '';
+        const imageStyleToUse = gameState.selectedImageStyle || defaultImageStyle;
 
         // Utiliser segmentText (qui est le content)
-        const prompt = `Une illustration de "${gameState.playerName}" (${gameState.playerGender === 'male' ? 'garçon' : 'fille'}), le/la ${heroDetails.label} (${heroAppearanceDescription}). Scène: "${segmentText.substring(0, 150)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} ${previousPromptContext} Style: Réaliste. Pas de texte dans l'image.`;
+        const prompt = `Une illustration de "${gameState.playerName}" (${gameState.playerGender === 'male' ? 'garçon' : 'fille'}), le/la ${heroDetails.label} (${heroAppearanceDescription}). Scène: "${segmentText.substring(0, 150)}...". Lieu: ${gameState.currentGameState.location}. Thème: ${gameState.theme}.${moodText} ${previousPromptContext} Style: ${imageStyleToUse}. Pas de texte dans l'image.`;
         
         triggerImageGeneration(segmentId, prompt);
     }, [gameState, toast, triggerImageGeneration]);
@@ -238,6 +240,7 @@ export function useGameActions(
                 selectedHeroValue: heroToUse,
                 heroDescription: heroFullDescription,
                 maxTurns: turns,
+                imageStyle: gameState.selectedImageStyle || defaultImageStyle,
             };
             
             const initialStoryData: GenerateInitialStoryOutput = await generateInitialStory(initialStoryInput);
@@ -383,6 +386,7 @@ export function useGameActions(
             current_date: new Date().toLocaleDateString('fr-FR'),
             // Utiliser imagePrompt au lieu de imageGenerationPrompt
             previousImagePrompt: lastSegmentBeforeAction?.imagePrompt || null,
+            imageStyle: gameState.selectedImageStyle || defaultImageStyle,
         };
 
         try {

@@ -110,6 +110,7 @@ export interface GameState {
   selectedHero: HeroClass | null;
   playerName: string | null; // Présent à la racine et dans currentGameState.playerName dans page.tsx
   playerGender: 'male' | 'female' | null;
+  selectedImageStyle?: string | null; // Style d'image sélectionné par le joueur
   isLoading: boolean;
   error: string | null;
   playerChoicesHistory: string[]; // Historique des actions/choix du joueur

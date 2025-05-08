@@ -31,6 +31,7 @@ const GenerateInitialStoryInputSchema = z.object({
     heroDescription: z.string().describe("La description et les habiletés du héros choisi."),
     startingInventoryDescription: z.string().optional().describe("Une description textuelle de l'inventaire de départ pour l'IA."), // Ajouté
     maxTurns: z.number().int().positive().describe("Le nombre maximum de tours pour cette aventure."),
+    imageStyle: z.string().optional().describe("Le style artistique souhaité pour l'image initiale (ex: realistic, cartoon)."),
 });
 export type GenerateInitialStoryInput = z.infer<typeof GenerateInitialStoryInputSchema>;
 
@@ -146,6 +147,7 @@ const generateInitialStoryFlow = ai.defineFlow(
         heroDescription: flowInput.heroDescription,
         startingInventoryDescription: flowInput.startingInventoryDescription, // Ajouté
         maxTurns: flowInput.maxTurns,
+        imageStyle: flowInput.imageStyle, // Ajouté
     };
 
     for (const key in placeholders) {

@@ -10,7 +10,7 @@
    - **L'action principale** venant de se produire
    - Tout **élément visuel clé** (PNJ important, objet important, phénomène)
    - L'**ambiance/émotion** si pertinente
-   - Terminer par **"Style: Cartoon-Réaliste. Pas de texte dans l'image, sauf si explicitement demandé."**
+   - {{#if imageStyle}}Terminer par **"Style: {{{imageStyle}}}. Pas de texte dans l'image, sauf si explicitement demandé."**{{else}}Terminer par **"Style: Réaliste. Pas de texte dans l'image, sauf si explicitement demandé."**{{/if}}
 
 3. **Consistance visuelle (CRUCIAL)** :
    - Maintenir la **cohérence avec les images précédentes**

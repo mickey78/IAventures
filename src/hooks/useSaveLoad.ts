@@ -7,6 +7,7 @@ import { parseGameState } from '@/lib/gameStateUtils';
 import { themes } from '@/config/themes';
 import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes'; // Changement ici
 import type { ThemeValue } from '@/types/game'; // Ajout de ThemeValue
+import { defaultImageStyle } from '@/config/imageStyles'; // Import default image style
 
 export function useSaveLoad(
     gameState: GameState,
@@ -79,6 +80,7 @@ export function useSaveLoad(
             playerChoicesHistory: gameState.playerChoicesHistory,
             maxTurns: gameState.maxTurns,
             currentTurn: gameState.currentTurn,
+            selectedImageStyle: gameState.selectedImageStyle, // Ajouter le style d'image
         };
 
         if (saveGame(saveNameInput.trim(), stateToSave)) {
@@ -157,6 +159,7 @@ export function useSaveLoad(
                 currentTurn: loadedState.currentTurn,
                 generatingSegmentId: null,
                 initialPromptDebug: null, // Reset debug prompt on load
+                selectedImageStyle: loadedState.selectedImageStyle || defaultImageStyle, // Restaurer le style d'image
             }));
             toast({ title: "Partie Chargée", description: `La partie "${saveName}" a été chargée.` });
             // Consider closing popovers externally if needed
