@@ -73,21 +73,6 @@ const InventoryPopover: React.FC<InventoryPopoverProps> = ({
                                                                 variant="ghost"
                                                                 size="icon-sm"
                                                                 className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => onActionClick('Inspecter', item.name)}
-                                                                disabled={isDisabled}
-                                                            >
-                                                                <Eye className="h-4 w-4" />
-                                                                <span className="sr-only">Inspecter {item.name}</span>
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">{item.description || 'Inspecter'}</TooltipContent>
-                                                    </Tooltip>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon-sm"
-                                                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
                                                                 onClick={() => onActionClick('Utiliser', item.name)}
                                                                 disabled={isDisabled}
                                                             >
@@ -96,36 +81,6 @@ const InventoryPopover: React.FC<InventoryPopoverProps> = ({
                                                             </Button>
                                                         </TooltipTrigger>
                                                         <TooltipContent side="top">Utiliser</TooltipContent>
-                                                    </Tooltip>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon-sm"
-                                                                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                                                                onClick={() => onActionClick('Lancer', item.name)}
-                                                                disabled={isDisabled}
-                                                            >
-                                                                <MoveUpRight className="h-4 w-4" />
-                                                                <span className="sr-only">Lancer {item.name}</span>
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">Lancer</TooltipContent>
-                                                    </Tooltip>
-                                                    <Tooltip>
-                                                        <TooltipTrigger asChild>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon-sm"
-                                                                className="h-7 w-7 text-destructive/70 hover:text-destructive hover:bg-destructive/10"
-                                                                onClick={() => onActionClick('Se débarrasser de', item.name)}
-                                                                disabled={isDisabled}
-                                                            >
-                                                                <Trash2 className="h-4 w-4" />
-                                                                <span className="sr-only">Se débarrasser de {item.name}</span>
-                                                            </Button>
-                                                        </TooltipTrigger>
-                                                        <TooltipContent side="top">Se débarrasser</TooltipContent>
                                                     </Tooltip>
                                                 </div>
                                             </li>

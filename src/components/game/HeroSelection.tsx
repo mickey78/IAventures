@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"; // Import Label
 import { cn } from "@/lib/utils";
 import type { HeroClass, HeroOption } from '@/types/game';
 import { Separator } from '@/components/ui/separator';
+import { Briefcase } from 'lucide-react'; // Importer l'icône Briefcase
 
 interface HeroSelectionProps {
     heroes: HeroOption[];
@@ -68,6 +69,21 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({
                                                          </div>
                                                      );
                                                 })}
+                                            </div>
+                                        </>
+                                    )}
+                                    {/* Ajout de l'affichage de l'inventaire de départ */}
+                                    {hero.startingInventory && hero.startingInventory.length > 0 && (
+                                        <>
+                                            <Separator className="my-2 bg-border/50" />
+                                            <div className="space-y-1 mt-1 text-left">
+                                                <p className="text-xs font-medium text-muted-foreground mb-1">Équipement de départ :</p>
+                                                {hero.startingInventory.map((item, index) => (
+                                                    <div key={index} className="flex items-center gap-1.5 text-xs">
+                                                        <Briefcase className="h-3.5 w-3.5 text-primary shrink-0" />
+                                                        <span>{item.name}{item.quantity > 1 ? ` (x${item.quantity})` : ''}</span>
+                                                    </div>
+                                                ))}
                                             </div>
                                         </>
                                     )}
