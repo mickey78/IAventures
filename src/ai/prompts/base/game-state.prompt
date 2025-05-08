@@ -4,6 +4,7 @@
    - **playerName** : Le nom du joueur
    - **location** : Le lieu actuel
    - **inventory** : Les objets possédés par le joueur
+   - **heroAbilities**: Les habiletés du héros (ex: [{"name": "Force Extrême", "description": "Permet de soulever...", "status": "disponible"}])
    - **relationships** : Les relations avec les PNJ (ex: {"PNJ1":"ami"})
    - **emotions** : Les émotions actuelles du joueur (ex: ["courageux"])
    - **events** : Liste des événements passés

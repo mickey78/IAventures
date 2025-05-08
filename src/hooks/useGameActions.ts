@@ -1,7 +1,7 @@
 
 import { useState, useCallback, type RefObject, type Dispatch, type SetStateAction } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import type { StorySegment, GameState, ParsedGameState } from '@/types/game';
+import type { StorySegment, GameState, ParsedGameState, CurrentGameState } from '@/types/game'; // Ajout de CurrentGameState
 import { generateInitialStory } from '@/ai/flows/generate-initial-story';
 import type { GenerateInitialStoryOutput, GenerateInitialStoryInput } from '@/ai/flows/generate-initial-story';
 import { generateStoryContent } from '@/ai/flows/generate-story-content';
@@ -221,6 +221,7 @@ export function useGameActions(
                 playerName: nameToUse,
                 location: 'Chargement...',
                 inventory: [],
+                heroAbilities: [], // Ajout de heroAbilities
                 relationships: {},
                 emotions: [],
                 events: [],
@@ -265,6 +266,34 @@ export function useGameActions(
                     emotions: [],
                     events: [],
                 },
+                 initialPromptDebug: initialStoryData.initialPromptDebug || initialPromptDebugText,
+            }));
+
+            // Parser l'état initial généré côté serveur
+            let initialCurrentGameState: CurrentGameState;
+            try {
+                // Utilise initialGameStateJson au lieu de updatedGameState
+                initialCurrentGameState = JSON.parse(initialStoryData.initialGameStateJson) as CurrentGameState;
+                // Validation supplémentaire optionnelle de la structure parsée si nécessaire
+                if (!initialCurrentGameState || typeof initialCurrentGameState.location !== 'string' || !Array.isArray(initialCurrentGameState.inventory) || !Array.isArray(initialCurrentGameState.heroAbilities)) {
+                    throw new Error("Structure de initialGameStateJson invalide après parsing.");
+                }
+            } catch (parseError) {
+                console.error("Erreur de parsing de initialGameStateJson:", parseError);
+                toast({ title: 'Erreur Critique', description: 'Impossible de lire l\'état initial du jeu reçu du serveur.', variant: 'destructive' });
+                // Revenir à un état stable, par exemple le menu
+                setGameState(prev => ({ ...prev, isLoading: false, currentView: 'menu', error: 'Erreur interne lors de l\'initialisation.' }));
+                return; // Arrêter l'exécution de startNewGame
+            }
+
+
+            setGameState((prev) => ({
+                ...prev,
+                story: [initialStorySegment],
+                choices: initialStoryData.choices,
+                isLoading: false,
+                // Utiliser l'état initial parsé
+                currentGameState: initialCurrentGameState, 
                  initialPromptDebug: initialStoryData.initialPromptDebug || initialPromptDebugText, 
             }));
 
@@ -279,7 +308,7 @@ export function useGameActions(
                 isLoading: false,
                 error: `Impossible de générer l'histoire initiale: ${errorMsg}`,
                 theme: null, subTheme: null, selectedHero: null, playerName: null, playerGender: null,
-                currentGameState: { playerName: null, location: 'Erreur', inventory: [], relationships: {}, emotions: [], events: [] },
+                currentGameState: { playerName: null, location: 'Erreur', inventory: [], heroAbilities: [], relationships: {}, emotions: [], events: [] }, // Ajout de heroAbilities
                 currentView: 'theme_selection', maxTurns: 15, currentTurn: 1, generatingSegmentId: null, initialPromptDebug: null,
             }));
             toast({ title: 'Erreur de Génération', description: `Impossible de générer l'histoire initiale: ${errorMsg}`, variant: 'destructive' });

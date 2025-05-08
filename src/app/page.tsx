@@ -36,6 +36,7 @@ export default function IAventuresGame() {
         playerName: null,
         location: 'Menu Principal',
         inventory: [],
+        heroAbilities: [], // Ajout de heroAbilities
         relationships: {},
         emotions: [],
         events: [],
@@ -129,6 +130,7 @@ export default function IAventuresGame() {
           playerName: null,
           location: 'Menu Principal',
           inventory: [],
+          heroAbilities: [], // Ajout de heroAbilities
           relationships: {},
           emotions: [],
           events: []

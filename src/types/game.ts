@@ -48,6 +48,13 @@ export interface HeroAbility {
   icon: LucideIcon;
 }
 
+// Type pour une habileté dans le gameState
+export interface HeroAbilityState {
+  name: string;
+  description: string;
+  status: 'disponible' | 'utilisée' | 'recharge'; // Statut plus détaillé
+}
+
 export interface HeroOption {
   value: HeroClass;
   label: string;
@@ -73,6 +80,7 @@ export interface CurrentGameState {
   playerName: string | null;
   location: string;
   inventory: InventoryItem[]; // Utilisation de InventoryItem[]
+  heroAbilities: HeroAbilityState[]; // Ajout des habiletés du héros
   relationships: Record<string, any>; // Peut être affiné plus tard
   emotions: string[]; // Peut être un type plus spécifique
   events: string[]; // Peut être un type plus spécifique
@@ -83,6 +91,7 @@ export interface ParsedGameState {
   playerName: string | null;
   location: string;
   inventory: InventoryItem[];
+  heroAbilities: HeroAbilityState[]; // Ajout des habiletés du héros
   relationships: Record<string, any>;
   emotions: string[];
   events: string[];

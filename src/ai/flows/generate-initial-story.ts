@@ -12,7 +12,7 @@
 import { ai } from '@/ai/ai-instance';
 import { z } from 'genkit';
 import { themedHeroOptions, defaultHeroOptions } from '@/config/heroes';
-import type { ThemeValue } from '@/types/game'; // Ajout de l'import pour ThemeValue
+import type { ThemeValue, ParsedGameState, HeroAbilityState, CurrentGameState } from '@/types/game'; // Ajout de CurrentGameState
 import { logToFile, logAdventureStart } from '@/services/loggingService';
 import { readPromptFile } from '@/lib/prompt-utils';
 
@@ -40,13 +40,18 @@ const GenerateInitialStoryOutputSchema = z.object({
     .describe('Les choix présentés au joueur sous forme de boutons sélectionnables.'),
   location: z.string().describe("Le lieu/cadre initial de l'histoire."),
   generatedImagePrompt: z.string().optional().describe("Un prompt concis mais VIVID pour générer une image représentant la scène initiale. DOIT inclure le thème, le lieu, le nom du joueur {{{playerName}}} ({{{playerGender}}}), sa CLASSE de héros {{{selectedHeroValue}}}, et une DESCRIPTION DÉTAILLÉE de l'apparence du héros basée sur sa classe, sa description ({{{heroDescription}}}), et son genre. Style: Réaliste. Pas de texte dans l'image."),
+  // updatedGameState: z.string().describe("L'état initial du jeu au format JSON string, incluant l'inventaire de départ et les habiletés du héros."), // Supprimé
+  initialGameStateJson: z.string().describe("L'état initial complet du jeu, généré côté serveur, au format JSON string."), // Ajouté
   initialPromptDebug: z.string().optional().describe("The fully resolved initial prompt text used by the AI, for debugging purposes."),
 });
+// Le type GenerateInitialStoryOutput est automatiquement mis à jour par Zod
 export type GenerateInitialStoryOutput = z.infer<typeof GenerateInitialStoryOutputSchema>;
 
+// La signature de generateInitialStory reste la même car GenerateInitialStoryOutput est inféré
 export async function generateInitialStory(input: GenerateInitialStoryInput): Promise<GenerateInitialStoryOutput> {
   await logAdventureStart(input.playerName, input.theme, input.subThemePrompt, input.selectedHeroValue, input.maxTurns);
 
+  // Récupérer les détails du héros pour construire heroFullDescription
   let heroDetails = themedHeroOptions[input.theme as ThemeValue]?.find(h => h.value === input.selectedHeroValue);
   if (!heroDetails) {
       heroDetails = defaultHeroOptions.find(h => h.value === input.selectedHeroValue);
@@ -55,51 +60,70 @@ export async function generateInitialStory(input: GenerateInitialStoryInput): Pr
   if (!heroDetails) {
     throw new Error(`Détails du héros non trouvés pour la valeur: ${input.selectedHeroValue} dans le thème ${input.theme} ou par défaut.`);
   }
-  // The heroDetails.appearance string (from heroes.ts) is included in heroFullDescription.
-  // The AI is later instructed (in GenerateInitialStoryOutputSchema for generatedImagePrompt)
-  // to use this description AND the playerGender to create a detailed appearance for the image prompt.
-  // This means the AI is responsible for adapting the potentially gendered heroDetails.appearance
-  // to the selected playerGender.
+  
   const heroFullDescription = `${heroDetails.description} Habiletés: ${heroDetails.abilities.map(a => a.label).join(', ')}. Apparence: ${heroDetails.appearance || 'Apparence typique de sa classe.'}`;
-
 
   const effectiveSubThemePrompt = input.subThemePrompt || `Commence une aventure créative et surprenante pour ${input.playerName} (${input.playerGender === 'male' ? 'le' : 'la'} ${heroDetails.label || 'Héros inconnu'}), dans le thème "${input.theme}".`;
 
+  // Préparer l'input pour le flow Genkit
   const flowInput = {
-    ...input,
+    ...input, // Contient theme, playerName, playerGender, selectedHeroValue, maxTurns
     subThemePrompt: effectiveSubThemePrompt,
-    heroDescription: heroFullDescription, 
+    heroDescription: heroFullDescription, // Passé pour que l'IA puisse l'utiliser dans la narration/image
   };
 
   await logToFile({ level: 'info', message: '[AI_REQUEST_INIT_STORY] Input to generateInitialStoryFlow', payload: flowInput, excludeMedia: true });
-  const result = await generateInitialStoryFlow(flowInput);
+  
+  // Appel du flow Genkit. Le flow lui-même calculera heroAbilities et construira l'état initial.
+  const result = await generateInitialStoryFlow(flowInput); 
+  
   await logToFile({ level: 'info', message: '[AI_RESPONSE_INIT_STORY] Output from generateInitialStoryFlow', payload: result, excludeMedia: true });
   return result;
 }
 
+// Schema de sortie simplifié pour le prompt, ne contient plus updatedGameState
+const InitialStoryPromptOutputSchema = z.object({
+  story: z.string(),
+  choices: z.array(z.string()),
+  location: z.string(),
+  generatedImagePrompt: z.string().optional(),
+});
+
 const initialStoryPrompt = ai.definePrompt({
   name: 'initialStoryPrompt',
-  input: {
-    schema: GenerateInitialStoryInputSchema
-  },
-  output: {
-    schema: GenerateInitialStoryOutputSchema,
-  },
+  input: { schema: GenerateInitialStoryInputSchema },
+  output: { schema: InitialStoryPromptOutputSchema }, // Utilise le schéma simplifié
   prompt: await promptTemplatePromise,
 });
 
 
-const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputSchema, typeof GenerateInitialStoryOutputSchema>(
+const generateInitialStoryFlow = ai.defineFlow(
   {
     name: 'generateInitialStoryFlow',
     inputSchema: GenerateInitialStoryInputSchema,
-    outputSchema: GenerateInitialStoryOutputSchema,
+    outputSchema: GenerateInitialStoryOutputSchema, // Le flow retourne toujours le schéma complet avec initialGameStateJson
   },
-  async (flowInput) => {
+  async (flowInput) => { // Signature standard (input, streamingCallback?)
     if (!flowInput.theme || !flowInput.playerName || !flowInput.playerGender || !flowInput.selectedHeroValue || !flowInput.heroDescription) {
       await logToFile({ level: 'error', message: '[VALIDATION_ERROR] Initial story generation - missing required fields', payload: flowInput, excludeMedia: true });
       throw new Error("Theme, playerName, playerGender, selectedHeroValue, et heroDescription sont requis pour la génération de l'histoire initiale.");
     }
+
+    // --- Calcul des heroAbilities DÉPLACÉ À L'INTÉRIEUR du flow ---
+    let heroDetails = themedHeroOptions[flowInput.theme as ThemeValue]?.find(h => h.value === flowInput.selectedHeroValue);
+    if (!heroDetails) {
+        heroDetails = defaultHeroOptions.find(h => h.value === flowInput.selectedHeroValue);
+    }
+    if (!heroDetails) {
+      // Cette erreur ne devrait pas se produire si l'input est valide, mais sécurité
+      throw new Error(`Détails du héros non trouvés DANS LE FLOW pour la valeur: ${flowInput.selectedHeroValue}`);
+    }
+    const heroAbilitiesForGameState: HeroAbilityState[] = heroDetails.abilities.map(ability => ({
+      name: ability.label,
+      description: `Habileté: ${ability.label}`, 
+      status: 'disponible',
+    }));
+    // --- Fin du calcul déplacé ---
     
     const promptText = await promptTemplatePromise;
     if (!promptText || typeof promptText !== 'string' || promptText.trim() === '') {
@@ -125,17 +149,66 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
         debugPromptString = debugPromptString.replace(new RegExp(`{{{${placeholderKey}}}}`, 'g'), replacementValue);
     }
 
+    // Appel du prompt simplifié
     const { output } = await initialStoryPrompt(flowInput);
 
-    if (!output || typeof output.story !== 'string' || !Array.isArray(output.choices) || output.choices.length === 0 || typeof output.location !== 'string' || !output.location.trim()) {
-      await logToFile({ level: 'error', message: '[AI_OUTPUT_INVALID] Format invalide reçu de l\'IA pour l\'histoire initiale', payload: output, excludeMedia: true });
+    // Validation de la sortie du prompt simplifié
+    if (
+      !output ||
+      typeof output.story !== 'string' ||
+      !Array.isArray(output.choices) ||
+      output.choices.length === 0 ||
+      typeof output.location !== 'string' ||
+      !output.location.trim()
+    ) {
+      await logToFile({
+        level: 'error',
+        message: '[AI_OUTPUT_INVALID] Format invalide reçu de l\'IA pour l\'histoire initiale (prompt simplifié)',
+        payload: output,
+        excludeMedia: true,
+      });
       const missingFields = [];
       if (typeof output?.story !== 'string') missingFields.push('story');
       if (!Array.isArray(output?.choices) || output?.choices.length === 0) missingFields.push('choices');
       if (typeof output?.location !== 'string' || !output?.location?.trim()) missingFields.push('location');
-      if (output?.generatedImagePrompt !== undefined && typeof output.generatedImagePrompt !== 'string') missingFields.push('generatedImagePrompt (type invalide)');
-      throw new Error(`Format invalide reçu de l'IA pour l'histoire initiale. Champs manquants ou invalides: ${missingFields.join(', ')}`);
+      if (output?.generatedImagePrompt !== undefined && typeof output.generatedImagePrompt !== 'string') {
+        missingFields.push('generatedImagePrompt (type invalide)');
+      }
+      throw new Error(
+        `Format invalide reçu de l'IA pour l'histoire initiale (prompt simplifié). Champs manquants ou invalides: ${missingFields.join(', ')}`
+      );
     }
+
+    // Construction de l'état initial du jeu côté serveur
+    const initialGameState: CurrentGameState = {
+        playerName: flowInput.playerName,
+        // playerGender: flowInput.playerGender, // Pas dans CurrentGameState mais dans GameState global
+        location: output.location,
+        inventory: [], // Initialisé vide
+        heroAbilities: heroAbilitiesForGameState, // Utilise les habiletés préparées
+        relationships: {},
+        emotions: [],
+        events: ["aventure_commencee"],
+    };
+
+    // Conversion en chaîne JSON
+    const initialGameStateJson = JSON.stringify(initialGameState);
+
+    // Validation simple du JSON généré (devrait toujours être valide)
+    try {
+        JSON.parse(initialGameStateJson);
+    } catch (e) {
+         // Correction de l'appel à logToFile : pas de champ 'error'
+         await logToFile({ 
+            level: 'error', 
+            message: `[SERVER_ERROR] Échec de la sérialisation de initialGameStateJson. Error: ${e instanceof Error ? e.message : String(e)}`, 
+            payload: initialGameState, 
+            excludeMedia: true 
+         });
+         throw new Error(`Échec de la sérialisation de l'état initial du jeu côté serveur: ${e instanceof Error ? e.message : String(e)}`);
+    }
+
+
     if (!output.choices.every(choice => typeof choice === 'string')) {
       await logToFile({ level: 'error', message: '[AI_OUTPUT_INVALID] Format de choix invalide reçu de l\'IA', payload: output.choices, excludeMedia: true });
       throw new Error("Format invalide reçu de l'IA pour les choix.");
@@ -145,8 +218,13 @@ const generateInitialStoryFlow = ai.defineFlow<typeof GenerateInitialStoryInputS
       output.generatedImagePrompt = undefined;
     }
 
+    // Retourner l'objet complet attendu par GenerateInitialStoryOutputSchema
     return {
-        ...output!,
+        story: output.story,
+        choices: output.choices,
+        location: output.location,
+        generatedImagePrompt: output.generatedImagePrompt,
+        initialGameStateJson: initialGameStateJson, // Retourne l'état initial généré ici
         initialPromptDebug: debugPromptString,
     };
   }
