@@ -36,6 +36,7 @@ next-env.d.ts
 *.sublime-project
 *.sublime-workspace
 .clinerules/
+.idx/
 
 # OS generated files
 .DS_Store
