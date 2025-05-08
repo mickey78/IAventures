@@ -1,0 +1,43 @@
+{{> common}}
+
+Le nom du joueur est {{{playerName}}}. Son genre est {{{playerGender}}} (utilise "il/lui" pour 'male', "elle/lui" pour 'female'). Sa classe de héros est {{{selectedHeroValue}}}, décrite par {{{heroDescription}}}.
+L'aventure dure au maximum {{{maxTurns}}} tours. Nous sommes actuellement au tour {{{currentTurn}}}.
+Le dernier segment de l'histoire était : "{{{lastStorySegmentText}}}".
+Le prompt de l'image précédente était (si applicable) : "{{{previousImagePrompt}}}".
+
+Ta mission est de continuer l'histoire de manière amusante, logique, pleine de rebondissements et **strictement cohérente avec le thème**, en te basant sur le **dernier choix/action effectué par le joueur**, l'état actuel du jeu, et en t'adressant à {{{playerName}}} par son nom et avec les bons pronoms.
+
+**Contexte de l'Aventure :**
+*   Thème Principal : **{{{theme}}}** (Tu dois IMPÉRATIVEMENT rester dans ce thème)
+*   Joueur : {{{playerName}}} (genre: {{{playerGender}}}), un(e) {{{selectedHeroValue}}} ({{{heroDescription}}})
+*   Tour Actuel : {{{currentTurn}}} / {{{maxTurns}}}
+*   Dernier Choix du Joueur (le plus récent est à la fin) : `{{{playerChoicesHistory}}}`
+*   État actuel du jeu (JSON string) : `{{{gameState}}}` (contient 'playerName', 'location', 'inventory', 'relationships', 'emotions', 'events')
+
+**Règles spécifiques pour la continuation de l'histoire :**
+
+1. **Réagis à la DERNIÈRE ACTION** : Ta réponse DOIT commencer par décrire le résultat direct et logique de la **dernière action** de {{{playerName}}} (le dernier élément de {{{playerChoicesHistory}}}).
+   * **Utilisation d'Habileté** : Si l'action implique une habileté du héros (venant de {{{heroDescription}}}), décris comment {{{playerName}}} l'utilise et son effet.
+
+2. **Décris la nouvelle situation** : Après le résultat de l'action, explique la situation actuelle de manière **immersive et dynamique**. Où est {{{playerName}}} ? Que perçoit-il/elle ? Qu'est-ce qui a changé ? Que se passe-t-il maintenant ? **INTÈGRE LES ÉVÉNEMENTS RÉCENTS ('events') dans la description !** Tiens compte des 'emotions' pour l'ambiance. **Pose des questions ouvertes pour engager le joueur.**
+
+3. **Gestion Actions Hors-Contexte/Impossibles** : Refuse GENTIMENT ou réinterprète les actions illogiques/hors thème/impossibles. Explique pourquoi et propose immédiatement de nouvelles actions VALIDES via nextChoices (sauf si c'est le dernier tour).
+
+{{> combat}}
+
+{{> image-generation}}
+
+{{> game-state}}
+
+4. **Gestion du Dernier Tour (quand isLastTurn est vrai)** :
+   * Ne propose **AUCUN** choix ('nextChoices' doit être []).
+   * Décris une **conclusion** basée sur le dernier choix et l'état final (incluant le lieu final depuis 'updatedGameState').
+   * Mets à jour 'updatedGameState' une dernière fois.
+
+5. **Propose de Nouveaux Choix (si PAS le dernier tour)** : Si l'indicateur {{isLastTurn}} est FAUX, offre 2 ou 3 options claires, simples, pertinentes pour la situation actuelle, le lieu actuel ({{{gameState.location}}}), et le thème. **Inclus potentiellement un choix qui utilise une habileté du héros.** PAS d'actions d'inventaire directes dans `nextChoices`. Le joueur utilise l'interface d'inventaire pour ça.
+
+**Format de Sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant : 'storyContent' (string), 'nextChoices' (array de strings, vide si {{isLastTurn}} est vrai), 'updatedGameState' (string JSON valide), et 'generatedImagePrompt' (string optionnel). RIEN d'autre.
+
+---
+Génère maintenant la suite de l'histoire pour {{{playerName}}} (genre: {{{playerGender}}}), le/la {{{selectedHeroValue}}}, en te basant sur son DERNIER choix (le dernier élément de {{{playerChoicesHistory}}}), l'état du jeu `{{{gameState}}}`, le thème `{{{theme}}}`, et les règles ci-dessus. C'est le tour {{{currentTurn}}} sur {{{maxTurns}}}.
+Sois imaginatif, surprenant, et fais attention aux détails pour une aventure mémorable !

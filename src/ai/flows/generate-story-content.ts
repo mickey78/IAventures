@@ -16,7 +16,7 @@ import { heroOptions } from '@/config/heroes';
 import { logToFile } from '@/services/loggingService'; 
 import { readPromptFile } from '@/lib/prompt-utils'; 
 
-const promptTemplatePromise = readPromptFile('generateStoryContentPrompt.prompt'); 
+const promptTemplatePromise = readPromptFile('story-content.prompt'); 
 
 const GenerateStoryContentInputSchema = z.object({
   theme: z
@@ -133,7 +133,7 @@ async (flowInput) => {
     }
 
    const safePlayerChoicesHistory = flowInput.playerChoicesHistory || [];
-   if (safePlayerChoicesHistory.length === 0 && !flowInput.lastStorySegmentText?.includes("début") && flowInput.currentTurn > 1) {
+   if (safePlayerChoicesHistory.length === 0 && !flowInput.lastStorySegment?.text?.includes("début") && flowInput.currentTurn > 1) {
        await logToFile({ level: 'warn', message: '[INPUT_WARN] generateStoryContent appelé avec un historique de choix vide en milieu de partie.', payload: { currentTurn: flowInput.currentTurn }, excludeMedia: true });
    }
 
@@ -189,7 +189,7 @@ async (flowInput) => {
       ...flowInput,
       playerChoicesHistory: safePlayerChoicesHistory,
       gameState: validatedInputGameStateString,
-      lastStorySegmentText: flowInput.lastStorySegmentText || (safePlayerChoicesHistory.length > 0 ? safePlayerChoicesHistory[safePlayerChoicesHistory.length - 1] : "C'est le début de l'aventure."),
+      lastStorySegmentText: flowInput.lastStorySegment?.text || (safePlayerChoicesHistory.length > 0 ? safePlayerChoicesHistory[safePlayerChoicesHistory.length - 1] : "C'est le début de l'aventure."),
     };
 
   const { output } = await storyContentPrompt(promptPayload);

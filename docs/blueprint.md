@@ -1,4 +1,4 @@
-# **App Name**: AdventureCraft
+# **App Name**: IAventures
 
 ## Core Features:
 
@@ -8,9 +8,7 @@
 
 ## Style Guidelines:
 
-- Primary color: Light beige (#F5F5DC) for a classic storybook feel.
-- Secondary color: Soft green (#90EE90) to suggest nature and growth.
-- Accent: Bright blue (#ADD8E6) for interactive elements and highlights.
+- The visual style is guided by a customizable theme, allowing users to select primary colors and switch between light and dark modes (as detailed in the main README.md).
 - Clear and legible fonts, optimized for young readers.
 - Simple, intuitive icons representing actions and story elements.
 - Gentle transitions and animations to enhance immersion without being distracting.

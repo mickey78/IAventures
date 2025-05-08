@@ -15,7 +15,7 @@ import { heroOptions } from '@/config/heroes';
 import { logToFile, logAdventureStart } from '@/services/loggingService'; 
 import { readPromptFile } from '@/lib/prompt-utils'; 
 
-const promptTemplatePromise = readPromptFile('initialStoryPrompt.prompt'); 
+const promptTemplatePromise = readPromptFile('initial-story.prompt'); 
 
 const GenerateInitialStoryInputSchema = z.object({
   theme: z
@@ -50,8 +50,11 @@ export async function generateInitialStory(input: GenerateInitialStoryInput): Pr
   if (!heroDetails) {
     throw new Error(`Détails du héros non trouvés pour la valeur: ${input.selectedHeroValue}`);
   }
-  // Adapt appearance based on gender if needed, or ensure AI does this.
-  // For now, heroFullDescription is gender-neutral from config, AI will adapt based on playerGender.
+  // The heroDetails.appearance string (from heroes.ts) is included in heroFullDescription.
+  // The AI is later instructed (in GenerateInitialStoryOutputSchema for generatedImagePrompt)
+  // to use this description AND the playerGender to create a detailed appearance for the image prompt.
+  // This means the AI is responsible for adapting the potentially gendered heroDetails.appearance
+  // to the selected playerGender.
   const heroFullDescription = `${heroDetails.description} Habiletés: ${heroDetails.abilities.map(a => a.label).join(', ')}. Apparence: ${heroDetails.appearance || 'Apparence typique de sa classe.'}`;
 
 

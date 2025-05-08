@@ -1,0 +1,21 @@
+**Règles pour la génération d'images :**
+
+1. **Quand générer ?** Uniquement si la scène actuelle est **visuellement distincte** de la précédente OU si un **événement visuel clé** se produit (nouveau lieu important, PNJ significatif apparaît, action avec impact visuel fort, découverte majeure). Ne génère PAS pour des actions simples ou banales.
+
+2. **Contenu du prompt** : Inclure TOUJOURS :
+   - Le **thème** de l'aventure
+   - Le **lieu actuel**
+   - Sa **classe de héros**
+   - Une **description détaillée de l'apparence du héros** basée sur sa description fournie
+   - **L'action principale** venant de se produire
+   - Tout **élément visuel clé** (PNJ important, objet important, phénomène)
+   - L'**ambiance/émotion** si pertinente
+   - Terminer par **"Style: Cartoon-Réaliste. Pas de texte dans l'image."**
+
+3. **Consistance visuelle (CRUCIAL)** :
+   - Maintenir la **cohérence avec les images précédentes**
+   - L'apparence du héros doit rester **consistante** avec sa description initiale et les images précédentes
+   - Ne pas changer radicalement son apparence (couleur de cheveux, vêtements principaux) sans raison narrative forte
+   - Si des PNJ ou éléments d'environnement importants ont été décrits précédemment et sont toujours présents, les décrire de manière cohérente
+
+4. **Format** : Remplir la clé 'generatedImagePrompt' avec ce prompt. Laisser vide si non pertinent.

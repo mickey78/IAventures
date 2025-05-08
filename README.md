@@ -1,6 +1,6 @@
 # IAventures
 
-IAventures est un jeu d'aventure textuel interactif propulsé par une intelligence artificielle (IA). Plongez dans des mondes fantastiques, explorez l'espace, devenez un pirate ou résolvez des mystères !
+IAventures est un jeu d'aventure textuel interactif propulsé par une intelligence artificielle (IA), utilisant le framework Genkit de Google pour orchestrer les interactions avec les modèles de langage (LLM) comme Gemini. Plongez dans des mondes fantastiques, explorez l'espace, devenez un pirate ou résolvez des mystères !
 
 ## Description
 
@@ -23,6 +23,14 @@ Dans IAventures, vous êtes le héros de votre propre histoire. Le jeu vous perm
     *   **Mode Clair/Sombre** : Basculez entre un thème clair et un thème sombre (par défaut) pour un confort visuel optimal, via un sélecteur dans l'en-tête.
 *   **Débogage (Optionnel)** : Pour les développeurs, le prompt initial envoyé à l'IA peut être affiché et inspecté.
 *   **Journalisation** : Toutes les interactions (prompts envoyés, réponses reçues) sont enregistrées dans un fichier `adventure.log` pour analyse.
+
+## Stack Technique Principale
+
+*   **Intelligence Artificielle** : Google Gemini, orchestré via le framework [Genkit](https://firebase.google.com/docs/genkit).
+*   **Frontend** : [Next.js](https://nextjs.org/) (framework React).
+*   **Interface Utilisateur** : Composants [Shadcn/ui](https://ui.shadcn.com/) (basés sur Radix UI) et icônes [Lucide React](https://lucide.dev/).
+*   **Style** : [Tailwind CSS](https://tailwindcss.com/).
+*   **Langage** : [TypeScript](https://www.typescriptlang.org/).
 
 ## Installation et Lancement
 

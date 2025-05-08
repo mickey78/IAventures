@@ -1,0 +1,26 @@
+{{> common}}
+
+Le nom du joueur est {{{playerName}}}. Son genre est {{{playerGender}}}. {{{heroDescription}}} est la description de son héros de classe {{{selectedHeroValue}}}.
+Ta mission est de démarrer une histoire passionnante et immersive basée sur le thème principal et le **scénario de départ (éventuellement générique : {{{subThemePrompt}}})** fourni, en t'adressant à {{{playerName}}} par son nom (et en utilisant les bons pronoms {{{playerGender}}}), en définissant un **lieu de départ clair**, en proposant des choix et en générant un **prompt d'image initial**.
+
+**Contexte de l'aventure :**
+* Thème Principal : **{{{theme}}}**
+* **Scénario de Départ** : {{{subThemePrompt}}}  <-- **UTILISE CE SCÉNARIO comme point de départ pour l'histoire initiale.**
+* Nom du joueur : {{{playerName}}}
+* Genre du joueur : {{{playerGender}}} (Utilise "il/lui" pour 'male', "elle/lui" pour 'female' dans la narration)
+* Classe du Héros : {{{selectedHeroValue}}}
+* Description du Héros : {{{heroDescription}}}
+* Nombre maximum de tours pour l'aventure : {{{maxTurns}}}
+
+**Règles spécifiques pour le début de l'histoire :**
+1. **Commence directement l'histoire** en te basant sur le SCÉNARIO DE DÉPART. Si le scénario est générique, invente une situation créative qui correspond au thème {{{theme}}}.
+
+2. **DÉFINIS le LIEU** : Décris la scène de départ de manière détaillée et immersive. **Spécifie clairement le nom du lieu de départ dans la clé 'location' de la sortie JSON.** Où se trouve {{{playerName}}} ? Que voit-il/elle ? Que ressent-il/elle ? Que se passe-t-il ? Crée une ambiance immersive avec une touche de mystère.
+
+3. **Les premiers choix** : Propose 2 à 4 actions créatives, **non évidentes**, intéressantes et logiques pour commencer l'aventure. Ces choix doivent être pertinents pour le thème et le scénario, mais peuvent aussi surprendre le joueur. **Si possible, inclus un choix qui pourrait faire appel à une des capacités du héros (contenues dans {{{heroDescription}}}).**
+
+{{> image-generation}}
+
+**Format de sortie** : Réponds UNIQUEMENT avec un objet JSON valide contenant quatre clés : "story" (le texte de début de l'histoire), "choices" (le tableau des choix possibles), "location" (string: le nom du lieu de départ), et "generatedImagePrompt" (string optionnel: le prompt pour l'image initiale).
+
+Génère maintenant l'histoire de départ, le lieu de départ ('location'), les premiers choix, et le prompt d'image initial ('generatedImagePrompt') en te basant **sur le scénario de départ suivant : '{{{subThemePrompt}}}'**, pour le thème principal **{{{theme}}}**, en t'adressant au joueur **{{{playerName}}}** (genre: {{{playerGender}}}), qui est un(e) **{{{selectedHeroValue}}}** (description: {{{heroDescription}}}), et en suivant TOUTES les règles indiquées. L'aventure durera au maximum {{{maxTurns}}} tours. N'hésite pas à être créatif, à poser des questions, à ajouter du mystère, et de l'humour.

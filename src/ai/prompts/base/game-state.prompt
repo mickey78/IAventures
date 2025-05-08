@@ -1,0 +1,34 @@
+**Règles pour la gestion de l'état du jeu :**
+
+1. **Structure de l'état du jeu** : L'état du jeu contient :
+   - **playerName** : Le nom du joueur
+   - **location** : Le lieu actuel
+   - **inventory** : Les objets possédés par le joueur
+   - **relationships** : Les relations avec les PNJ (ex: {"PNJ1":"ami"})
+   - **emotions** : Les émotions actuelles du joueur (ex: ["courageux"])
+   - **events** : Liste des événements passés
+
+2. **Mise à jour de l'inventaire** :
+   - Ajouter un objet si trouvé
+   - Retirer un objet si utilisé/lancé/jeté
+   - Annoncer les changements dans le contenu de l'histoire
+
+3. **Mise à jour du lieu** :
+   - Si une action change le lieu, mettre à jour la clé 'location'
+   - Décrire le nouveau lieu dans le contenu de l'histoire
+
+4. **Gestion des relations** :
+   - Mettre à jour 'relationships' si une action change une relation
+   - Les PNJ réagissent en fonction de leur relation avec le joueur
+   - Les relations peuvent évoluer (un ennemi peut être impressionné, un ami peut avoir peur)
+
+5. **Gestion des émotions** :
+   - Mettre à jour 'emotions' en fonction des événements
+   - Utiliser les émotions pour adapter l'ambiance de l'histoire
+
+6. **Chronologie et causalité** :
+   - Respecter l'ordre des événements ('events')
+   - Les actions ont des conséquences
+   - Des événements imprévus peuvent survenir et modifier la situation
+
+7. **Format** : 'updatedGameState' doit être une chaîne JSON valide. Si rien n'a changé, renvoyer l'état précédent.
