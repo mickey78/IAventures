@@ -1,5 +1,5 @@
 
-import type { ParsedGameState } from '@/types/game'; // Importer le type partagé
+import type { ParsedGameState, InventoryItem } from '@/types/game'; // Importer les types partagés
 
 /**
  * Analyse en toute sécurité une chaîne JSON représentant l'état du jeu.
@@ -9,8 +9,10 @@ import type { ParsedGameState } from '@/types/game'; // Importer le type partag�
  * @returns Un objet ParsedGameState.
  */
 export const parseGameState = (stateString: string | undefined | null, playerNameFallback: string | null = 'Joueur'): ParsedGameState => {
+    // Ajout de heroAbilities au defaultState
     const defaultState: ParsedGameState = {
         inventory: [],
+        heroAbilities: [], 
         location: 'Lieu Inconnu',
         playerName: playerNameFallback || 'Joueur Inconnu', // Assure que le nom du joueur existe
         relationships: {}, // Default empty relationships
@@ -30,8 +32,16 @@ export const parseGameState = (stateString: string | undefined | null, playerNam
         }
 
         // Assurer que les propriétés principales existent et ont le bon type
+        // Correction du filtre pour inventory: doit vérifier la structure de InventoryItem
         const inventory = Array.isArray(parsed.inventory)
-            ? parsed.inventory.filter((item: any): item is string => typeof item === 'string')
+            ? parsed.inventory.filter((item: any): item is InventoryItem => 
+                item && typeof item === 'object' && typeof item.name === 'string' && typeof item.quantity === 'number'
+              ).map((item: any) => ({ // Assurer la structure minimale
+                  name: item.name,
+                  quantity: item.quantity,
+                  description: typeof item.description === 'string' ? item.description : undefined,
+                  // icon: item.icon // L'icône n'est généralement pas dans le JSON de l'IA
+              }))
             : defaultState.inventory;
         const playerName = typeof parsed.playerName === 'string' && parsed.playerName.trim() ? parsed.playerName.trim() : defaultState.playerName;
         const location = typeof parsed.location === 'string' && parsed.location.trim() ? parsed.location.trim() : defaultState.location;
@@ -66,26 +76,45 @@ export const parseGameState = (stateString: string | undefined | null, playerNam
  * @param gameStateObject L'objet ParsedGameState à convertir en chaîne.
  * @returns Une représentation en chaîne JSON, ou '{}' si la conversion échoue.
  */
-export const safeJsonStringify = (gameStateObject: ParsedGameState | object): string => {
+// Changement de la signature pour accepter uniquement ParsedGameState
+export const safeJsonStringify = (gameStateObject: ParsedGameState): string => {
   try {
-    // Assure que les champs essentiels sont présents avant la conversion en chaîne, en utilisant des valeurs par défaut si nécessaire
-    const stateToSave: ParsedGameState = {
-      playerName: gameStateObject.playerName || 'Joueur Inconnu',
-      location: gameStateObject.location || 'Lieu Indéterminé',
-      inventory: Array.isArray(gameStateObject.inventory) ? gameStateObject.inventory : [],
-      relationships: typeof gameStateObject.relationships === 'object' && gameStateObject.relationships !== null ? gameStateObject.relationships : {},
-      emotions: Array.isArray(gameStateObject.emotions) ? gameStateObject.emotions : [],
-      events: Array.isArray(gameStateObject.events) ? gameStateObject.events : [],
-      ...gameStateObject, // Étale le reste des propriétés
+    // Définir les valeurs par défaut pour les champs essentiels
+    const defaults: Partial<ParsedGameState> = {
+      playerName: 'Joueur Inconnu',
+      location: 'Lieu Indéterminé',
+      inventory: [],
+      heroAbilities: [], 
+      relationships: {},
+      emotions: [],
+      events: [],
     };
+
+    // Fusionner les défauts avec l'objet fourni, en s'assurant que les valeurs de gameStateObject prévalent
+    // et en ne gardant que les clés définies dans ParsedGameState (implicitement géré par le type)
+    const stateToSave: ParsedGameState = {
+      ...defaults, // Appliquer les défauts en premier
+      ...gameStateObject, // Écraser avec les valeurs réelles si elles existent
+      // Assurer explicitement que les tableaux/objets sont bien des tableaux/objets s'ils existent dans gameStateObject
+      inventory: Array.isArray(gameStateObject.inventory) ? gameStateObject.inventory : defaults.inventory!,
+      heroAbilities: Array.isArray(gameStateObject.heroAbilities) ? gameStateObject.heroAbilities : defaults.heroAbilities!,
+      relationships: typeof gameStateObject.relationships === 'object' && gameStateObject.relationships !== null ? gameStateObject.relationships : defaults.relationships!,
+      emotions: Array.isArray(gameStateObject.emotions) ? gameStateObject.emotions : defaults.emotions!,
+      events: Array.isArray(gameStateObject.events) ? gameStateObject.events : defaults.events!,
+    };
+    
+    // Nettoyer l'objet avant de le stringifier pour enlever les clés undefined
+    Object.keys(stateToSave).forEach(key => (stateToSave as any)[key] === undefined && delete (stateToSave as any)[key]);
     return JSON.stringify(stateToSave);
   } catch (e) {
     console.error("Échec de la conversion en chaîne de l'objet d'état du jeu :", gameStateObject, e);
     // Retourne une chaîne JSON minimale valide comme solution de secours
+    // L'accès direct est maintenant sûr car le type est ParsedGameState
     return JSON.stringify({
         playerName: gameStateObject.playerName || 'Erreur État',
         location: gameStateObject.location || 'Erreur',
         inventory: [],
+        heroAbilities: [], 
         relationships: {},
         emotions: [],
         events: ['erreur_conversion_etat'],

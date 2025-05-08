@@ -28,8 +28,9 @@ const GenerateInitialStoryInputSchema = z.object({
   playerName: z.string().describe('Le nom du joueur.'),
   playerGender: z.enum(['male', 'female']).describe('Le genre choisi par le joueur (male ou female).'),
   selectedHeroValue: z.string().describe("La valeur de la classe de héros choisie par le joueur (ex: 'Guerrier')."),
-  heroDescription: z.string().describe("La description et les habiletés du héros choisi."), 
-  maxTurns: z.number().int().positive().describe("Le nombre maximum de tours pour cette aventure."),
+    heroDescription: z.string().describe("La description et les habiletés du héros choisi."),
+    startingInventoryDescription: z.string().optional().describe("Une description textuelle de l'inventaire de départ pour l'IA."), // Ajouté
+    maxTurns: z.number().int().positive().describe("Le nombre maximum de tours pour cette aventure."),
 });
 export type GenerateInitialStoryInput = z.infer<typeof GenerateInitialStoryInputSchema>;
 
@@ -70,6 +71,10 @@ export async function generateInitialStory(input: GenerateInitialStoryInput): Pr
     ...input, // Contient theme, playerName, playerGender, selectedHeroValue, maxTurns
     subThemePrompt: effectiveSubThemePrompt,
     heroDescription: heroFullDescription, // Passé pour que l'IA puisse l'utiliser dans la narration/image
+    // Préparer la description de l'inventaire de départ pour le prompt
+    startingInventoryDescription: heroDetails.startingInventory.length > 0 
+      ? `Tu commences avec : ${heroDetails.startingInventory.map(item => `${item.name} (x${item.quantity})`).join(', ')}.` 
+      : "Tu commences sans aucun objet.",
   };
 
   await logToFile({ level: 'info', message: '[AI_REQUEST_INIT_STORY] Input to generateInitialStoryFlow', payload: flowInput, excludeMedia: true });
@@ -139,6 +144,7 @@ const generateInitialStoryFlow = ai.defineFlow(
         playerGender: flowInput.playerGender,
         selectedHeroValue: flowInput.selectedHeroValue,
         heroDescription: flowInput.heroDescription,
+        startingInventoryDescription: flowInput.startingInventoryDescription, // Ajouté
         maxTurns: flowInput.maxTurns,
     };
 
@@ -184,7 +190,7 @@ const generateInitialStoryFlow = ai.defineFlow(
         playerName: flowInput.playerName,
         // playerGender: flowInput.playerGender, // Pas dans CurrentGameState mais dans GameState global
         location: output.location,
-        inventory: [], // Initialisé vide
+        inventory: heroDetails.startingInventory || [], // Utilise l'inventaire de départ du héros
         heroAbilities: heroAbilitiesForGameState, // Utilise les habiletés préparées
         relationships: {},
         emotions: [],

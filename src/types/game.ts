@@ -62,6 +62,7 @@ export interface HeroOption {
   icon: LucideIcon;
   abilities: HeroAbility[];
   appearance: string;
+  startingInventory: InventoryItem[]; // Ajout de l'inventaire de départ
 }
 
 export type ThemedHeroOptions = {
