@@ -15,7 +15,7 @@
 # Production
 /build
 
-# TypeScript
+# TypeScript 
 *.tsbuildinfo
 next-env.d.ts
 
