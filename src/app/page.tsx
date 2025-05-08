@@ -427,7 +427,10 @@ export default function IAventuresGame() {
 
   return (
     <div className="container mx-auto p-4 md:p-8 flex flex-col items-center min-h-screen bg-background text-foreground">
-      <Card className="w-full max-w-4xl shadow-lg border-border rounded-lg flex flex-col flex-grow mt-10" style={{ height: 'calc(95vh - 40px)' }}>
+      <Card className={cn(
+            "w-full shadow-lg border-border rounded-lg flex flex-col flex-grow mt-10",
+            (gameState.currentView === 'game_active' || gameState.currentView === 'game_ended') ? 'max-w-6xl' : 'max-w-4xl'
+        )} style={{ height: 'calc(95vh - 40px)' }}>
         <GameHeader
             currentView={gameState.currentView}
             theme={gameState.theme}
@@ -484,4 +487,3 @@ export default function IAventuresGame() {
     </div>
   );
 }
-

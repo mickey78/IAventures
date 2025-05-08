@@ -60,7 +60,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
         <ScrollAreaPrimitive.Root className="relative overflow-hidden flex-1 w-full rounded-md border mb-2 bg-card">
             <ScrollAreaPrimitive.Viewport
                 ref={viewportRef}
-                className="h-full w-full rounded-[inherit] p-4 space-y-4"
+                className="h-full w-full rounded-[inherit] px-4 py-2 space-y-4"
             >
                 {story.map((segment) => (
                     <div
@@ -153,7 +153,10 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
                          )}
 
                         {/* Text Content */}
-                        <p className="whitespace-pre-wrap text-sm mt-1">
+                        <p className={cn(
+                            "whitespace-pre-wrap mt-1",
+                            segment.speaker === 'narrator' ? 'text-base' : 'text-sm'
+                        )}>
                            {segment.speaker === 'narrator' ? formatStoryText(segment.text) : segment.text}
                         </p>
                     </div>
@@ -168,5 +171,3 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
  };
 
  export default StoryDisplay;
-
-    
