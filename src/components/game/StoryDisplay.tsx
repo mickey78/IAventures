@@ -57,7 +57,7 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
     const isGeneratingImage = (segmentId: number) => generatingSegmentId === segmentId;
 
     return (
-        <ScrollAreaPrimitive.Root className="relative overflow-hidden flex-1 w-full rounded-md border mb-2 bg-card">
+        <ScrollAreaPrimitive.Root className="relative overflow-hidden flex-1 w-full rounded-md border m-3 bg-card">
             <ScrollAreaPrimitive.Viewport
                 ref={viewportRef}
                 className="h-full w-full rounded-[inherit] px-4 py-2 space-y-4"
@@ -139,9 +139,9 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
                                      alt={`Image générée: ${segment.content.substring(0, 50)}...`}
                                      fill
                                      sizes="(max-width: 768px) 90vw, 85vw"
-                                    style={{ objectFit: 'cover' }}
+                                    style={{ objectFit: 'contain' }}
                                     priority={story.length > 0 && story[story.length - 1].id === segment.id}
-                                    unoptimized // Added to potentially help with very large Base64 strings if needed
+                                    unoptimized
                                  />
                              </div>
                          )}
