@@ -32,13 +32,16 @@ ENV NODE_ENV=production
 COPY --from=base /app/node_modules ./node_modules
 # Copier les fichiers de l'application construite depuis l'étape 'builder'
 COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
 COPY --from=builder /app/package.json ./package.json
 # Copier les fichiers de configuration nécessaires
 COPY --from=builder /app/next.config.ts ./next.config.ts
 COPY --from=builder /app/components.json ./components.json
 COPY --from=builder /app/tailwind.config.ts ./tailwind.config.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
+
+# Copier les répertoires des prompts
+COPY --from=builder /app/src/ai/prompts ./src/ai/prompts
+COPY --from=builder /app/src/ai/flows/prompts ./src/ai/flows/prompts
 
 # Exposer le port sur lequel l'application Next.js s'exécute
 EXPOSE 9002
