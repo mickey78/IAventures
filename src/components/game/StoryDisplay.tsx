@@ -145,16 +145,6 @@ const StoryDisplay: React.FC<StoryDisplayProps> = ({
                                  />
                              </div>
                          )}
-                          {/* Image Generation Prompt (Debugging/Info) */}
-                          {/* Remplacer imageGenerationPrompt par imagePrompt */}
-                          {segment.speaker === 'narrator' && segment.imagePrompt && (
-                              <div className="mt-2 p-1.5 bg-blue-900/20 border border-blue-800/30 rounded-md text-xs text-blue-400 flex items-start gap-1.5">
-                                  <Info className="h-3 w-3 mt-0.5 shrink-0" />
-                                  <p className="font-mono break-words text-[10px] leading-tight">
-                                     <span className='font-semibold'>Prompt (Debug):</span> {segment.imagePrompt}
-                                  </p>
-                              </div>
-                          )}
 
                          {/* Text Content */}
                          {/* Remplacer segment.text par segment.content */}

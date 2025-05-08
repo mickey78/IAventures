@@ -24,7 +24,6 @@ import StoryDisplay from '@/components/game/StoryDisplay';
 import ActionInput from '@/components/game/ActionInput';
 import SaveDialog from '@/components/game/SaveDialog';
 import GameEndedDisplay from '@/components/game/GameEndedDisplay';
-import DebugInitialPrompt from '@/components/game/DebugInitialPrompt';
 import ImageModal from '@/components/game/ImageModal';
 import { AlertCircle, Loader } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -368,7 +367,6 @@ export default function IAventuresGame() {
       case 'game_active':
         return (
           <>
-            <DebugInitialPrompt prompt={gameState.initialPromptDebug} />
             <StoryDisplay
                 story={gameState.story}
                 playerName={gameState.playerName}
@@ -403,7 +401,6 @@ export default function IAventuresGame() {
        case 'game_ended':
          return (
            <>
-            <DebugInitialPrompt prompt={gameState.initialPromptDebug} />
             <StoryDisplay
                 story={gameState.story}
                 playerName={gameState.playerName}
