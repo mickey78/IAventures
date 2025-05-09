@@ -1,10 +1,10 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"; // Import RadioGroup
 import { Label } from "@/components/ui/label"; // Import Label
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs"; // Import Tabs
 import { cn } from "@/lib/utils";
 import type { HeroClass, HeroOption } from '@/types/game';
 import { Separator } from '@/components/ui/separator';
@@ -29,9 +29,32 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({
     onNext,
     onBack
 }) => {
+    useEffect(() => {
+        if (selectedGender === null) {
+            onGenderSelect('male');
+        }
+    }, [selectedGender, onGenderSelect]);
+
     return (
         <div className="flex flex-col items-center space-y-6 w-full h-full">
             <p className="text-xl font-semibold text-center shrink-0">Choisissez votre classe de héros :</p>
+
+            {/* Nouveau sélecteur de genre avec Tabs */}
+            <div className="flex flex-col items-center space-y-2 shrink-0 my-4">
+                <p className="text-lg font-medium">Quel est ton genre ?</p>
+                <Tabs
+                    defaultValue="male"
+                    value={selectedGender || 'male'}
+                    onValueChange={(value) => onGenderSelect(value as 'male' | 'female')}
+                    className="w-[200px]"
+                >
+                    <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="male" className="data-[state=active]:text-primary">Garçon</TabsTrigger>
+                        <TabsTrigger value="female" className="data-[state=active]:text-primary">Fille</TabsTrigger>
+                    </TabsList>
+                </Tabs>
+            </div>
+
             <ScrollArea className="flex-grow w-full max-w-5xl pr-4">
                 <div className="grid grid-cols-2 gap-4">
                     {heroes.map((hero) => {
@@ -59,7 +82,10 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({
                                     {hero.abilities && hero.abilities.length > 0 && (
                                         <>
                                             <Separator className="my-2 bg-border/50" />
-                                            <div className="space-y-1 mt-1 text-left">
+                                            {/* Ajout du nouveau libellé */}
+                                            <p className="text-xs font-medium text-muted-foreground mb-1 text-left">Habiletés de départ :</p>
+                                            {/* Modification du conteneur pour l'affichage en ligne */}
+                                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-left">
                                                 {hero.abilities.map((ability, index) => {
                                                      const AbilityIcon = ability.icon;
                                                      return (
@@ -76,8 +102,8 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({
                                     {hero.startingInventory && hero.startingInventory.length > 0 && (
                                         <>
                                             <Separator className="my-2 bg-border/50" />
-                                            <div className="space-y-1 mt-1 text-left">
-                                                <p className="text-xs font-medium text-muted-foreground mb-1">Équipement de départ :</p>
+                                            <p className="text-xs font-medium text-muted-foreground mb-1 text-left">Équipement de départ :</p>
+                                            <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-left">
                                                 {hero.startingInventory.map((item, index) => (
                                                     <div key={index} className="flex items-center gap-1.5 text-xs">
                                                         <Briefcase className="h-3.5 w-3.5 text-primary shrink-0" />
@@ -94,23 +120,7 @@ const HeroSelection: React.FC<HeroSelectionProps> = ({
                 </div>
             </ScrollArea>
 
-            <div className="flex flex-col items-center space-y-3 shrink-0 mt-4">
-                <p className="text-lg font-medium">Quel est ton genre ?</p>
-                <RadioGroup
-                    value={selectedGender || undefined}
-                    onValueChange={(value: 'male' | 'female') => onGenderSelect(value)}
-                    className="flex gap-4"
-                >
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="male" id="gender-male" />
-                        <Label htmlFor="gender-male" className="cursor-pointer">Garçon</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                        <RadioGroupItem value="female" id="gender-female" />
-                        <Label htmlFor="gender-female" className="cursor-pointer">Fille</Label>
-                    </div>
-                </RadioGroup>
-            </div>
+            {/* L'ancien bloc de sélection de genre a été déplacé et transformé */}
 
             <div className="flex flex-col sm:flex-row gap-2 mt-6 shrink-0">
                 <Button
